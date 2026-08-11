@@ -10829,6 +10829,140 @@ create policy org_guardrail_layers_admin_write on public.org_guardrail_layers
 revoke all on public.org_guardrail_layers from anon;
 
 
+-- ---- definer valida a organização de quem chamou (migration 0149) ----
+--
+-- Relatório de segurança da comunidade, auditando a tag v1.0.0. A metade sobre
+-- ACL ("definer executáveis por anon") já estava fechada pela 0108/0116 — 0 de
+-- 31 hoje. Mas ACL e MEMBERSHIP são defeitos independentes: `emit_event` e
+-- `retrieve_top_k_chunks` continuavam usando o `p_organization_id` do ARGUMENTO
+-- como único filtro de tenant, e ambas são (corretamente) executáveis por
+-- `authenticated`.
+--
+-- Medido num pg17 com este baseline, usuário papel `viewer` membro só da org A,
+-- rodando como role `authenticated` com o `sub` dele em request.jwt.claims:
+--
+--   INSERT direto em event_log da org B  -> permission denied   (a RLS vale)
+--   SELECT direto em ai_chunks da org B  -> 0 linhas            (a RLS vale)
+--   emit_event(..., org => B)            -> GRAVOU na org B     ← furo
+--   retrieve_top_k_chunks(B, kbv)        -> devolveu o conteúdo ← furo
+--
+-- Depois deste bloco, os dois furos devolvem `caller_not_authorized_for_org`, e
+-- os dois controles positivos seguem verdes: emitir na PRÓPRIA org funciona, e
+-- o worker com `service_role` (sem JWT, auth.uid() null) funciona.
+--
+-- `fn_log_event` delega a `emit_event` e herda o guard — não ganha cópia da regra.
+create or replace function public.emit_event(
+  p_event_type text,
+  p_entity_kind text,
+  p_entity_id uuid,
+  p_payload jsonb default '{}'::jsonb,
+  p_metadata jsonb default '{}'::jsonb,
+  p_organization_id uuid default null
+) returns uuid
+  language plpgsql security definer
+  set search_path to 'public'
+as $$
+declare
+  v_org_id uuid;
+  v_event_id uuid;
+begin
+  v_org_id := p_organization_id;
+  if v_org_id is null then
+    select organization_id into v_org_id
+      from public.user_organizations
+      where user_id = auth.uid() and revoked_at is null
+      limit 1;
+  end if;
+  if v_org_id is null then
+    raise exception 'emit_event: organization_id obrigatorio';
+  end if;
+
+  if auth.uid() is not null
+     and not public.fn_role_at_least(v_org_id, 'viewer') then
+    raise exception 'caller_not_authorized_for_org'
+      using hint = 'emit_event: caller must be an active member of the organization';
+  end if;
+
+  insert into public.event_log
+    (organization_id, event_type, entity_kind, entity_id, payload, metadata)
+  values
+    (v_org_id, p_event_type, p_entity_kind, p_entity_id,
+     coalesce(p_payload, '{}'::jsonb),
+     coalesce(p_metadata, '{}'::jsonb)
+       || jsonb_build_object('emitted_at', extract(epoch from now())))
+  returning id into v_event_id;
+
+  return v_event_id;
+end $$;
+
+-- Os nomes de parâmetro e das colunas de retorno abaixo são os que estão no
+-- banco (`p_embedding`, `p_threshold` default 0.40, coluna `knowledge_source_id`):
+-- `create or replace` recusa renomear qualquer um dos dois, e um clone que
+-- receba nomes diferentes ganharia uma SOBRECARGA nova, deixando a versão sem
+-- guard viva. O `do $$` no fim deste bloco avisa se isso acontecer.
+create or replace function public.retrieve_top_k_chunks(
+  p_organization_id uuid,
+  p_kb_version_id uuid,
+  p_embedding public.vector,
+  p_k integer default 5,
+  p_threshold real default 0.40
+) returns table (
+  chunk_id uuid,
+  knowledge_source_id uuid,
+  content text,
+  similarity real,
+  metadata jsonb
+)
+  language plpgsql stable security definer
+  set search_path to 'public'
+as $$
+begin
+  if auth.uid() is not null
+     and not public.fn_role_at_least(p_organization_id, 'viewer') then
+    raise exception 'caller_not_authorized_for_org'
+      using hint = 'retrieve_top_k_chunks: caller must be an active member of the organization';
+  end if;
+
+  return query
+  select
+    c.id as chunk_id,
+    c.knowledge_source_id,
+    c.content,
+    (1 - (c.embedding <=> p_embedding))::real as similarity,
+    c.metadata
+  from public.ai_chunks c
+  where c.organization_id = p_organization_id
+    and c.kb_version_id   = p_kb_version_id
+    and (1 - (c.embedding <=> p_embedding)) >= p_threshold
+  order by c.embedding <=> p_embedding asc
+  limit greatest(p_k, 0);
+end $$;
+
+revoke execute on function public.emit_event(text, text, uuid, jsonb, jsonb, uuid) from public, anon;
+grant  execute on function public.emit_event(text, text, uuid, jsonb, jsonb, uuid) to authenticated, service_role;
+
+revoke execute on function public.retrieve_top_k_chunks(uuid, uuid, public.vector, integer, real) from public, anon;
+grant  execute on function public.retrieve_top_k_chunks(uuid, uuid, public.vector, integer, real) to authenticated, service_role;
+
+do $$
+declare
+  v_extra text;
+begin
+  select string_agg(p.oid::regprocedure::text, ', ') into v_extra
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.proname = 'retrieve_top_k_chunks'
+     and p.oid::regprocedure::text <> 'retrieve_top_k_chunks(uuid,uuid,vector,integer,real)';
+  if v_extra is not null then
+    raise warning '0149: sobrecarga inesperada de retrieve_top_k_chunks sem o guard de membership: %', v_extra;
+  end if;
+end $$;
+
+notify pgrst, 'reload schema';
+
+
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ ESTE BLOCO É, DE PROPÓSITO, O ÚLTIMO DO ARQUIVO. Apêndice novo entra ANTES
