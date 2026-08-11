@@ -12,6 +12,8 @@ describe("resolveBranding", () => {
       name: DEFAULT_APP_NAME,
       logoUrl: null,
       initial: "D",
+      accentColor: null,
+      accentForeground: null,
     });
   });
 
@@ -45,6 +47,36 @@ describe("resolveBranding", () => {
   });
 });
 
+describe("resolveBranding — cor de destaque", () => {
+  it("sem cor configurada, accentColor e accentForeground ficam null", () => {
+    const b = resolveBranding("Acme", null, undefined);
+    expect(b.accentColor).toBeNull();
+    expect(b.accentForeground).toBeNull();
+  });
+
+  it("hex inválido não é aplicado — nunca vaza cor quebrada pro CSS", () => {
+    expect(resolveBranding("Acme", null, "azul").accentColor).toBeNull();
+    expect(resolveBranding("Acme", null, "#12345").accentColor).toBeNull();
+    expect(resolveBranding("Acme", null, "rgb(0,0,0)").accentColor).toBeNull();
+    expect(resolveBranding("Acme", null, "   ").accentColor).toBeNull();
+  });
+
+  it("expande hex curto (#rgb) para o formato completo", () => {
+    expect(resolveBranding("Acme", null, "#F00").accentColor).toBe("#ff0000");
+  });
+
+  it("normaliza pra minúsculo", () => {
+    expect(resolveBranding("Acme", null, "#FF00AA").accentColor).toBe("#ff00aa");
+  });
+
+  it("escolhe texto escuro sobre cor clara, e branco sobre cor escura", () => {
+    // Amarelo bem claro — luminância alta, texto escuro é o legível.
+    expect(resolveBranding("Acme", null, "#ffff00").accentForeground).toBe("#1c1a16");
+    // Azul bem escuro — luminância baixa, texto branco é o legível.
+    expect(resolveBranding("Acme", null, "#000033").accentForeground).toBe("#ffffff");
+  });
+});
+
 describe("guarda de white-label (self-host)", () => {
   const branding = fs.readFileSync(path.join(RAIZ, "lib/branding.ts"), "utf8");
   const publicEnvScript = fs.readFileSync(
@@ -69,6 +101,7 @@ describe("guarda de white-label (self-host)", () => {
     // ficaria com o nome do revendedor no título da aba e o nosso na sidebar.
     expect(publicEnvScript).toMatch(/APP_NAME:\s*env\.APP_NAME/);
     expect(publicEnvScript).toMatch(/APP_LOGO_URL:\s*env\.APP_LOGO_URL/);
+    expect(publicEnvScript).toMatch(/APP_ACCENT_COLOR:\s*env\.APP_ACCENT_COLOR/);
   });
 
   it("a marca não voltou a ser hardcoded na interface", () => {

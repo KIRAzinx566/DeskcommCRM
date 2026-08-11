@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { env } from "@/lib/env";
+import { resolveBranding } from "@/lib/branding";
 
 /**
  * Injeta a config pública do Supabase em runtime, antes do JS da app rodar.
@@ -26,14 +27,38 @@ export async function PublicEnvScript() {
     // leem daqui. Não são segredo — já aparecem na tela. Ver lib/branding.ts.
     APP_NAME: env.APP_NAME,
     APP_LOGO_URL: env.APP_LOGO_URL,
+    APP_ACCENT_COLOR: env.APP_ACCENT_COLOR,
   })
     // Evita quebrar o </script> se algum valor contiver a sequência.
     .replace(/</g, "\\u003c");
 
+  // Cor de destaque: aplicada num <style> (não só no window.__PUBLIC_ENV__)
+  // pra valer já no primeiro paint do servidor — sem isso, a tela abriria com
+  // o Sage padrão e trocaria de cor um instante depois, quando o JS do client
+  // lesse window.__PUBLIC_ENV__. Sobrescreve os dois temas: claro (`:root`) e
+  // escuro (`[data-theme="dark"]`), que redefine --color-accent por conta
+  // própria em app/globals.css — só o `:root` não alcançaria o modo escuro.
+  const { accentColor, accentForeground } = resolveBranding(
+    env.APP_NAME,
+    env.APP_LOGO_URL,
+    env.APP_ACCENT_COLOR,
+  );
+
   return (
-    <script
-      // Conteúdo derivado de env do servidor (não de input do usuário).
-      dangerouslySetInnerHTML={{ __html: `window.__PUBLIC_ENV__=${payload};` }}
-    />
+    <>
+      <script
+        // Conteúdo derivado de env do servidor (não de input do usuário).
+        dangerouslySetInnerHTML={{ __html: `window.__PUBLIC_ENV__=${payload};` }}
+      />
+      {accentColor && (
+        <style
+          dangerouslySetInnerHTML={{
+            __html:
+              `:root,[data-theme="dark"]{` +
+              `--color-accent:${accentColor};--color-accent-fg:${accentForeground};}`,
+          }}
+        />
+      )}
+    </>
   );
 }

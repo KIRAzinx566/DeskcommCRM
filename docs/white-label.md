@@ -13,11 +13,14 @@ Duas variáveis no `.env`, sem tocar em código:
 ```bash
 APP_NAME=Vendas Turbo CRM
 APP_LOGO_URL=https://cdn.suaempresa.com.br/logo.svg
+APP_ACCENT_COLOR=#1a56db
 ```
 
 Reinicie a stack (`docker compose up -d`) e a marca vale em toda a interface: título das abas, tela de entrada, cadastro, recuperação de senha, verificação em duas etapas, onboarding e a barra lateral.
 
 `APP_LOGO_URL` é opcional — sem ela, o nome aparece como texto. Com ela, o logo substitui o texto na barra lateral. A altura é fixa e a largura é livre, para não distorcer arte de proporção qualquer.
+
+`APP_ACCENT_COLOR` é opcional — hex (`#rrggbb` ou `#rgb`). Troca a cor de destaque (botão primário, item ativo da sidebar, foco) nos dois temas, claro e escuro. Hex inválido ou vazio mantém a paleta Sage padrão — nunca aplica cor quebrada. O texto sobre a cor (branco ou escuro) é escolhido automaticamente por contraste.
 
 O `install.sh` pergunta o `APP_NAME` durante a instalação; pressionar Enter mantém o padrão.
 
@@ -31,7 +34,7 @@ Configuração no `.env` sobrevive a toda atualização. É por isso que a marca
 
 Sendo direto, para você não descobrir na frente do cliente:
 
-- **Cores, fontes e tema** não são configuráveis por variável. Exigem alterar o design system (`app/globals.css` e os tokens), e essa alteração **é** um patch que se perde no update.
+- **Fontes e tema** não são configuráveis por variável — só a cor de destaque (`APP_ACCENT_COLOR`) é. Trocar a escala de cores inteira, tipografia ou densidade exige alterar o design system (`app/globals.css` e os tokens), e essa alteração **é** um patch que se perde no update.
 - **A marca é por instalação, não por organização.** Uma instalação com várias organizações mostra a mesma marca para todas. Se cada cliente precisa da própria marca, use uma instalação por cliente (ver abaixo) — que também é o modelo que rende melhor.
 - **Textos e e-mails transacionais** seguem o padrão do produto.
 

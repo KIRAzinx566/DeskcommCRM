@@ -160,6 +160,9 @@ const schema = z.object({
   // O <PublicEnvScript/> injeta os valores em runtime.
   APP_NAME: z.string().optional().default(""),
   APP_LOGO_URL: z.string().optional().default(""),
+  // Hex (#rrggbb ou #rgb); validado de novo em lib/branding.ts antes de virar
+  // CSS — aqui só precisa não quebrar o parse do .env.
+  APP_ACCENT_COLOR: z.string().optional().default(""),
 });
 
 let parsed = schema.safeParse(process.env);
