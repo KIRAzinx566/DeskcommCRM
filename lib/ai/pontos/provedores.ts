@@ -77,6 +77,15 @@ export const PROVEDORES = [
     catalogoSincronizavel: true,
     ondePegarAChave: "https://openrouter.ai/keys",
   },
+  {
+    id: "nvidia",
+    rotulo: "NVIDIA (build.nvidia.com)",
+    quandoUsar:
+      "Catálogo grande de modelos open-weight (Llama, Mistral, Qwen, DeepSeek e outros) hospedados pela NVIDIA, com tier gratuito generoso — bom para testar sem custo antes de migrar para um provedor pago.",
+    aceitaEndpointProprio: true,
+    catalogoSincronizavel: true,
+    ondePegarAChave: "https://build.nvidia.com",
+  },
 ] as const satisfies readonly ProvedorSuportado[];
 // `as const satisfies` e não anotação de tipo: a anotação apagaria os literais
 // e `Provider` viraria `string`, deixando o compilador aceitar qualquer texto
