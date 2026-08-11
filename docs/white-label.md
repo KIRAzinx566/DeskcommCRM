@@ -24,6 +24,12 @@ Reinicie a stack (`docker compose up -d`) e a marca vale em toda a interface: t�
 
 O `install.sh` pergunta o `APP_NAME` durante a instalação; pressionar Enter mantém o padrão.
 
+### Marca por organização (self-serve, sem tocar no `.env`)
+
+As três variáveis acima definem a marca **da instalação** — o padrão que toda organização vê. Além disso, cada organização pode sobrescrever **cor de destaque e logo** para si mesma, sem depender de quem hospeda: `/app/settings/branding` (role admin ou superior), na própria interface.
+
+Quem instala continua controlando o padrão global (o que aparece antes do login, e o que vale pra organização que não configurou nada); o cliente final controla a própria cor e o próprio logo depois de logado. Um não invalida o outro — a organização sem override usa exatamente a marca global de sempre.
+
 ### Por que isso é configuração, e não uma edição de código
 
 Trocar a marca editando os arquivos-fonte funciona **uma vez**. No próximo `bash update.sh`, a imagem nova sobrescreve o patch e a marca do seu cliente volta a ser a nossa — normalmente sem ninguém perceber, até o cliente ver.
@@ -35,7 +41,7 @@ Configuração no `.env` sobrevive a toda atualização. É por isso que a marca
 Sendo direto, para você não descobrir na frente do cliente:
 
 - **Fontes e tema** não são configuráveis por variável — só a cor de destaque (`APP_ACCENT_COLOR`) é. Trocar a escala de cores inteira, tipografia ou densidade exige alterar o design system (`app/globals.css` e os tokens), e essa alteração **é** um patch que se perde no update.
-- **A marca é por instalação, não por organização.** Uma instalação com várias organizações mostra a mesma marca para todas. Se cada cliente precisa da própria marca, use uma instalação por cliente (ver abaixo) — que também é o modelo que rende melhor.
+- **Nome de exibição não é configurável por organização** — só cor de destaque e logo (seção acima). O nome que aparece no título das abas e nas telas pré-login continua sendo o `APP_NAME` global da instalação, igual para todas as organizações.
 - **Textos e e-mails transacionais** seguem o padrão do produto.
 
 ---
@@ -48,7 +54,7 @@ Mesmo assim, os dois modelos servem a propósitos diferentes:
 
 | | Uma instalação por cliente | Uma instalação para todos |
 |---|---|---|
-| **Marca** | A de cada cliente | Uma só, a sua |
+| **Marca** | A de cada cliente, sem limite | Nome é o seu para todos; cor e logo, cada organização ajusta a própria em `/app/settings/branding` |
 | **Custo de infra** | Uma VPS por cliente | Uma VPS |
 | **Falha** | Isolada | Atinge todos |
 | **Atualização** | Uma por vez, pode escalonar | Todos de uma vez |
@@ -93,4 +99,4 @@ Guia completo de instalação: [`hostgator-setup-kit/README.md`](../hostgator-se
 
 ---
 
-*Última atualização: 27 de julho de 2026.*
+*Última atualização: 11 de agosto de 2026.*

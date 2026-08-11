@@ -8,7 +8,7 @@ import { toggleSidebar } from "@/app/actions/shell/toggleSidebar";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { ConnectionHealthDot } from "@/components/connections/ConnectionHealthDot";
 import { VersionFooter } from "@/components/shell/VersionFooter";
-import { branding } from "@/lib/branding";
+import { useOrgBranding } from "@/hooks/branding/OrgBrandingProvider";
 import { GRUPO_NO_RODAPE, NAV_GROUPS, sidebarGroups } from "@/lib/navigation/registry";
 
 /**
@@ -29,7 +29,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
   const grupos = todos.filter((g) => g.group.id !== GRUPO_NO_RODAPE);
   const rodape = NAV_GROUPS.find((g) => g.id === GRUPO_NO_RODAPE)?.hub;
 
-  const brand = branding();
+  const brand = useOrgBranding();
 
   return (
     <aside

@@ -62,8 +62,12 @@ function readableForeground(hex: string): string {
   return luminance > 0.4 ? "#1c1a16" : "#ffffff";
 }
 
-/** `null` quando não é um hex válido — nunca aplica cor inválida ao CSS. */
-function validateAccentColor(value: string | undefined | null): string | null {
+/**
+ * `null` quando não é um hex válido — nunca aplica cor inválida ao CSS.
+ * Exportada para o schema de branding por org (lib/schemas/settings.ts)
+ * validar o mesmo formato antes de gravar — uma regra de "hex válido" só.
+ */
+export function validateAccentColor(value: string | undefined | null): string | null {
   const trimmed = (value ?? "").trim();
   if (!HEX_COLOR_RE.test(trimmed)) return null;
   return expandShorthandHex(trimmed);

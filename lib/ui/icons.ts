@@ -79,6 +79,7 @@ export {
   Microphone,
   Image as ImageIcon,
   ImageSquare,
+  PaintBrush,
   MusicNote,
   Note,
   FileText,

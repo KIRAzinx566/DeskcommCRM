@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_APP_NAME, resolveBranding } from "@/lib/branding";
+import { brandingSchema } from "@/lib/schemas/settings";
 
 const RAIZ = process.cwd();
 
@@ -74,6 +75,29 @@ describe("resolveBranding — cor de destaque", () => {
     expect(resolveBranding("Acme", null, "#ffff00").accentForeground).toBe("#1c1a16");
     // Azul bem escuro — luminância baixa, texto branco é o legível.
     expect(resolveBranding("Acme", null, "#000033").accentForeground).toBe("#ffffff");
+  });
+});
+
+describe("brandingSchema — cor de destaque por organização", () => {
+  // Mesma regra de hex de resolveBranding (via validateAccentColor
+  // reexportada) — schema e CSS nunca podem divergir sobre o que é válido.
+
+  it("null e string vazia/só-espaços viram null (remover override)", () => {
+    expect(brandingSchema.parse({ accent_color: null }).accent_color).toBeNull();
+    expect(brandingSchema.parse({ accent_color: "" }).accent_color).toBeNull();
+    expect(brandingSchema.parse({ accent_color: "   " }).accent_color).toBeNull();
+    expect(brandingSchema.parse({}).accent_color).toBeNull();
+  });
+
+  it("aceita hex válido (6 ou 3 dígitos)", () => {
+    expect(brandingSchema.parse({ accent_color: "#1a56db" }).accent_color).toBe("#1a56db");
+    expect(brandingSchema.parse({ accent_color: "#F00" }).accent_color).toBe("#F00");
+  });
+
+  it("rejeita hex inválido — nunca chega no banco pra depois vazar pro CSS", () => {
+    expect(() => brandingSchema.parse({ accent_color: "azul" })).toThrow();
+    expect(() => brandingSchema.parse({ accent_color: "#12345" })).toThrow();
+    expect(() => brandingSchema.parse({ accent_color: "rgb(0,0,0)" })).toThrow();
   });
 });
 

@@ -9,6 +9,7 @@
 import { z } from "zod";
 
 import { conversationTagSchema } from "./messaging";
+import { validateAccentColor } from "@/lib/branding";
 
 const LOCALES = ["pt-BR", "en-US"] as const;
 
@@ -80,6 +81,28 @@ export const tenantSchema = z.object({
   lost_reasons_extra: z.array(z.string().min(1).max(80)).max(50).default([]),
 });
 export type TenantInput = z.infer<typeof tenantSchema>;
+
+/**
+ * Marca por organização (cor de destaque). O logo NÃO entra aqui — ele é
+ * setado/removido pela rota de upload (app/api/v1/settings/branding/logo/route.ts),
+ * que já grava a coluna direto; texto livre de URL de logo não faz sentido numa
+ * feature cujo objetivo é o próprio cliente subir o arquivo.
+ *
+ * Reusa `validateAccentColor` de lib/branding.ts — mesma regra de hex que decide
+ * se a cor é aplicada ao CSS, então "válido no schema" e "válido no CSS" nunca
+ * divergem.
+ */
+export const brandingSchema = z.object({
+  accent_color: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v ?? "").trim() || null)
+    .refine((v) => v === null || validateAccentColor(v) !== null, {
+      message: "Cor inválida. Use formato hex, ex: #1a56db.",
+    }),
+});
+export type BrandingInput = z.infer<typeof brandingSchema>;
 
 export const NOTIFICATION_CATEGORIES = [
   "lead_assigned",
