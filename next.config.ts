@@ -34,7 +34,16 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          // Era X-Frame-Options: DENY (bloqueava embutir em QUALQUER site,
+          // inclusive o próprio painel do FBhub). CSP frame-ancestors é o
+          // substituto moderno e, ao contrário do XFO (só DENY/SAMEORIGIN em
+          // navegadores atuais), permite listar uma origem específica: aqui,
+          // só o FBhub pode embutir este app num iframe — qualquer outro site
+          // continua bloqueado, clickjacking continua coberto.
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self' https://fbhub-ebon.vercel.app",
+          },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // microphone=(self): o gravador de voz do composer (PTT estilo WhatsApp)
           // usa getUserMedia({audio}); microphone=() bloquearia em TODA origem,
