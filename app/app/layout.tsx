@@ -4,7 +4,12 @@ import { isMfaEnrolled, loadAuthUser, requiresMfa, resolveActiveOrg } from "@/li
 import { DEFAULT_VISIBILITY_MODE, type VisibilityMode } from "@/lib/auth/types";
 import { AuthProvider } from "@/hooks/auth/AuthProvider";
 import { AppShell } from "./_components/AppShell";
+import { EstiloDaMarcaDaOrganizacao } from "./_components/EstiloDaMarcaDaOrganizacao";
 import { MfaEnrollGate } from "@/components/auth/MfaEnrollGate";
+import { cssDaMarca, ESCOPO_DA_ORGANIZACAO } from "@/lib/branding/css";
+import { marcaDaInstalacao } from "@/lib/branding/instalacao";
+import { resolverMarcaDaOrganizacao } from "@/lib/branding/organizacao";
+import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   IMPERSONATE_COOKIE_NAME,
@@ -14,9 +19,9 @@ import {
   ImpersonateBanner,
   type ImpersonatingInfo,
 } from "@/components/app/ImpersonateBanner";
-import { env } from "@/lib/env";
-import { resolveBranding } from "@/lib/branding";
-import { OrgBrandingProvider } from "@/hooks/branding/OrgBrandingProvider";
+import { ConexaoCaidaBanner } from "@/components/app/ConexaoCaidaBanner";
+import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
+import { listarConexoesCaidas, type ConexaoCaida } from "@/lib/channels/health";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await loadAuthUser();
@@ -24,9 +29,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let activeOrg = await resolveActiveOrg(user);
 
-  // Marca global (env da instalação) — ponto de partida do merge abaixo.
-  // Sem override de org, é exatamente o que <PublicEnvScript/> já aplicava.
-  let orgBranding = resolveBranding(env.APP_NAME, env.APP_LOGO_URL, env.APP_ACCENT_COLOR);
+  /**
+   * A cor desta organização, serializada, ou `null` quando ela não tem uma.
+   *
+   * Resolvida no MESMO `settings` que o gate de onboarding logo abaixo já lê —
+   * zero consulta nova. A ordem das camadas (organização acima, instalação no
+   * meio, arquivo de instalação embaixo) mora em `lib/branding/organizacao.ts`,
+   * e não aqui: a precedência é regra do produto, não detalhe deste layout.
+   */
+  let cssDaOrganizacao: string | null = null;
 
   // EPIC-02: gate /app/* on completed onboarding.
   // EPIC-11: gate /app/* on org not being suspended (S-11.08).
@@ -34,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const admin = createAdminClient();
     const { data: orgRow } = await admin
       .from("organizations")
-      .select("onboarded_at, status, settings, branding_accent_color, branding_logo_url")
+      .select("onboarded_at, status, settings")
       .eq("id", activeOrg.orgId)
       .maybeSingle();
     if (orgRow && !orgRow.onboarded_at) redirect("/onboarding");
@@ -45,16 +56,66 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ?.visibility_mode;
     activeOrg = { ...activeOrg, visibility_mode: mode ?? DEFAULT_VISIBILITY_MODE };
 
-    // Marca por organização (feature nova): a org sobrescreve nome global só
-    // em logo/cor — `resolveBranding` já sabe cair pro default/`null` quando
-    // o override está ausente ou é um hex inválido, então basta encadear
-    // "valor da org, senão valor global" nos dois parâmetros que ela aceita.
-    orgBranding = resolveBranding(
-      env.APP_NAME,
-      orgRow?.branding_logo_url || env.APP_LOGO_URL,
-      orgRow?.branding_accent_color || env.APP_ACCENT_COLOR,
+    // `marcaDaInstalacao()` é memoizada por TTL no PROCESSO (`lib/branding/
+    // instalacao.ts`), e a derivação da cor é cacheada por régua+semente em
+    // `resolve.ts` — a marca custa uma consulta a cada 30s e um lookup de Map
+    // por render, não uma derivação de rampa por requisição.
+    const marca = resolverMarcaDaOrganizacao(
+      orgRow?.settings ?? null,
+      await marcaDaInstalacao(),
+      env,
     );
+
+    // SÓ quando a cor veio mesmo da organização. Se ela não configurou nada, a
+    // resolução devolve a cor da instalação — e reemiti-la aqui, escopada no
+    // `<body>`, seria repetir no documento um bloco que já vale pela raiz. Além
+    // de bytes, custaria a única pergunta que a presença do bloco responde.
+    if (marca.origens.cor === "organizacao") {
+      // Os `motivos` de uma cor recusada NÃO são registrados aqui de propósito:
+      // este caminho roda para todo tenant a cada render, e um aviso por
+      // organização no log da instalação é como um alarme deixa de ser lido. O
+      // laço de retorno desta feature é a tela `/app/settings/marca`, que mostra
+      // os motivos para quem pode consertá-los — o admin daquela organização.
+      cssDaOrganizacao = cssDaMarca(marca.cor, ESCOPO_DA_ORGANIZACAO).css;
+    }
+
+    // Desce para o menu CAMPO A CAMPO, e só o campo que a organização definiu.
+    // Sem a condição por campo, `marca.name` seria o nome da instalação (ou o
+    // padrão do produto) e o menu passaria a ler um caminho novo para exibir
+    // exatamente o que já exibia — trocando a fonte sem trocar o valor, que é
+    // como se cria uma regressão invisível. E, com o logo no mesmo objeto, uma
+    // condição só (a do nome) faria a organização que definiu apenas a cor
+    // arrastar junto um `logoUrl` que ela não escolheu.
+    //
+    // `origens` é a resposta de `primeiroDefinido` (`lib/branding/resolve.ts`),
+    // que ignora valor vazio e desce: quando ele diz "organizacao", o valor é
+    // não-vazio e já veio trimado — por isso a barra lateral nunca recebe `""`
+    // desta origem.
+    //
+    // `origens.logoUrl === "organizacao"` passou a ser ALCANÇÁVEL na onda do
+    // upload: `camadaDaOrganizacao` declara o logo a partir de
+    // `settings.branding.logo_path`. A condição foi escrita aqui uma onda ANTES
+    // do produtor existir, de propósito — foi o que fez o upload por organização
+    // ser só a camada, sem mais uma passada pela casca inteira.
+    const marcaDoTenant = {
+      ...(marca.origens.nome === "organizacao" ? { nome: marca.name } : {}),
+      ...(marca.origens.logoUrl === "organizacao" && marca.logoUrl !== null
+        ? { logoUrl: marca.logoUrl }
+        : {}),
+    };
+    if (Object.keys(marcaDoTenant).length > 0) {
+      activeOrg = { ...activeOrg, marca: marcaDoTenant };
+    }
   }
+
+  // A conexão caiu? A consulta mora no seam (`lib/channels/health`), não aqui:
+  // tela que monta o select de `channel_sessions` à mão foi o que deixou três
+  // seletores oferecendo canal arquivado, e o invariante `canais-selecionaveis`
+  // existe por causa disso. De quebra, o filtro de estados fica LITERALMENTE o
+  // mesmo que decide o aviso da Central — duas listas divergiriam com o tempo.
+  const conexoesCaidas: ConexaoCaida[] = activeOrg
+    ? await listarConexoesCaidas(createAdminClient(), activeOrg.orgId)
+    : [];
 
   // Read sidebar collapsed state SSR to avoid flash.
   const store = await cookies();
@@ -85,29 +146,41 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const enrolled = await isMfaEnrolled();
-  const needsMfaGate = requiresMfa(activeOrg?.role, user.is_platform_admin);
+  // A decisão deixou de ser uma constante de papel: ela lê a política de quem
+  // pode exigir (a plataforma e a empresa). Ver `lib/auth/politica-mfa.ts`.
+  const needsMfaGate = await requiresMfa(
+    activeOrg?.role,
+    user.is_platform_admin,
+    user.id,
+    activeOrg?.orgId,
+  );
   const shell = <AppShell sidebarCollapsed={collapsed}>{children}</AppShell>;
 
   return (
-    <OrgBrandingProvider value={orgBranding}>
+    // O idioma envolve a árvore inteira e recebe o código PRONTO — ele não
+    // pergunta quem está logado. Ver `lib/i18n/IdiomaProvider`: foi o
+    // acoplamento com a autenticação que derrubou 32 casos.
+    <IdiomaProvider locale={user.locale}>
+    <AuthProvider user={user} activeOrg={activeOrg}>
       {/*
-        Sobrescreve a cor de destaque global (já aplicada em <head> por
-        <PublicEnvScript/>) com o override da org — mesma técnica (CSS var em
-        vez de re-render), só que resolvida aqui porque só /app/* tem sessão
-        pra saber qual é a org ativa. Vem depois no documento, então ganha a
-        cascata em especificidade igual sem precisar de !important.
+        O MARCADOR da marca da organização — o elemento cuja existência define o
+        escopo `body:has([data-marca-org])` (lib/branding/css.ts).
+
+        `contents` não gera caixa: no box tree os filhos continuam sendo filhos
+        diretos do `<body>`, então nada de layout, `position` ou `flex` muda. O
+        que este elemento existe para fazer é EXISTIR — e sumir junto com esta
+        subárvore quando o logout navega para `/login`.
+
+        Envolve TUDO, e não a div do `AppShell`, porque aquela div é irmã dos dois
+        banners e é SUBSTITUÍDA quando o `MfaEnrollGate` bloqueia (ele renderiza
+        um `fixed inset-0` no lugar dos children). O admin de tenant recém-criado
+        veria a tela de cadastro de MFA — a PRIMEIRA tela dele — com a cor da
+        instalação, e depois o resto do produto com a dele.
       */}
-      {orgBranding.accentColor && (
-        <style
-          dangerouslySetInnerHTML={{
-            __html:
-              `:root,[data-theme="dark"]{` +
-              `--color-accent:${orgBranding.accentColor};--color-accent-fg:${orgBranding.accentForeground};}`,
-          }}
-        />
-      )}
-      <AuthProvider user={user} activeOrg={activeOrg}>
+      <div data-marca-org="" className="contents">
+        <EstiloDaMarcaDaOrganizacao css={cssDaOrganizacao} />
         <ImpersonateBanner impersonating={impersonating} />
+        <ConexaoCaidaBanner caidas={conexoesCaidas} />
         {needsMfaGate ? (
           // Gate always mounted for MFA-required roles; it latches the blocking
           // decision client-side so the enroll Server Action's revalidation
@@ -116,7 +189,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : (
           shell
         )}
-      </AuthProvider>
-    </OrgBrandingProvider>
+      </div>
+    </AuthProvider>
+    </IdiomaProvider>
   );
 }

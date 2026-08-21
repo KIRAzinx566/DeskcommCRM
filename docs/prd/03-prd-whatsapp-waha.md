@@ -238,7 +238,7 @@ A janela de 24h da Meta (envio proativo só com template aprovado fora da janela
 - Envio em lote de 100 mensagens leva no mínimo `100 × (1.2s + jitter médio 0.4s)` ≈ 160s, não menos
 - Tentativa de criar campanha com 3 variações de copy retorna 422 `min_5_variations_required`
 - Inbound "PARAR" marca contato como bloqueado em <2s e bloqueia próximas tentativas de envio automático
-- Envio automático fora de janela (ex: domingo 23h) é enfileirado pra próxima janela válida, não enviado
+- Envio automático fora de janela (ex: 23h de qualquer dia) é enfileirado pra próxima janela válida, não enviado. **Domingo não veta por default** desde 2026-08-20 — ver W-07 em `docs/business-rules/00-business-rules-catalog.md`
 - Número novo bloqueado de campanha durante 7 dias após conexão (configurável até 14)
 
 ### 3.8 Multi-número por tenant

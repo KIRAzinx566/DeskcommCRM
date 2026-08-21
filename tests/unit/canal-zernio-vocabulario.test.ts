@@ -96,7 +96,13 @@ describe("o envelope carrega a thread do provider", () => {
   it("OutboundEnvelope aceita providerConversationId e é OPCIONAL", () => {
     // Opcional é o ponto: os dois adapters existentes derivam o destinatário do
     // contato e não mudam uma linha por causa deste campo.
-    const semThread: OutboundEnvelope = { sessionRef: "s", to: "t", kind: "text", body: "x" };
+    const semThread: OutboundEnvelope = {
+      organizationId: "00000000-0000-4000-8000-000000000236",
+      sessionRef: "s",
+      to: "t",
+      kind: "text",
+      body: "x",
+    };
     const comThread: OutboundEnvelope = { ...semThread, providerConversationId: "6a35" };
     expect(semThread.providerConversationId).toBeUndefined();
     expect(comThread.providerConversationId).toBe("6a35");
@@ -106,11 +112,24 @@ describe("o envelope carrega a thread do provider", () => {
     const fonte = readFileSync("app/api/v1/messages/_handler.ts", "utf8");
     // Ler sem passar, ou passar sem ler, deixa o envio livre quebrado só neste
     // canal — e só quando alguém tentar responder dentro da janela.
-    expect(fonte, "falta a coluna no select da conversa").toMatch(
-      /group_chat_id,\s*provider_conversation_id/,
+    // A régua é PERTENCER ao select, não ficar ao lado de uma coluna vizinha.
+    // A versão anterior casava /group_chat_id,\s*provider_conversation_id/ — e
+    // adjacência é acidente de formatação, não a propriedade guardada: o PR #225
+    // inseriu `bot_silenced_until` entre as duas e reprovou um handler que lia e
+    // passava a coluna exatamente como antes. Gate que reprova o inocente ensina
+    // a contornar gate.
+    const convSelect = /const convSelect =[\s\S]*?`([^`]+)`/.exec(fonte)?.[1];
+    expect(convSelect, "não achei o convSelect do handler — o teste ficou cego").toBeTruthy();
+    expect(convSelect, "falta a coluna no select da conversa").toContain(
+      "provider_conversation_id",
     );
+    // TRÊS desde que o modelo passou a sair pelo canal: texto, mídia e modelo.
+    // O número é conferido, e não `>= 1`, justamente para obrigar quem acrescenta
+    // um call site novo a decidir se ele também carrega a thread — foi assim que
+    // este caso pegou a rama de modelo, que a princípio não precisaria dela mas
+    // precisa quando o provider reaproveita a conversa existente.
     const passagens = [...fonte.matchAll(/providerConversationId:\s*c\.provider_conversation_id/g)];
-    expect(passagens.length, "os DOIS call sites (texto e mídia) precisam passar").toBe(2);
+    expect(passagens.length, "todos os call sites (texto, mídia e modelo) precisam passar").toBe(3);
   });
 });
 
