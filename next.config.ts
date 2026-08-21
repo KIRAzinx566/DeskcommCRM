@@ -40,9 +40,14 @@ const nextConfig: NextConfig = {
           // navegadores atuais), permite listar uma origem específica: aqui,
           // só o FBhub pode embutir este app num iframe — qualquer outro site
           // continua bloqueado, clickjacking continua coberto.
+          // fbhub.tech (e www.) é o domínio de produção de verdade
+          // (fbhub-ebon.vercel.app é só a URL bruta do Vercel por trás dele) —
+          // sem eles aqui, o iframe do CRM dentro do FBhub em produção é
+          // bloqueado pelo navegador (confirmado via `vercel alias ls` no
+          // projeto FBhub: fbhub.tech e www.fbhub.tech resolvem pro mesmo deploy).
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self' https://fbhub-ebon.vercel.app",
+            value: "frame-ancestors 'self' https://fbhub.tech https://www.fbhub.tech https://fbhub-ebon.vercel.app",
           },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // microphone=(self): o gravador de voz do composer (PTT estilo WhatsApp)
