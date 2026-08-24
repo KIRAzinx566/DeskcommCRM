@@ -36,9 +36,9 @@ export type Branding = {
    * ninguém revisar; a cor semântica sozinha já é o que aparece nos elementos
    * que mais carregam marca (botão primário, item ativo da sidebar).
    */
-  accentColor: string | null;
+  accentColor?: string | null;
   /** Cor de texto legível sobre `accentColor` (branco ou quase-preto, por contraste). `null` quando `accentColor` é `null`. */
-  accentForeground: string | null;
+  accentForeground?: string | null;
 };
 
 /** #abc → #aabbcc. Só chamada depois de validar o formato. */
@@ -135,7 +135,10 @@ export function resolveBranding(
 export function branding(): Branding {
   if (typeof window !== "undefined") {
     const runtime = window.__PUBLIC_ENV__;
-    return resolveBranding(runtime?.APP_NAME, runtime?.APP_LOGO_URL, runtime?.APP_ACCENT_COLOR);
+    // A cor de destaque não é mais injetada em `window.__PUBLIC_ENV__` — o
+    // navegador a recebe só via o <style> inline que <PublicEnvScript/> emite,
+    // nunca por aqui. Quem chama `branding()` no cliente não lê `.accentColor`.
+    return resolveBranding(runtime?.APP_NAME, runtime?.APP_LOGO_URL);
   }
-  return resolveBranding(process.env.APP_NAME, process.env.APP_LOGO_URL, process.env.APP_ACCENT_COLOR);
+  return resolveBranding(process.env.APP_NAME, process.env.APP_LOGO_URL, process.env.APP_ACCENT_HEX);
 }
