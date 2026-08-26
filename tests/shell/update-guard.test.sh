@@ -185,7 +185,7 @@ echo nova > nova.txt; git add -A; git commit --quiet -m "v1.1.0"; git tag v1.1.0
 git checkout --quiet v0.9.0
 run_update --to v1.1.0
 check "a atualização termina com sucesso" test "$RC" -eq 0
-check ".env aponta para a imagem da versão instalada" grep -q '^APP_IMAGE=ghcr.io/melgarafael/deskcommcrm:1.1.0$' .env
+check ".env aponta para a imagem da versão instalada" grep -q '^APP_IMAGE=ghcr.io/kirazinx566/deskcommcrm:1.1.0$' .env
 check "a chave APP_IMAGE não duplicou" test "$(grep -c '^APP_IMAGE=' .env)" -eq 1
 run_update --to v1.1.0 --force
 check "segunda execução também não duplica" test "$(grep -c '^APP_IMAGE=' .env)" -eq 1
@@ -215,9 +215,9 @@ echo "── 4b. As três imagens sobem juntas, na mesma versão"
 # runtime do agente de IA — ficava congelado no código do dia da instalação.
 # Se estas três linhas voltarem a divergir, o defeito voltou.
 check "o worker é pinado na MESMA versão do app" \
-  grep -q '^WORKER_IMAGE=ghcr.io/melgarafael/deskcomm-worker:1.1.0$' .env
+  grep -q '^WORKER_IMAGE=ghcr.io/kirazinx566/deskcomm-worker:1.1.0$' .env
 check "o scheduler é pinado na MESMA versão do app" \
-  grep -q '^SCHEDULER_IMAGE=ghcr.io/melgarafael/deskcomm-scheduler:1.1.0$' .env
+  grep -q '^SCHEDULER_IMAGE=ghcr.io/kirazinx566/deskcomm-scheduler:1.1.0$' .env
 check "o worker herda a política da tag imutável" \
   grep -q '^WORKER_PULL_POLICY=missing$' .env
 check "o scheduler herda a política da tag imutável" \
@@ -420,7 +420,7 @@ autopin() {  # autopin <conteúdo do .env> → ecoa o que a função corrigiu
 R="$(autopin "APP_IMAGE=ghcr.io/melgarafael/deskcommcrm:1.3.0")"
 check "chave AUSENTE → preenche os dois" test "$R" = "worker scheduler"
 check "  e grava a versão da imagem em execução, não um canal" \
-  grep -q "^WORKER_IMAGE=ghcr.io/melgarafael/deskcomm-worker:1.3.0$" "$PIN_DIR/.env"
+  grep -q "^WORKER_IMAGE=ghcr.io/kirazinx566/deskcomm-worker:1.3.0$" "$PIN_DIR/.env"
 check "  com pull_policy de tag imutável" \
   grep -q "^WORKER_PULL_POLICY=missing$" "$PIN_DIR/.env"
 

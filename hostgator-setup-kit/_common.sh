@@ -348,7 +348,14 @@ psql_run() { docker run --rm -i postgres:17-alpine psql "$(url_do_schema)" -v ON
 # O namespace é constante e literal de propósito: ele está gravado no .env de
 # toda instalação viva, e derivá-lo de variável faria o kit antigo (que já está
 # no disco do cliente) e o novo montarem strings diferentes.
-IMG_NS="ghcr.io/melgarafael"
+#
+# Nesta fork (KIRAzinx566/DeskcommCRM), o publish-image.yml builda e publica as
+# três imagens sob o namespace do PRÓPRIO fork (${{ github.repository_owner }}),
+# não sob o da upstream. Manter "melgarafael" aqui fazia update.sh recalcular
+# APP_IMAGE/WORKER_IMAGE/SCHEDULER_IMAGE do jeito errado a cada execução — e
+# SOBRESCREVER qualquer correção manual no .env, porque a fonte da verdade
+# sempre foi esta constante, nunca o .env.
+IMG_NS="ghcr.io/kirazinx566"
 IMG_APP="${IMG_NS}/deskcommcrm"
 IMG_WORKER="${IMG_NS}/deskcomm-worker"
 IMG_SCHEDULER="${IMG_NS}/deskcomm-scheduler"
@@ -387,13 +394,13 @@ ultima_versao_publicada() {
 ghcr_status() {
   local img="$1" tag="$2" tok
   tok="$(curl -fsS --max-time 6 \
-          "https://ghcr.io/token?scope=repository:melgarafael/${img}:pull&service=ghcr.io" 2>/dev/null \
+          "https://ghcr.io/token?scope=repository:kirazinx566/${img}:pull&service=ghcr.io" 2>/dev/null \
         | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || true
   if [ -z "$tok" ]; then printf '000'; return 0; fi
   curl -s -o /dev/null --max-time 6 -w '%{http_code}' \
     -H "Authorization: Bearer $tok" \
     -H 'Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json' \
-    "https://ghcr.io/v2/melgarafael/${img}/manifests/${tag}" 2>/dev/null || printf '000'
+    "https://ghcr.io/v2/kirazinx566/${img}/manifests/${tag}" 2>/dev/null || printf '000'
 }
 
 # As TRÊS imagens existem e são públicas nesta referência?
