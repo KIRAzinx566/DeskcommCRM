@@ -57,6 +57,7 @@ import { enqueueJob, type JobRow, type Queryable } from '../queue/queue';
 import { applyLeadStateUpdate, getLeadState, type LeadStage, type LeadStateRow } from './lead-state';
 import { applySaveLeadNote, buildNotesIndexBlock, getLeadNoteBody } from './lead-notes';
 import { applyScheduleFollowup, type FollowupWindowKnobs } from './schedule-followup';
+import { applyScheduleMeeting } from './schedule-meeting';
 import {
   applyRequestHumanHandoff,
   buildHandoffSummary,
@@ -172,6 +173,24 @@ export const AGENT_TOOL_DEFS = {
       promised_at: z.string().describe('data/hora ISO 8601 do retorno (no futuro), ex.: "2026-07-15T14:00:00Z"'),
       promise: z.string().describe('o que você prometeu ao lead'),
       context_snapshot: z.string().nullable().optional().describe('contexto curto para o seu run futuro'),
+    }).passthrough(),
+  },
+  schedule_meeting: {
+    description:
+      'Marca uma reunião com este lead num horário futuro combinado na conversa (ex.: "vamos marcar ' +
+      'uma call na quinta às 14h"). A reunião entra na agenda e o dono da organização recebe um aviso ' +
+      'automático — depois de marcar, confirme o horário ao lead e encerre o turno.',
+    // Schema LARGO para o SDK (o modelo vê os campos); a validação REAL é a whitelist
+    // .strict() + guard de prototype pollution dentro de applyScheduleMeeting — campo
+    // extra/forjado e data inválida viram erro de ENSINO ao modelo, nunca exceção do SDK.
+    inputSchema: z.object({
+      starts_at: z.string().describe('data/hora ISO 8601 do início (no futuro), ex.: "2026-07-15T14:00:00Z"'),
+      ends_at: z.string().nullable().optional().describe('data/hora ISO 8601 do fim, se combinada'),
+      title: z.string().nullable().optional().describe('assunto curto da reunião'),
+      modality: z.string().optional().describe('online | presencial | ligacao'),
+      meeting_link: z.string().nullable().optional().describe('link da chamada, se for online'),
+      location: z.string().nullable().optional().describe('endereço, se for presencial'),
+      notes: z.string().nullable().optional().describe('contexto curto para quem for atender'),
     }).passthrough(),
   },
   save_lead_note: {
@@ -1945,6 +1964,34 @@ async function executarTurnoDoAgente(
           return {
             ok: false,
             error: { code: 'internal_error', message: 'erro interno ao acionar o handoff humano — encerre o turno agora.' },
+          };
+        }
+      },
+    }),
+    // F-novo: agenda de reuniões (migration 0167). MUTANTE (cria linha em
+    // crm_meetings + atividade na timeline), fora de READ_ONLY_TOOLS. Sem knob
+    // de janela como schedule_followup: não há regra de negócio (ainda) que
+    // limite o quão cedo/tarde uma reunião pode ser marcada, então fica sempre
+    // disponível — tenant/lead vêm da ROW do job (closure), nunca do payload.
+    schedule_meeting: tool({
+      ...AGENT_TOOL_DEFS.schedule_meeting,
+      execute: async (raw) => {
+        try {
+          const res = await applyScheduleMeeting(
+            pool,
+            { clock },
+            { tenantId, leadId, agentId: agentConfig?.agentId ?? null },
+            raw,
+          );
+          if (!res.ok) {
+            return res; // erro de ensino (payload / data no passado / fim antes do início)
+          }
+          return { ok: true, status: 'reuniao_marcada', marcada_para: res.startsAt.toISOString(), message: res.message };
+        } catch (err) {
+          noteRunError(err instanceof Error ? err : new Error(String(err)));
+          return {
+            ok: false,
+            error: { code: 'internal_error', message: 'erro interno ao marcar a reunião — encerre o turno agora.' },
           };
         }
       },

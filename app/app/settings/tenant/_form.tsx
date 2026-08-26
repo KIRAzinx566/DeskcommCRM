@@ -148,6 +148,19 @@ export function TenantForm({ initial }: Props) {
               onChange={(e) => set("privacy_policy_url", e.target.value || null)}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="owner_whatsapp_number">WhatsApp do responsável</Label>
+            <Input
+              id="owner_whatsapp_number"
+              type="tel"
+              value={form.owner_whatsapp_number ?? ""}
+              onChange={(e) => set("owner_whatsapp_number", e.target.value || null)}
+              placeholder="+5511999999999"
+            />
+            <p className="text-xs text-muted-foreground">
+              Recebe um aviso por WhatsApp sempre que uma reunião é marcada na Agenda.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2">

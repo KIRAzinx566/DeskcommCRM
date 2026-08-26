@@ -116,4 +116,8 @@ export {
   Key,
   UserCircle,
   ClockCounterClockwise,
+  // agenda de reuniões (migration 0167)
+  CalendarBlank,
+  MapPin,
+  VideoCamera,
 } from "@phosphor-icons/react/dist/ssr";
