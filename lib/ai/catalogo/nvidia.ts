@@ -10,14 +10,24 @@
  *
  * `GET /v1/models` da NVIDIA devolve só `id`, `object`, `created` e
  * `owned_by` — sem preço, sem contexto, sem `supported_parameters`. Não há
- * heurística que preencha isso com segurança: inventar `supports_tools: true`
- * a partir do nome do modelo é exatamente o erro que a OpenRouter evita não
- * fazendo (ver doc de lá) — e aqui a origem nem manda o nome com pistas
- * confiáveis. Preço fica `null` (desconhecido, nunca 0 inventado) e as duas
- * capacidades ficam `false` até a origem publicar o dado — ficar de fora do
- * seletor de "ponto que exige tools" é o erro seguro; aparecer disponível e
- * falhar na primeira chamada de ferramenta não é.
+ * heurística que preencha isso com segurança: inventar a partir do nome do
+ * modelo é exatamente o erro que a OpenRouter evita não fazendo (ver doc de
+ * lá) — e aqui a origem nem manda o nome com pistas confiáveis. Preço fica
+ * `null` (desconhecido, nunca 0 inventado) e `supports_vision` fica `false`
+ * até a origem publicar o dado.
+ *
+ * `supports_tools` é a exceção, e por isso vem de outro lugar:
+ * `nvidia-capacidades-conhecidas.ts`, uma lista mantida à mão a partir da
+ * mesma fonte que o client Python oficial da NVIDIA usa (não existe API para
+ * isso — nem o `ChatNVIDIA.get_available_models()` deles foge de uma tabela
+ * escrita à mão). Um id fora dessa lista continua `false` — "não verificado"
+ * tem o mesmo efeito prático de "sem heurística", que é o mesmo erro seguro
+ * de sempre: ficar de fora do seletor de "ponto que exige tools" é o erro
+ * seguro; aparecer disponível e falhar na primeira chamada de ferramenta não
+ * é.
  */
+
+import { MODELOS_NVIDIA_COM_FERRAMENTAS_CONFIRMADAS } from "./nvidia-capacidades-conhecidas";
 
 /** O recorte da resposta da NVIDIA que este módulo consome. */
 export interface ModeloDaNvidia {
@@ -97,7 +107,7 @@ export function traduzirModeloNvidia(m: ModeloDaNvidia): LinhaDeCatalogoNvidia |
     context_window: null,
     input_price_per_million_cents: null,
     output_price_per_million_cents: null,
-    supports_tools: false,
+    supports_tools: MODELOS_NVIDIA_COM_FERRAMENTAS_CONFIRMADAS.has(id),
     supports_vision: false,
     source: FONTE_NVIDIA,
   };
