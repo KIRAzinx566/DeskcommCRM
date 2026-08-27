@@ -50,7 +50,24 @@ export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange, o
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto" data-testid="edge-config-panel">
       <div className="space-y-1">
-        <h2 className="text-base font-semibold text-text">Condição da aresta</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-text">Condição da aresta</h2>
+          {/* No cabeçalho, não num bloco novo embaixo — mesma razão do
+              NodeConfigPanel: um bloco extra empurra a altura do painel além da
+              viewport e a rolagem de página passa a cobrir o canvas com o
+              cabeçalho fixo do app. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            aria-label="Apagar aresta"
+            title="Apagar aresta (ou selecione-a no canvas e pressione Delete)"
+            data-testid="edge-delete-button"
+          >
+            <Trash size={16} aria-hidden />
+          </Button>
+        </div>
         <p className="flex items-center gap-1.5 text-sm text-text-muted">
           <span className="truncate">{sourceNode?.label ?? "?"}</span>
           <ArrowRight size={12} aria-hidden className="shrink-0" />
@@ -83,21 +100,6 @@ export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange, o
             São as saídas do nó &quot;{sourceNode.label}&quot; — as mesmas que aparecem no card.
           </p>
         )}
-      </div>
-
-      <div className="mt-auto space-y-1.5 border-t border-border pt-4">
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={onDelete}
-          data-testid="edge-delete-button"
-        >
-          <Trash size={14} aria-hidden />
-          Apagar aresta
-        </Button>
-        <p className="text-center text-xs text-text-muted">ou selecione a aresta no canvas e pressione Delete</p>
       </div>
     </div>
   );
