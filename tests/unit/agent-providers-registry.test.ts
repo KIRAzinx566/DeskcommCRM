@@ -22,4 +22,30 @@ describe("createDefaultRegistry", () => {
     expect(() => reg.openrouter!("k", "x/y", "https://gateway.exemplo/v1")).not.toThrow();
     expect(() => reg.nvidia!("k", "meta/llama-3.3-70b-instruct")).not.toThrow();
   });
+
+  it("openrouter e nvidia falam Chat Completions, não Responses API", () => {
+    // ⚠️ O caso acima ("não lança ao instanciar") NUNCA pegaria este bug: as
+    // duas classes (OpenAIChatLanguageModel, OpenAIResponsesLanguageModel)
+    // instanciam sem erro — só divergem na REQUISIÇÃO, que nenhum teste aqui
+    // fazia de verdade.
+    //
+    // Desde @ai-sdk/openai@4, chamar o provider DIRETO (`createOpenAI(...)
+    // (modelId)`, sem `.chat()`) usa a Responses API da OpenAI (`POST
+    // /responses`) por padrão. `api.openai.com` fala as duas, então o caso
+    // "openai" nunca quebrou visivelmente — mas OpenRouter e a NVIDIA só
+    // implementam a Chat Completions antiga (`POST /chat/completions`).
+    // Medido ao vivo: curl direto em `/chat/completions` da NVIDIA respondeu
+    // 200 pro mesmo par modelo+chave que o produto reportava "Not Found" —
+    // toda mensagem real (worker, via este registry) e todo teste pela tela
+    // (buildModel em lib/ai/runtime/agent.ts, mesmo bug) batiam em `/responses`
+    // e voltavam erro do provedor, nunca do nosso código.
+    const reg = createDefaultRegistry();
+    const openrouterModel = reg.openrouter!("k", "meta-llama/llama-3.3-70b-instruct");
+    const nvidiaModel = reg.nvidia!("k", "meta/llama-3.3-70b-instruct");
+    // "openai.chat", não "openrouter.chat"/"nvidia.chat": nenhuma das duas
+    // fábricas passa `name` para `createOpenAI`, então o SDK usa o default
+    // ("openai") — o que importa aqui é o SUFIXO `.chat`, não o prefixo.
+    expect((openrouterModel as { provider: string }).provider).toBe("openai.chat");
+    expect((nvidiaModel as { provider: string }).provider).toBe("openai.chat");
+  });
 });
