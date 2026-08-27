@@ -257,6 +257,21 @@ describe("a corrente inteira: lista × execução × tela", () => {
     ).toEqual([]);
   });
 
+  it("o ensaio de openrouter/nvidia fala Chat Completions, não Responses API", async () => {
+    // ⚠️ O caso acima ("executa todo provedor") NÃO pegava isto: instanciar o
+    // model não lança nos dois modos, só a REQUISIÇÃO diverge. Desde
+    // @ai-sdk/openai@4, chamar o provider direto (sem `.chat()`) usa a
+    // Responses API por padrão — api.openai.com fala as duas, mas OpenRouter e
+    // NVIDIA só implementam `/chat/completions`. Medido ao vivo: curl direto
+    // na NVIDIA em `/chat/completions` respondeu 200 pro mesmo modelo+chave
+    // que a aba Teste reportava "Not Found" (batendo em `/responses`).
+    const { buildModel } = await import("@/lib/ai/runtime/agent");
+    const openrouterModel = buildModel("openrouter", "k", "meta-llama/llama-3.3-70b-instruct");
+    const nvidiaModel = buildModel("nvidia", "k", "meta/llama-3.3-70b-instruct");
+    expect((openrouterModel as { provider: string }).provider).toBe("openai.chat");
+    expect((nvidiaModel as { provider: string }).provider).toBe("openai.chat");
+  });
+
   it("e continua recusando provedor que ninguém declarou (a catraca não virou peneira)", async () => {
     // Sem isto, trocar o switch por um `createOpenAI` universal faria o teste
     // acima passar e aceitaria qualquer string como provedor.

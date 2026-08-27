@@ -108,6 +108,15 @@ export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): Provi
      * endpoint canônico faria o egress bloquear a própria configuração que a
      * tela ofereceu, com erro de rede que ninguém liga ao painel.
      */
+    // `.chat(modelId)`, NUNCA a chamada direta `createOpenAI(...)(modelId)`:
+    // desde @ai-sdk/openai@4, chamar o provider direto usa a Responses API da
+    // OpenAI (`POST /responses`) por padrão — a api.openai.com real fala as
+    // duas, então ninguém notou ali, mas OpenRouter e NVIDIA só implementam a
+    // Chat Completions API antiga (`POST /chat/completions`). Sem `.chat()`,
+    // toda mensagem real (worker) e todo teste pela tela batia em `/responses`
+    // e voltava 404/410 do lado do provider — medido ao vivo (curl direto no
+    // endpoint da NVIDIA respondeu 200 em `/chat/completions`, e a tela deu
+    // "Not Found" pelo mesmo modelo, mesma chave).
     openrouter: (apiKey, modelId, baseUrl) => {
       const endpoint = baseUrl ?? OPENROUTER_ENDPOINT;
       return createOpenAI({
@@ -115,11 +124,11 @@ export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): Provi
         baseURL: endpoint,
         headers: cabecalhosDeAtribuicaoOpenRouter(),
         fetch: contain(endpoint),
-      })(modelId);
+      }).chat(modelId);
     },
     nvidia: (apiKey, modelId, baseUrl) => {
       const endpoint = baseUrl ?? NVIDIA_ENDPOINT;
-      return createOpenAI({ apiKey, baseURL: endpoint, fetch: contain(endpoint) })(modelId);
+      return createOpenAI({ apiKey, baseURL: endpoint, fetch: contain(endpoint) }).chat(modelId);
     },
   };
 }

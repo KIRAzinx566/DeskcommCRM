@@ -175,16 +175,24 @@ export function buildModel(provider: string, apiKey: string, modelId: string): L
     // o agente, clica em "Teste" para conferir antes de confiar, e recebe
     // `unsupported_provider` — enquanto a mensagem de verdade seria respondida
     // normalmente pelo worker. Erro no ensaio lê-se como produto quebrado.
+    // `.chat(modelId)`, não a chamada direta: desde @ai-sdk/openai@4, o
+    // provider chamado direto usa a Responses API (`/responses`) por padrão —
+    // api.openai.com fala as duas, mas OpenRouter e NVIDIA só implementam a
+    // Chat Completions antiga (`/chat/completions`). Sem `.chat()`, o "Teste"
+    // batia em `/responses` e voltava 404/410 do provedor, com o modelo e a
+    // chave corretos (medido ao vivo: curl direto em `/chat/completions`
+    // respondeu 200 pro mesmo par modelo+chave que a tela reportava "Not
+    // Found" — mesmo bug em createDefaultRegistry, ver providers.ts).
     case "openrouter":
       return createOpenAI({
         apiKey,
         baseURL: OPENROUTER_ENDPOINT,
         headers: cabecalhosDeAtribuicaoOpenRouter(),
-      })(modelId);
+      }).chat(modelId);
     // Mesma razão do caso openrouter acima: sem este caso, o ensaio recusa um
     // provedor que o registry de produção (createDefaultRegistry) já executa.
     case "nvidia":
-      return createOpenAI({ apiKey, baseURL: NVIDIA_ENDPOINT })(modelId);
+      return createOpenAI({ apiKey, baseURL: NVIDIA_ENDPOINT }).chat(modelId);
     default:
       throw new Error(`unsupported_provider: ${provider}`);
   }

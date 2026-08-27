@@ -42,6 +42,10 @@ interface TestResponse {
     tokens_out?: number;
     cost_cents?: number;
     latency_ms?: number;
+    /** Por que `status` é `failed`/`aborted` — ver `RunAgentResult` em lib/ai/runtime/agent.ts. */
+    error_code?: string | null;
+    error_message?: string | null;
+    abort_reason?: string | null;
     would_send_to?: { session?: string | null; chat_id?: string | null };
     stub?: boolean;
     /** Ver lib/ai/agents/avaliar-resposta-de-teste.ts. */
@@ -278,6 +282,27 @@ export function TestPanel({ agent, draft, published, readOnly }: Props) {
               </Cell>
               <Cell label="Custo (cents)">{result.cost_cents ?? 0}</Cell>
             </div>
+
+            {/*
+              Sem isto, "failed" era a tela inteira: o backend já devolve
+              `error_message` (RunAgentResult, lib/ai/runtime/agent.ts) — ex.
+              credencial ausente, provider não configurado, chave inválida —
+              mas o componente não declarava o campo e a razão nunca chegava a
+              quem estava tentando entender por que o teste não respondeu.
+            */}
+            {result.status !== "completed" && (result.error_message || result.abort_reason) ? (
+              <div
+                data-testid="teste-erro"
+                className="rounded-md border border-destructive/50 bg-destructive/5 p-2 text-xs"
+              >
+                <p className="font-medium text-destructive">
+                  {result.error_code ? `Erro (${result.error_code})` : "Erro"}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  {result.error_message ?? `Abortado: ${result.abort_reason}`}
+                </p>
+              </div>
+            ) : null}
 
             <RunTrace
               toolCalls={result.tool_calls}
