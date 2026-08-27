@@ -13,6 +13,8 @@ describe("resolveBranding", () => {
       name: DEFAULT_APP_NAME,
       logoUrl: null,
       initial: "D",
+      accentColor: null,
+      accentForeground: null,
     });
   });
 
