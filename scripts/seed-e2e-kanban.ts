@@ -48,6 +48,36 @@ interface Creds {
   kanban?: unknown;
 }
 
+/**
+ * Idempotente por (organization_id, display_name) — mesmo padrão de
+ * upsertLead. `agenda.spec.ts` marca reunião a partir do lead: o handler
+ * (`createMeetingHandler`) deriva `contact_id` do lead e recusa com 422
+ * `lead_without_contact` quando ele não tem um — sem contato aqui, o teste
+ * nunca teria como passar, com ou sem mudança nenhuma no produto.
+ */
+async function upsertContact(orgId: string, displayName: string): Promise<string> {
+  const { data: existing } = await admin
+    .from("contacts")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("display_name", displayName)
+    .maybeSingle();
+  if (existing) {
+    const id = (existing as { id: string }).id;
+    console.log(`[seed] contact existing "${displayName}": ${id}`);
+    return id;
+  }
+  const { data, error } = await admin
+    .from("contacts")
+    .insert({ organization_id: orgId, display_name: displayName } as never)
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(`insert contact "${displayName}": ${error?.message}`);
+  const id = (data as { id: string }).id;
+  console.log(`[seed] contact created "${displayName}": ${id}`);
+  return id;
+}
+
 async function upsertLead(
   orgId: string,
   pipelineId: string,
@@ -55,6 +85,7 @@ async function upsertLead(
   title: string,
   ownerUserId: string | null,
   position: number,
+  contactId: string,
 ): Promise<string> {
   const { data: existing } = await admin
     .from("crm_leads")
@@ -76,7 +107,7 @@ async function upsertLead(
     const id = (existing as { id: string }).id;
     const { error: updateError } = await admin
       .from("crm_leads")
-      .update({ ...owner, stage_id: stageId } as never)
+      .update({ ...owner, stage_id: stageId, contact_id: contactId } as never)
       .eq("id", id);
     if (updateError) {
       throw new Error(`update lead "${title}": ${updateError.code} — ${updateError.message}`);
@@ -92,6 +123,7 @@ async function upsertLead(
       stage_id: stageId,
       title,
       ...owner,
+      contact_id: contactId,
       position_in_stage: position,
       source: "manual",
     } as never)
@@ -128,6 +160,9 @@ async function main(): Promise<void> {
   if (sErr || !stage) throw new Error(`stage not found: ${sErr?.message}`);
   const stageId = (stage as { id: string }).id;
 
+  const ownedContactId = await upsertContact(orgId, "Contato E2E — Pedido com responsavel");
+  const unownedContactId = await upsertContact(orgId, "Contato E2E — Pedido sem responsavel");
+
   const ownedId = await upsertLead(
     orgId,
     pipelineId,
@@ -135,6 +170,7 @@ async function main(): Promise<void> {
     "Pedido E2E com responsavel",
     agentId,
     1000,
+    ownedContactId,
   );
   const unownedId = await upsertLead(
     orgId,
@@ -143,6 +179,7 @@ async function main(): Promise<void> {
     "Pedido E2E sem responsavel",
     null,
     2000,
+    unownedContactId,
   );
 
   creds.kanban = {
