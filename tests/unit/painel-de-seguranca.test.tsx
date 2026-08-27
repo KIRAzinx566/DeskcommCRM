@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { PainelDeSeguranca } from "@/app/app/ai/agents/[id]/_components/PainelDeSeguranca";
+import { apiClient } from "@/lib/api/client";
 import {
   CONFERENCIAS_DE_SAIDA,
   CONFERENCIA_DE_ENTRADA,
@@ -159,6 +160,29 @@ describe("painel de segurança — o que se confere antes de enviar", () => {
     renderPainel();
     expect(screen.getByText(/antes de o assistente ler/i)).toBeTruthy();
     expect(screen.getByTestId(`item-conferencia-${CONFERENCIA_DE_ENTRADA.nome}`)).toBeTruthy();
+  });
+
+  it("o clique manda a CAMADA da API, não o nome do gate na cadeia", async () => {
+    // ⚠️ Sabotagem que este caso existe para pegar: `c.nome` ("semantic_promise",
+    // "jailbreak_detect") e `c.camada` ("promessa_semantica", "jailbreak") são
+    // dois vocabulários por design (lista-de-conferencia.ts) — e por um tempo o
+    // interruptor mandou o primeiro para uma rota que só aceita o segundo. A API
+    // recusava com 422 "Invalid option" e o interruptor nunca movia, para quem
+    // tivesse `podeEditar: true`. Os casos acima não pegavam isso: nenhum lia o
+    // corpo que `apiClient.put` de fato recebe.
+    renderPainel();
+    const interruptor = await screen.findByTestId("conferencia-semantic_promise-liga");
+    // O interruptor nasce `disabled` até o GET resolver (`podeEditar` começa
+    // `false` enquanto a query carrega) — clicar antes disso é clicar em nada.
+    await waitFor(() => expect(interruptor).not.toBeDisabled());
+    fireEvent.click(interruptor);
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith(
+        "/api/v1/ai/guardrail-layers",
+        expect.objectContaining({ layer: "promessa_semantica" }),
+      );
+    });
   });
 
   it("a tela não fala a NOSSA língua", () => {

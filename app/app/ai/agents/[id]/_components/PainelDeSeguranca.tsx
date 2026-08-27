@@ -93,7 +93,14 @@ function Conferencia({
                 data-testid={`conferencia-${c.nome}-liga`}
                 checked={estado?.efetivo ?? false}
                 disabled={!podeEditar || salvando}
-                onCheckedChange={(v) => onToggle(c.nome, v)}
+                // `c.nome` é a chave do gate na CADEIA (`semantic_promise`), não a
+                // camada que `/api/v1/ai/guardrail-layers` aceita (`promessa_
+                // semantica`) — são dois vocabulários por design (ver o comentário
+                // de `camada` em lista-de-conferencia.ts). Mandar `c.nome` aqui
+                // fazia todo PUT voltar 422 "Invalid option", e o interruptor
+                // nunca movia. Este ramo só renderiza quando `c.escolha` não é
+                // nulo, e nesta lista as duas coisas andam juntas por convenção.
+                onCheckedChange={(v) => c.camada && onToggle(c.camada, v)}
                 aria-label={c.rotulo}
               />
               <span className="text-xs text-muted-foreground">
