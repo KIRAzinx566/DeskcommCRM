@@ -68,13 +68,17 @@ function erroDe(fn: () => unknown): string {
 }
 
 describe("0167 · agenda de reuniões chega ao clone com RLS", () => {
-  it("a tabela nasce com RLS ligada e a policy de tenant", () => {
+  it("a tabela nasce com RLS ligada e o par SELECT/write com papel", () => {
     seed();
     expect(sql(`select relrowsecurity from pg_class where relname = 'crm_meetings'`)).toBe("t");
+    // Migration 0168: a policy ALL só-tenancy original (`tenant_isolation_
+    // crm_meetings_all`) virou o par que `tests/invariants/rbac-config-ia-
+    // canais.test.ts` exige de toda tabela nova — SELECT só-tenancy +
+    // escrita com `fn_role_at_least`, mesmo piso 'agent' que a rota já aplica.
     expect(
       sql(`select policyname from pg_policies
             where schemaname = 'public' and tablename = 'crm_meetings' order by 1`),
-    ).toBe("tenant_isolation_crm_meetings_all");
+    ).toBe("crm_meetings_tenant_select\ncrm_meetings_tenant_write");
   });
 
   it("membro da org A marca reunião na própria org e lê de volta", () => {
