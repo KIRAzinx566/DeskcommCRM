@@ -7,8 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ArrowRight } from "@/lib/ui/icons";
+import { ArrowRight, Trash } from "@/lib/ui/icons";
 import { conditionKey } from "@/lib/followup/edge-condition-options";
 import { branchIdForCondition, nodeBranches } from "@/lib/followup/graph-schema";
 import type { FlowEdge, FlowNode } from "@/lib/followup/graph-schema";
@@ -19,6 +20,7 @@ interface Props {
   targetNode: FlowNode | undefined;
   condition: FlowEdge["condition"];
   onChange: (condition: FlowEdge["condition"]) => void;
+  onDelete: () => void;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  * Um controle que a tela oferece e o motor ignora é pior que um ausente — o
  * ausente o usuário contorna, o decorativo ele acredita.
  */
-export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange }: Props) {
+export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange, onDelete }: Props) {
   const options = nodeBranches(
     sourceNode ?? { type: "trigger", config: {} },
   ).map((branch) => ({
@@ -48,7 +50,24 @@ export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange }:
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto" data-testid="edge-config-panel">
       <div className="space-y-1">
-        <h2 className="text-base font-semibold text-text">Condição da aresta</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-text">Condição da aresta</h2>
+          {/* No cabeçalho, não num bloco novo embaixo — mesma razão do
+              NodeConfigPanel: um bloco extra empurra a altura do painel além da
+              viewport e a rolagem de página passa a cobrir o canvas com o
+              cabeçalho fixo do app. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            aria-label="Apagar aresta"
+            title="Apagar aresta (ou selecione-a no canvas e pressione Delete)"
+            data-testid="edge-delete-button"
+          >
+            <Trash size={16} aria-hidden />
+          </Button>
+        </div>
         <p className="flex items-center gap-1.5 text-sm text-text-muted">
           <span className="truncate">{sourceNode?.label ?? "?"}</span>
           <ArrowRight size={12} aria-hidden className="shrink-0" />

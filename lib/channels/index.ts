@@ -23,6 +23,13 @@ export function getAdapter(provider: ChannelProvider): ChannelAdapter {
   return adapter;
 }
 
+// Não é um ChannelAdapter (não é endereçado a um RecipientInput/ChannelSessionRef
+// de conversa — é um aviso avulso a um número configurado pela organização).
+// Reexportado aqui mesmo assim, pela mesma regra da doutrina: feature fora do
+// seam não importa `lib/waha/*` direto, mesmo quando o formato não é o de envio
+// conversacional (migration 0167).
+export { notifyOwnerWhatsApp } from "@/lib/waha/notify-owner";
+
 export { capabilitiesOf, CHANNEL_CAPABILITIES, DEFAULT_CHANNEL_PROVIDER } from "./capabilities";
 export { CHANNEL_SESSION_REF_COLUMNS, resolveSessionRef } from "./session-ref";
 export type { ChannelSessionRef } from "./session-ref";

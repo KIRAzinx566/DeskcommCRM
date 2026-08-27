@@ -50,7 +50,10 @@ export type ActivityType =
   | "followup_snoozed"
   | "followup_step_skipped"
   | "demand_closed"
-  | "promise_unowned";
+  | "promise_unowned"
+  /** Reunião marcada com o contato — manualmente ou pelo agente (migration 0167). */
+  | "meeting_scheduled"
+  | "meeting_cancelled";
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   lead_created: "Entrou pelo WhatsApp",
@@ -117,6 +120,12 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   // invisível na timeline — só existia em audit e event_log, que ninguém lê na
   // tela — e o dossiê de um negócio fechado terminava sem dizer que fechou.
   demand_closed: "Demanda encerrada",
+  // A reunião é ACONTECIMENTO do negócio, não detalhe de agenda: sem esta
+  // linha, o card avança/estaciona no funil sem que a timeline explique que
+  // houve um compromisso marcado — e o cancelamento importa pela mesma razão
+  // de `followup_cancelled`: quem lê depois precisa saber que não é silêncio.
+  meeting_scheduled: "Reunião marcada",
+  meeting_cancelled: "Reunião cancelada",
 };
 
 /** Quando o tipo é legado/desconhecido, a linha ainda é honesta — sem jargão. */

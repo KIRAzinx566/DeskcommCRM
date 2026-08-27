@@ -13814,3 +13814,114 @@ create unique index if not exists channel_sessions_zernio_account_id_ativo_uniqu
   where archived_at is null and zernio_account_id is not null;
 
 notify pgrst, 'reload schema';
+
+-- ---- agenda de reuniões: crm_meetings + owner_whatsapp_number (migration 0167) ----
+--
+-- O QUÊ: tabela nova `crm_meetings` (reunião marcada com o contato de um lead,
+-- por humano ou pelo agente de IA) e uma coluna nova em `organizations`
+-- (`owner_whatsapp_number`, E.164) que recebe o aviso por WhatsApp quando uma
+-- reunião é marcada.
+--
+-- POR QUÊ `contact_id` obrigatório e `lead_id` opcional: o harness do agente
+-- resolve "quem está falando" sempre, mas "qual negócio" é roteado por
+-- `resolveActiveLeadForContact` e pode não ter resposta única — mesma regra de
+-- `emitAgentActivityForContact`, que NÃO ADIVINHA. Mesmo desenho de `demandas`
+-- (migration 0136): reunião sem lead é desfecho legítimo, não pendência.
+--
+-- `owner_whatsapp_number` reaproveita o formato E.164 de
+-- `contacts.phone_number` (`contacts_phone_e164_format`) em vez de inventar uma
+-- segunda definição de "telefone válido" no mesmo banco.
+
+create table if not exists public.crm_meetings (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  contact_id uuid not null references public.contacts(id) on delete cascade,
+  lead_id uuid references public.crm_leads(id) on delete set null,
+
+  title text,
+  starts_at timestamptz not null,
+  ends_at timestamptz,
+  modality text not null default 'online'
+    check (modality in ('online', 'presencial', 'ligacao')),
+  meeting_link text,
+  location text,
+  notes text,
+  outcome_notes text,
+
+  status text not null default 'agendada'
+    check (status in ('agendada', 'realizada', 'cancelada', 'no_show')),
+  source text not null default 'manual' check (source in ('manual', 'agente')),
+
+  assigned_to uuid references auth.users(id) on delete set null,
+  created_by uuid references auth.users(id) on delete set null,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint crm_meetings_ends_after_starts check (ends_at is null or ends_at > starts_at)
+);
+
+create index if not exists idx_crm_meetings_org_starts
+  on public.crm_meetings (organization_id, starts_at);
+create index if not exists idx_crm_meetings_lead
+  on public.crm_meetings (organization_id, lead_id)
+  where lead_id is not null;
+create index if not exists idx_crm_meetings_contact
+  on public.crm_meetings (organization_id, contact_id);
+
+alter table public.crm_meetings enable row level security;
+
+-- Policy ALL só-tenancy substituída pelo par SELECT/write da migration 0168
+-- (abaixo, no fim do arquivo) — mantida como `drop` aqui só pra limpar quem
+-- rodou o baseline entre a 0167 e a 0168.
+drop policy if exists tenant_isolation_crm_meetings_all on public.crm_meetings;
+
+comment on table public.crm_meetings is
+  'Reunião marcada com o contato de um lead — manualmente (UI) ou pelo agente '
+  'de IA nativo durante a conversa. lead_id é best-effort (rota de roteamento '
+  'contato→negócio, mesma regra de crm_lead_activities); contact_id é sempre '
+  'preenchido.';
+
+alter table public.organizations
+  add column if not exists owner_whatsapp_number text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'organizations_owner_whatsapp_e164_format'
+  ) then
+    alter table public.organizations
+      add constraint organizations_owner_whatsapp_e164_format
+      check (owner_whatsapp_number is null or owner_whatsapp_number ~ '^\+\d{8,15}$');
+  end if;
+end $$;
+
+comment on column public.organizations.owner_whatsapp_number is
+  'E.164 (+5511999999999). Recebe aviso por WhatsApp quando uma reunião é '
+  'marcada (crm_meetings). Nulo = notificação desligada, sem erro.';
+
+notify pgrst, 'reload schema';
+
+-- ---- crm_meetings: policy ALL só-tenancy vira par SELECT/write com papel (migration 0168) ----
+--
+-- A 0167 (acima) copiou o padrão `tenant_isolation_<tabela>_all`, descontinuado
+-- pela 0150 exatamente pra isto: `tests/invariants/rbac-config-ia-canais.test.ts`
+-- reprova tabela NOVA com policy ALL sem `fn_role_at_least`. Mesmo par da 0150 —
+-- SELECT só-tenancy (todo membro lê) + escrita com papel — com piso 'agent': é
+-- o mesmo corte que `app/api/v1/meetings/route.ts` e `[id]/route.ts` já exigem
+-- pra POST/PATCH (`requireRole("agent", ...)` — viewer é read-only).
+drop policy if exists crm_meetings_tenant_select on public.crm_meetings;
+create policy crm_meetings_tenant_select on public.crm_meetings
+  for select using (organization_id in (select public.fn_user_org_ids()));
+
+drop policy if exists crm_meetings_tenant_write on public.crm_meetings;
+create policy crm_meetings_tenant_write on public.crm_meetings
+  for all using (
+    organization_id in (select public.fn_user_org_ids())
+      and public.fn_role_at_least(organization_id, 'agent')
+  ) with check (
+    organization_id in (select public.fn_user_org_ids())
+      and public.fn_role_at_least(organization_id, 'agent')
+  );
+
+notify pgrst, 'reload schema';

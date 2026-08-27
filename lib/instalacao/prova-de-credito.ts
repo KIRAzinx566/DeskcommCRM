@@ -21,6 +21,7 @@
 import { normalizarErro } from "@/lib/agent-engine/edge/llm/run-model-call";
 import {
   cabecalhosDeAtribuicaoOpenRouter,
+  NVIDIA_ENDPOINT,
   OPENROUTER_ENDPOINT,
 } from "@/lib/agent-engine/edge/llm/providers";
 
@@ -93,6 +94,14 @@ export function montarRequisicaoDeProva(
           contents: [{ parts: [{ text: "oi" }] }],
           generationConfig: { maxOutputTokens: 1 },
         },
+      };
+    // NVIDIA fala a API da OpenAI (mesmo motivo do caso openrouter acima) —
+    // mesmo endpoint de chat/completions, mesmos headers.
+    case "nvidia":
+      return {
+        url: `${baseUrl ?? NVIDIA_ENDPOINT}/chat/completions`,
+        headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+        body: { model: modelo, max_tokens: 1, messages: msg },
       };
     default:
       // Fail-closed: provedor que este módulo não sabe cobrar não recebe um

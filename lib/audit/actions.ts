@@ -321,6 +321,13 @@ export const AUDIT_ACTIONS = [
   "ai.budget_limit_changed",
   "ai.budget_enforcement_armed",
   "ai.budget_enforcement_disarmed",
+
+  // Agenda de reuniões (migration 0167) — mirror de `followup.scheduled`/
+  // `followup.cancelled`: a PROMESSA de um horário marcado, não o motor de
+  // fluxo. `meeting.updated` cobre reagendar/trocar status (realizada/no_show).
+  "meeting.scheduled",
+  "meeting.updated",
+  "meeting.cancelled",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

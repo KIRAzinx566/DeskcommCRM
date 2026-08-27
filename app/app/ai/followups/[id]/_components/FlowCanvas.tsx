@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -14,6 +15,9 @@ import {
   type EdgeMouseHandler,
   type NodeMouseHandler,
   type NodeTypes,
+  type OnBeforeDelete,
+  type OnNodesDelete,
+  type OnEdgesDelete,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -112,6 +116,58 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
   }, []);
+
+  // O nó de gatilho é o único ponto de entrada do fluxo — apagá-lo deixaria o
+  // grafo sem disparo, e não há como o publish detectar isso depois (o schema
+  // não exige exatamente um trigger, só que ele exista quando presente).
+  // `onBeforeDelete` veta tanto a tecla quanto qualquer outra via de deleção do
+  // React Flow; o botão explícito nos painéis abaixo já nem se oferece pra ele.
+  const onBeforeDelete = useCallback<OnBeforeDelete<RFNode, RFEdge>>(async ({ nodes: toDelete }) => {
+    if (toDelete.some((n) => n.type === "trigger")) {
+      toast.error("O nó de Início não pode ser apagado — é o disparo do fluxo.");
+      return false;
+    }
+    return true;
+  }, []);
+
+  // A tecla Delete/Backspace apaga por dentro do React Flow (via
+  // deleteKeyCode), sem passar pelos handlers de apagar abaixo — então o
+  // painel lateral do nó/aresta removido precisa fechar sozinho aqui.
+  const onNodesDelete = useCallback<OnNodesDelete<RFNode>>(
+    (deleted) => {
+      if (deleted.some((n) => n.id === selectedNodeId)) setSelectedNodeId(null);
+    },
+    [selectedNodeId],
+  );
+  const onEdgesDelete = useCallback<OnEdgesDelete<RFEdge>>(
+    (deleted) => {
+      if (deleted.some((e) => e.id === selectedEdgeId)) setSelectedEdgeId(null);
+    },
+    [selectedEdgeId],
+  );
+
+  // Caminho do botão "Apagar" nos painéis — mesma proteção do trigger que o
+  // atalho de teclado tem, pra quem nunca ia adivinhar a tecla.
+  const deleteNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (node?.type === "trigger") {
+        toast.error("O nó de Início não pode ser apagado — é o disparo do fluxo.");
+        return;
+      }
+      setNodes((nds) => nds.filter((n) => n.id !== id));
+      setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+      setSelectedNodeId(null);
+    },
+    [nodes, setNodes, setEdges],
+  );
+  const deleteEdge = useCallback(
+    (id: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== id));
+      setSelectedEdgeId(null);
+    },
+    [setEdges],
+  );
 
   const updateNodeData = useCallback(
     (id: string, patch: Partial<RFNodeData>) => {
@@ -258,6 +314,10 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
             onPaneClick={onPaneClick}
+            onBeforeDelete={onBeforeDelete}
+            onNodesDelete={onNodesDelete}
+            onEdgesDelete={onEdgesDelete}
+            deleteKeyCode={["Backspace", "Delete"]}
             fitView
           >
             <Background />
@@ -277,6 +337,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
               node={selectedNode}
               onChange={(patch) => updateNodeData(selectedNode.id, patch)}
               ramosLigados={ramosLigadosDoSelecionado}
+              onDelete={() => deleteNode(selectedNode.id)}
             />
           </aside>
         )}
@@ -292,6 +353,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
               targetNode={selectedEdgeTarget ? toFlowNode(selectedEdgeTarget) : undefined}
               condition={selectedEdge.data?.condition ?? { type: "always" }}
               onChange={(condition) => updateEdgeCondition(selectedEdge.id, condition)}
+              onDelete={() => deleteEdge(selectedEdge.id)}
             />
           </aside>
         )}

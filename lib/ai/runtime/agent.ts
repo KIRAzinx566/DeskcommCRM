@@ -31,6 +31,7 @@ import { generateText, stepCountIs, type LanguageModel, type StopCondition, type
 // Repetir a URL aqui criaria dois lugares para consertar quando ela mudar.
 import {
   cabecalhosDeAtribuicaoOpenRouter,
+  NVIDIA_ENDPOINT,
   OPENROUTER_ENDPOINT,
 } from "@/lib/agent-engine/edge/llm/providers";
 import { CredentialUnavailableError, loadCredential } from "@/lib/ai/credentials";
@@ -180,6 +181,10 @@ export function buildModel(provider: string, apiKey: string, modelId: string): L
         baseURL: OPENROUTER_ENDPOINT,
         headers: cabecalhosDeAtribuicaoOpenRouter(),
       })(modelId);
+    // Mesma razão do caso openrouter acima: sem este caso, o ensaio recusa um
+    // provedor que o registry de produção (createDefaultRegistry) já executa.
+    case "nvidia":
+      return createOpenAI({ apiKey, baseURL: NVIDIA_ENDPOINT })(modelId);
     default:
       throw new Error(`unsupported_provider: ${provider}`);
   }
