@@ -6,6 +6,7 @@ import * as React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentForm, type ChannelSessionLite } from "./AgentForm";
 import type { CoberturaPorFunil } from "./FunisDoAgente";
+import type { MaterialDoAcervo } from "./BasesDoAgente";
 import type { FunilDaResposta } from "@/hooks/pipelines/usePipelines";
 import { TestPanel } from "./TestPanel";
 import { RunsTable } from "./RunsTable";
@@ -20,9 +21,15 @@ interface Props {
   /** Funis da org, para a marcação de escopo do agente (spec 17 passo 3). */
   funis?: FunilDaResposta[];
   cobertura?: CoberturaPorFunil;
+  /** O acervo da organização, para a seção "o que ele consulta" (0181). */
+  materiais?: MaterialDoAcervo[];
   agent: AgentRow;
   draft: AgentVersionRow | null;
   published: AgentVersionRow | null;
+  /** De onde o formulário se hidrata — ver `lib/ai/agents/versoes-da-tela.ts`. */
+  base?: AgentVersionRow | null;
+  /** Rascunho anterior à publicada: existe, mas não abre nem publica. */
+  draftObsoleto?: AgentVersionRow | null;
   versions: AgentVersionRow[];
   credentials: CredentialRow[];
   /** Provedores cuja chave veio na instalação — ver `AgentForm`. */
@@ -61,11 +68,14 @@ export function AgentTabs(props: Props) {
           agent={props.agent}
           draft={props.draft}
           published={props.published}
+          base={props.base}
+          draftObsoleto={props.draftObsoleto}
           credentials={props.credentials}
           provedoresDaInstalacao={props.provedoresDaInstalacao}
           channelSessions={props.channelSessions}
           funis={props.funis}
           cobertura={props.cobertura}
+          materiais={props.materiais}
           routerMembership={props.routerMembership}
           readOnly={props.readOnly}
         />

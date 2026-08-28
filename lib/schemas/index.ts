@@ -15,4 +15,3 @@ export * from "./onboarding";
 export * from "./messaging";
 export * from "./routing";
 export * from "./webhooks";
-export * from "./meetings";

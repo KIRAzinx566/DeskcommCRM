@@ -78,7 +78,6 @@ export async function updateTenant(input: TenantInput): Promise<UpdateTenantResu
       media_retention_days: parsed.data.media_retention_days,
       dpo_email: parsed.data.dpo_email ?? null,
       privacy_policy_url: parsed.data.privacy_policy_url ?? null,
-      owner_whatsapp_number: parsed.data.owner_whatsapp_number ?? null,
       settings: nextSettings,
     })
     .eq("id", activeOrg.orgId);

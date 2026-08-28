@@ -26,6 +26,21 @@ export const ROLE_RANK: Record<Role, number> = {
   admin: 5,
 };
 
+/**
+ * Compara um role (possivelmente vindo solto de uma consulta, não tipado)
+ * contra um mínimo. NÃO é gate de rota — isso é `requireRole()`
+ * (`lib/auth/require-role.ts`), o único lugar que decide 403 e aplica o gate
+ * de MFA. Este helper existe para os usos legítimos que sobram depois de uma
+ * rota já ter passado por `requireRole()`: computar um campo informativo no
+ * payload (ex.: `podeEditar`) ou uma regra de escopo adicional sobre o MESMO
+ * role já resolvido (ex.: "autor OU manager+"). Em ambos a decisão de ACESSO
+ * À ROTA já foi tomada; isto só lê o rank — nunca decide 401/403 sozinho.
+ */
+export function roleAtLeast(role: string | null | undefined, min: Role): boolean {
+  const rank = role ? (ROLE_RANK[role as Role] ?? 0) : 0;
+  return rank >= ROLE_RANK[min];
+}
+
 /** Papéis que uma PESSOA pode ter. Espelha `user_organizations_role_check`. */
 export const PAPEIS_HUMANOS: ReadonlyArray<Role> = ["viewer", "agent", "manager", "admin"];
 
@@ -65,6 +80,23 @@ export interface AuthUser {
    * e trocar para espanhol meio segundo depois, em toda navegação.
    */
   locale?: string | null;
+  /**
+   * Fuso de APRESENTAÇÃO, de `user_metadata.timezone`.
+   *
+   * Vem aqui pelo mesmo motivo do `locale` acima: a grade da Agenda precisa
+   * dele no primeiro render, e buscá-lo depois desenharia o dia inteiro no
+   * fuso errado para corrigir meio segundo depois — com os compromissos
+   * pulando de posição na frente de quem está olhando.
+   *
+   * NÃO é o fuso da REGRA. Em que fuso as janelas de trabalho valem é
+   * `attendant_availability.schedule.timezone`, e são perguntas diferentes:
+   * quem está em Manaus vê a grade no horário de Manaus enquanto a jornada
+   * continua valendo no fuso em que foi configurada.
+   *
+   * Até esta linha o campo era escrito pela tela de perfil e lido por NINGUÉM —
+   * o anti-pattern "tela oferece o que o código ignora".
+   */
+  timezone?: string | null;
   organizations: UserOrgMembership[];
 }
 
