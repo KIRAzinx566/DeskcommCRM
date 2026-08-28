@@ -169,6 +169,15 @@ export function TestPanel({ agent, draft, published, readOnly }: Props) {
       const res = await apiClient.post<TestResponse>(
         `/api/v1/ai/agents/${agent.id}/versions/${target.id}/test`,
         body,
+        // Default do cliente é 10s (bom pra CRUD comum) — curto demais pra um
+        // turno de agente de verdade: chama o provedor de IA, pode rodar
+        // ferramentas, e um modelo "esquentando" na primeira chamada passa
+        // disso fácil. `/api/internal/agents/run*` já ganha timeout de proxy
+        // estendido a 320s pelo mesmo motivo (Caddyfile); aqui é o cliente que
+        // desistia sozinho — a requisição nunca chegava a errar de verdade, o
+        // navegador só cancelava aos 10s e a tela mostrava "Erro inesperado"
+        // sem nada a ver com o provedor.
+        { timeoutMs: 120_000 },
       );
       setResult(res.data);
       qc.invalidateQueries({ queryKey: agentRunsKey(agent.id) });
