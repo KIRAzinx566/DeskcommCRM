@@ -233,6 +233,19 @@ fi
 garantir_rede_do_proxy
 dc up -d
 
+# `up -d` decide recriar comparando o hash da config resolvida contra o hash
+# gravado no container — e essa comparação FALHOU ao vivo, medido numa VPS
+# real (Traefik, update em produção): as três imagens foram puxadas
+# corretamente e o `.env` foi reescrito com a versão nova, mas `app` e depois
+# `worker`+`scheduler` continuaram rodando a imagem ANTERIOR até um
+# `--force-recreate` manual. Silencioso e grave — a tela dizia "concluída" e
+# o worker (o processo que responde as conversas de verdade) seguia no
+# código velho, sem nenhum aviso. `--force-recreate` aqui não tem custo no
+# caminho normal: os três já iam reiniciar numa atualização de qualquer jeito
+# (é o propósito dela); o que muda é deixar de depender de o Compose acertar
+# essa comparação sozinho.
+dc up -d --force-recreate app worker scheduler
+
 # O Caddyfile entra no container por bind mount de UM ARQUIVO, e bind mount de
 # arquivo fica preso ao inode. O `git pull` não edita o arquivo: escreve outro e
 # renomeia, gerando inode novo — o container continua lendo o antigo, para
