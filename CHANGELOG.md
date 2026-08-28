@@ -8,6 +8,17 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.10.2] — 2026-08-28
+
+### Corrigido
+
+- **Erro num classificador auxiliar não silencia mais o agente no WhatsApp** Dois classificadores auxiliares do turno (estágio do funil e anti-jailbreak)
+  são documentados como "não bloqueiam a conversa", mas uma falha de provedor
+  neles (ex.: limite de uso, fora do ar) derrubava o turno inteiro ANTES de a
+  resposta principal ser tentada — o cliente mandava mensagem no WhatsApp e não
+  recebia resposta nenhuma, nem da IA nem de um humano. Agora os dois degradam
+  sem sugestão/sinal e o turno segue normalmente, exatamente como já prometiam.
+
 ## [1.10.1] — 2026-08-28
 
 ### Corrigido
@@ -1381,7 +1392,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.1...HEAD
+[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.2...HEAD
+[1.10.2]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.8.0...v1.9.0
