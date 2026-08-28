@@ -24,7 +24,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "../archived";
-import { phoneLookupVariants } from "../phone-variants";
+import { aplicarEfeitosPosEntrada } from "../pos-entrada";
+import { canonicalPhoneBR, phoneLookupVariants } from "../phone-variants";
 import type { ChannelTenantScope } from "../types";
 import type { InboundMessageEvent } from "./webhook";
 
@@ -86,8 +87,7 @@ async function sessionByPhoneNumberId(
 
 /**
  * Contato já existente sob QUALQUER variante do número. Só depois de não achar é que
- * deixamos o upsert criar — assim o cadastro nasce uma vez só, e o número gravado
- * continua sendo o que já estava lá (não sobrescrevemos o formato de ninguém).
+ * deixamos o upsert criar — assim o cadastro nasce uma vez só.
  */
 async function findContactByVariants(
   admin: Admin,
@@ -109,6 +109,7 @@ async function findContactByVariants(
 /** Prévia curta para a lista de conversas. Mídia vira rótulo, nunca URL. */
 function previewOf(e: InboundMessageEvent): string {
   if (e.type === "text") return (e.text ?? "").slice(0, 120);
+  if (e.type === "contact") return e.sharedContact?.name ? `👤 ${e.sharedContact.name}` : "[contato]";
   if (e.type === "audio") return e.media?.voice ? "🎤 Mensagem de voz" : "🎵 Áudio";
   if (e.type === "image") return "📷 Imagem";
   if (e.type === "video") return "🎬 Vídeo";
@@ -136,9 +137,11 @@ export async function ingestMetaInbound(
   const orgId = sessao.organization_id;
 
   const existente = await findContactByVariants(admin, orgId, e.from);
-  // O upsert recebe o número JÁ EXISTENTE quando há um — é o que impede o contato de
-  // ser recriado sob a outra grafia do nono dígito.
-  const phone = existente?.phone_number ?? `+${e.from.replace(/\D/g, "")}`;
+  // Celular BR grava COM o nono. A busca acima já reencontra a grafia sem o 9;
+  // a RPC promove o cadastro antigo quando ainda está nos 12 dígitos.
+  const phone = existente?.phone_number
+    ? canonicalPhoneBR(existente.phone_number)
+    : canonicalPhoneBR(`+${e.from.replace(/\D/g, "")}`);
 
   const { data: contactId, error: erroContato } = await admin.rpc(
     "fn_upsert_wa_contact" as never,
@@ -174,12 +177,16 @@ export async function ingestMetaInbound(
       contact_id: contactId as string,
       direction: "inbound",
       status: "delivered",
+      // A Meta manda `contacts` (plural); o CHECK do banco espera `contact`.
       type: e.type === "text" ? "text" : e.type,
-      body: e.text,
+      body: e.type === "contact" ? (e.sharedContact?.name ?? e.text) : e.text,
       external_id: e.externalId,
       media_mime: e.media?.mime ?? null,
       sent_at: e.sentAt.toISOString(),
-      metadata: e.media ? { meta_media_id: e.media.id, voice: e.media.voice } : {},
+      metadata: {
+        ...(e.media ? { meta_media_id: e.media.id, voice: e.media.voice } : {}),
+        ...(e.sharedContact ? { shared_contact: e.sharedContact } : {}),
+      },
     })
     .select("id")
     .maybeSingle();
@@ -201,9 +208,21 @@ export async function ingestMetaInbound(
     p_at: e.sentAt.toISOString(),
   } as never);
 
+  const messageId = (inserida as { id: string } | null)?.id ?? "";
+  await aplicarEfeitosPosEntrada(admin, {
+    organizationId: orgId,
+    contactId: contactId as string,
+    conversationId: conversationId as string,
+    messageId: messageId || null,
+    channelSessionId: sessao.id,
+    texto: e.text ?? null,
+    nomeDoContato: e.profileName ?? null,
+    origem: "meta_webhook",
+  });
+
   return {
     status: "ingested",
-    messageId: (inserida as { id: string } | null)?.id ?? "",
+    messageId,
     conversationId: conversationId as string,
   };
 }

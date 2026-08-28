@@ -86,43 +86,6 @@ describe("tenantSchema", () => {
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.lost_reasons_extra).toEqual([]);
   });
-
-  it("accepts a valid E.164 owner_whatsapp_number", () => {
-    const r = tenantSchema.safeParse({
-      display_name: "Acme",
-      legal_name: "Acme",
-      timezone: "UTC",
-      locale: "pt-BR",
-      media_retention_days: 90,
-      owner_whatsapp_number: "+5511999999999",
-    });
-    expect(r.success).toBe(true);
-  });
-
-  it("rejects owner_whatsapp_number without a leading +", () => {
-    const r = tenantSchema.safeParse({
-      display_name: "Acme",
-      legal_name: "Acme",
-      timezone: "UTC",
-      locale: "pt-BR",
-      media_retention_days: 90,
-      owner_whatsapp_number: "5511999999999",
-    });
-    expect(r.success).toBe(false);
-  });
-
-  it("coerces an empty owner_whatsapp_number to null", () => {
-    const r = tenantSchema.safeParse({
-      display_name: "Acme",
-      legal_name: "Acme",
-      timezone: "UTC",
-      locale: "pt-BR",
-      media_retention_days: 90,
-      owner_whatsapp_number: "",
-    });
-    expect(r.success).toBe(true);
-    if (r.success) expect(r.data.owner_whatsapp_number).toBeNull();
-  });
 });
 
 describe("notificationPrefsSchema", () => {

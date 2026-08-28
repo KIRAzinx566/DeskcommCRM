@@ -63,6 +63,14 @@ export interface RecipientInput {
   waLid?: string | null | undefined;
 }
 
+/** Contato compartilhado (vcard) — só `kind: "contact"`. */
+export interface OutboundContact {
+  fullName: string;
+  phoneNumber: string;
+  whatsappId: string;
+  vcard: string;
+}
+
 /**
  * A organização em nome de quem a operação de canal acontece.
  *
@@ -94,6 +102,8 @@ export interface OutboundEnvelope extends ChannelTenantScope {
   kind: OutboundKind;
   body?: string;
   media?: OutboundMedia;
+  /** Cartão de contato — preenchido quando `kind === "contact"`. */
+  contact?: OutboundContact;
   /**
    * Id que o PROVIDER dá a esta thread, quando ele endereça por thread própria
    * em vez de por telefone (`conversations.provider_conversation_id`).
@@ -113,6 +123,20 @@ export interface OutboundEnvelope extends ChannelTenantScope {
    * fazer (tipicamente, abrir a conversa com template).
    */
   providerConversationId?: string | null;
+  /**
+   * A mensagem que ESTA responde, pelo id que o PROVIDER conhece.
+   *
+   * É o `external_id` da linha citada (para WhatsApp, o `wamid`) — não o `id`
+   * da nossa tabela, que o provider nunca viu. Quem monta o envelope resolve
+   * essa tradução; o adapter só repassa.
+   *
+   * OPCIONAL, e canal que não sabe citar simplesmente ignora: a citação é
+   * enfeite da conversa, nunca condição de envio. Um canal recusar a mensagem
+   * inteira porque não sabe citar seria trocar a mensagem pelo enfeite.
+   *
+   * `undefined` = envio solto, que é o caso comum.
+   */
+  replyToExternalId?: string | null;
 }
 
 /**

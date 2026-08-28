@@ -43,6 +43,8 @@ interface Props {
   stages: Stage[];
   /** Vincula o lead criado a este contato de origem (ex.: painel do Inbox). */
   contactId?: string | null;
+  /** Depois do INSERT — o inbox relê o resumo para o lead novo aparecer no formulário. */
+  onCreated?: () => void;
 }
 
 function defaultStageId(stages: Stage[]): string {
@@ -50,7 +52,14 @@ function defaultStageId(stages: Stage[]): string {
   return open?.id ?? stages[0]?.id ?? "";
 }
 
-export function NewLeadDialog({ open, onOpenChange, pipelineId, stages, contactId }: Props) {
+export function NewLeadDialog({
+  open,
+  onOpenChange,
+  pipelineId,
+  stages,
+  contactId,
+  onCreated,
+}: Props) {
   const create = useCreateLead(pipelineId);
   const initialStage = useMemo(() => defaultStageId(stages), [stages]);
 
@@ -111,6 +120,7 @@ export function NewLeadDialog({ open, onOpenChange, pipelineId, stages, contactI
     try {
       await create.mutateAsync(parsed.data as CreateLeadInput);
       toast.success("Lead criado");
+      onCreated?.();
       form.reset({
         title: "",
         description: "",
@@ -133,7 +143,7 @@ export function NewLeadDialog({ open, onOpenChange, pipelineId, stages, contactI
         <DialogHeader>
           <DialogTitle>Novo Lead</DialogTitle>
           <DialogDescription>
-            Crie um lead manualmente neste pipeline.
+            Crie um lead manualmente neste funil.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

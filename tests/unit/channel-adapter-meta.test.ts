@@ -184,6 +184,32 @@ describe("adapter meta_cloud — envio", () => {
     ).rejects.toThrow(/131009.*formato inválido/);
   });
 
+  it("contato vai como type:contacts com formatted_name e wa_id", async () => {
+    configurar();
+    const spy = stubFetch({ messages: [{ id: "wamid.C" }] });
+    const r = await a().send({
+      organizationId: "org-1",
+      sessionRef: "ignorado",
+      to: "5531998966398",
+      kind: "contact",
+      contact: {
+        fullName: "Maria Silva",
+        phoneNumber: "+5511999887766",
+        whatsappId: "5511999887766",
+        vcard: "BEGIN:VCARD…",
+      },
+    });
+
+    expect(r).toEqual({ externalId: "wamid.C" });
+    const corpo = JSON.parse(spy.mock.calls[0]![1].body as string) as {
+      type: string;
+      contacts: Array<{ name: { formatted_name: string }; phones: Array<{ wa_id: string }> }>;
+    };
+    expect(corpo.type).toBe("contacts");
+    expect(corpo.contacts[0]?.name.formatted_name).toBe("Maria Silva");
+    expect(corpo.contacts[0]?.phones[0]?.wa_id).toBe("5511999887766");
+  });
+
   it("resposta sem id devolve externalId null, sem estourar", async () => {
     configurar();
     stubFetch({ messages: [] });

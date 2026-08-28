@@ -9,11 +9,13 @@ import type { AgentVersionRow } from "@/hooks/ai/useAgentVersions";
 import type { CredentialRow } from "@/hooks/ai/useCredentials";
 
 import { AgentEditorClient } from "./_client";
+import type { MaterialDoAcervo } from "./_components/BasesDoAgente";
 import { AgentTabs } from "./_components/AgentTabs";
 import type { FunilDaResposta } from "@/hooks/pipelines/usePipelines";
 import { coberturaDoFunil, type EtapaDoMapa } from "@/lib/leads/agent-mapping";
 import type { CoberturaPorFunil } from "./_components/FunisDoAgente";
 import { lerAmbiente } from "@/lib/instalacao/ambiente";
+import { escolherVersoesDaTela } from "@/lib/ai/agents/versoes-da-tela";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,7 @@ const AGENT_COLUMNS =
   "id, organization_id, name, description, model, system_prompt, is_active, is_default, kind, priority, published_version_id, archived_at, config, guardrails, active_kb_version_id, created_at, updated_at";
 
 const VERSION_COLUMNS =
-  "id, organization_id, agent_id, version_number, system_prompt, provider, model, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids";
+  "id, organization_id, agent_id, version_number, system_prompt, provider, model, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
 
 const CREDENTIAL_COLUMNS =
   "id, organization_id, provider, label, api_key_last4, validated_at, validation_error, models_available, is_active, created_by, created_at, updated_at";
@@ -78,7 +80,8 @@ export default async function AgentEditorPage({
   }
 
   // mcp_agent: busca versions + lookups.
-  const [versionsRes, credentialsRes, channelSessions, routerMemberRes, funisRes] = await Promise.all([
+  const [versionsRes, credentialsRes, channelSessions, routerMemberRes, funisRes, acervoRes] =
+    await Promise.all([
     supabase
       .from("ai_agent_versions")
       .select(VERSION_COLUMNS)
@@ -106,10 +109,20 @@ export default async function AgentEditorPage({
       .eq("organization_id", activeOrg.orgId)
       .eq("is_archived", false)
       .order("position"),
+    // O acervo vem com a página pelo mesmo motivo dos funis: a seção usa
+    // "nenhum material" para dizer algo importante, e uma lista que chega vazia
+    // no primeiro render diria isso por engano.
+    supabase
+      .from("ai_knowledge_sources")
+      .select("id, name, source_type, chunks_count, last_index_status")
+      .eq("organization_id", activeOrg.orgId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
   ]);
 
   const versions = (versionsRes.data ?? []) as unknown as AgentVersionRow[];
   const funis = (funisRes.data ?? []) as unknown as FunilDaResposta[];
+  const materiais = (acervoRes.data ?? []) as unknown as MaterialDoAcervo[];
 
   // Quanto de cada funil o assistente sabe percorrer (spec 17 passo 4). Vem
   // junto com a página porque a lacuna precisa aparecer no MESMO lugar em que o
@@ -135,14 +148,12 @@ export default async function AgentEditorPage({
     ? { routerId: routerMemberRow.router_id, routerName: routerMemberRow.ai_routers?.name ?? "roteador" }
     : null;
 
-  const draft =
-    versions
-      .filter((v) => v.status === "draft")
-      .reduce<AgentVersionRow | null>(
-        (a, b) => (a && a.version_number > b.version_number ? a : b),
-        null,
-      );
-  const published = versions.find((v) => v.status === "published") ?? null;
+  // A regra mora em `lib/ai/agents/versoes-da-tela.ts` (pura e testada): rascunho
+  // VIGENTE > publicada > última versão que existiu. Antes, o rascunho vencia
+  // sempre — inclusive quando era mais antigo que a publicada — e um agente
+  // pausado (sem rascunho e sem publicada) abria no texto padrão, que é como o
+  // prompt "sumia".
+  const { draft, published, base, draftObsoleto } = escolherVersoesDaTela(versions, agent.published_version_id ?? null);
 
   return (
     <div className="flex h-full flex-col gap-6 p-6">
@@ -150,12 +161,15 @@ export default async function AgentEditorPage({
         agent={agent}
         draft={draft}
         published={published}
+        base={base}
+        draftObsoleto={draftObsoleto}
         versions={versions}
         credentials={credentials}
         provedoresDaInstalacao={provedoresDaInstalacao()}
         channelSessions={channelSessions}
         funis={funis}
         cobertura={cobertura}
+        materiais={materiais}
         routerMembership={routerMembership}
         readOnly={readOnly}
       />

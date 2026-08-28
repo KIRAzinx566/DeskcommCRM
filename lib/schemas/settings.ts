@@ -90,18 +90,6 @@ export const tenantSchema = z.object({
     .optional()
     .or(z.literal("").transform(() => null)),
   lost_reasons_extra: z.array(z.string().min(1).max(80)).max(50).default([]),
-  /**
-   * Recebe aviso por WhatsApp quando uma reunião é marcada (migration 0167).
-   * Mesmo formato E.164 de `contacts.phone_number` (constraint
-   * `contacts_phone_e164_format`) — uma segunda definição de "telefone
-   * válido" no mesmo banco seria a inconsistência que essa doutrina evita.
-   */
-  owner_whatsapp_number: z
-    .string()
-    .regex(/^\+\d{8,15}$/, "Use o formato internacional, ex: +5511999999999.")
-    .nullable()
-    .optional()
-    .or(z.literal("").transform(() => null)),
 });
 export type TenantInput = z.infer<typeof tenantSchema>;
 
@@ -146,7 +134,7 @@ export const notificationPrefsSchema = z.object({
 });
 export type NotificationPrefsInput = z.infer<typeof notificationPrefsSchema>;
 
-const customFieldSchema = z.object({
+export const customFieldSchema = z.object({
   key: z
     .string()
     .min(1)
@@ -170,6 +158,7 @@ const customFieldSchema = z.object({
     .array(z.object({ value: z.string().min(1), label: z.string().min(1) }))
     .optional(),
 });
+export type CustomFieldDef = z.infer<typeof customFieldSchema>;
 
 export const pipelineConfigPatchSchema = z.object({
   vocabulary: z

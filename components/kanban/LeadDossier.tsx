@@ -1,9 +1,7 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { CalendarBlank } from "@/lib/ui/icons";
 import { useLeadTimeline } from "@/hooks/leads/useLeadTimeline";
 import type { Lead } from "@/lib/types/leads";
 import { ConversaNoDossie } from "./ConversaNoDossie";
@@ -11,14 +9,15 @@ import { LeadFieldsForm } from "./LeadFieldsForm";
 import { ScoreSlot } from "./ScoreSlot";
 import { LeadTimeline } from "./LeadTimeline";
 import { OwnerBadge } from "./OwnerBadge";
-import { NewMeetingDialog } from "./NewMeetingDialog";
 import { resolveLeadOwner } from "@/lib/kanban/owner";
+import type { CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   lead: Lead;
   pipelineId: string;
+  fieldDefs?: CustomFieldDef[];
   stageName: string;
   ownerNames?: Map<string, string | null>;
 }
@@ -54,11 +53,11 @@ export function LeadDossier({
   onOpenChange,
   lead,
   pipelineId,
+  fieldDefs = [],
   stageName,
   ownerNames,
 }: Props) {
   const campos = useRef<HTMLDivElement | null>(null);
-  const [marcandoReuniao, setMarcandoReuniao] = useState(false);
   const timeline = useLeadTimeline(open ? lead.id : null, lead.contact_id);
   const owner = resolveLeadOwner(lead, ownerNames);
   const score = lead.score ?? null;
@@ -106,27 +105,14 @@ export function LeadDossier({
             />
           )}
 
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="ml-auto gap-1.5"
-            onClick={() => setMarcandoReuniao(true)}
-          >
-            <CalendarBlank aria-hidden />
-            Marcar reunião
-          </Button>
-
           <button
             type="button"
             onClick={() => campos.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="text-text-muted underline-offset-2 hover:text-text hover:underline"
+            className="ml-auto text-text-muted underline-offset-2 hover:text-text hover:underline"
           >
             Editar campos
           </button>
         </div>
-
-        <NewMeetingDialog open={marcandoReuniao} onOpenChange={setMarcandoReuniao} leadId={lead.id} />
 
         {/* O score NÃO aparece na timeline: recálculo é telemetria e não emite
             atividade (silêncio para telemetria, pulso para mudança de estado).
@@ -158,7 +144,7 @@ export function LeadDossier({
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
             Dados do negócio
           </h3>
-          <LeadFieldsForm lead={lead} pipelineId={pipelineId} />
+          <LeadFieldsForm lead={lead} pipelineId={pipelineId} fieldDefs={fieldDefs} />
         </div>
       </SheetContent>
     </Sheet>
