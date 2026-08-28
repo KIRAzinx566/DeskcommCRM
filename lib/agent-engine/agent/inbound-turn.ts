@@ -2501,19 +2501,41 @@ async function executarTurnoDoAgente(
   let stageSuggestion: LeadStage | null = null;
   let stageHintBlock = '';
   if (deps.knobs.stageClassifier !== undefined) {
-    stageSuggestion = await classifyStage(
-      pool,
-      deps.llmCfg,
-      { tenantId, leadId, jobId: job.id },
-      {
-        context: effectiveContext,
-        currentStage,
-        ...argsAux(deps.knobs.stageClassifier.model),
-      },
-      { registry: deps.registry, log: runLog },
-    );
-    if (stageSuggestion !== null) {
-      stageHintBlock = renderStageHint(stageSuggestion, currentStage);
+    try {
+      stageSuggestion = await classifyStage(
+        pool,
+        deps.llmCfg,
+        { tenantId, leadId, jobId: job.id },
+        {
+          context: effectiveContext,
+          currentStage,
+          ...argsAux(deps.knobs.stageClassifier.model),
+        },
+        { registry: deps.registry, log: runLog },
+      );
+      if (stageSuggestion !== null) {
+        stageHintBlock = renderStageHint(stageSuggestion, currentStage);
+      }
+    } catch (err) {
+      // AUXILIAR DE VERDADE, e não um segundo caminho que trava o turno: o
+      // docblock deste classificador promete "degrada sem sugestão; o turno
+      // segue normal" — mas sem este try/catch, um 429/500/timeout do provedor
+      // (não só "texto sem estágio reconhecível") subia sem tratamento e
+      // derrubava o turno INTEIRO antes de a resposta principal ser tentada.
+      // Medido ao vivo: NVIDIA rate-limitada no stage_classifier, e o lead
+      // nunca recebia resposta nenhuma no WhatsApp — silêncio total, sem
+      // handoff, porque `comHandoffSeOrcamentoAcabar` só resgata
+      // LlmBudgetExceededError.
+      //
+      // `LlmBudgetExceededError` é a ÚNICA exceção que RELANÇA: ela precisa
+      // subir até a escolta do turno, que já sabe tratá-la (handoff humano).
+      // Degradar ela aqui a esconderia da escolta, e o teto estourado voltaria
+      // a virar silêncio para o lead — exatamente o defeito que a escolta
+      // existe para fechar.
+      if (err instanceof LlmBudgetExceededError) throw err;
+      runLog.warn('stage-classifier: chamada falhou — turno segue sem hint de estágio', {
+        error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
+      });
     }
   }
 
@@ -2523,24 +2545,36 @@ async function executarTurnoDoAgente(
   // (a mensagem/reason nunca vão a log). A correlação com promessa fora de tabela escala no fim.
   let jailbreakLevel: JailbreakLevel = 'none';
   if (camadaLigada(camadas.jailbreak, deps.knobs.jailbreak !== undefined)) {
-    const verdict = await classifyJailbreak(
-      pool,
-      deps.llmCfg,
-      { tenantId, leadId, jobId: job.id },
-      {
-        message: skillSignal,
-        // Knob ausente + organização ligando = roda com o modelo padrão dela,
-        // que é a convenção já usada pelo stageClassifier.
-        ...argsAux(deps.knobs.jailbreak?.model),
-      },
-      { registry: deps.registry, log: runLog },
-    );
-    jailbreakLevel = verdict.level;
-    if (verdict.flag) {
-      // trace do turno: só flag/level (não PII) — a mensagem e o reason nunca são logados.
-      runLog.warn('jailbreak: sinal detectado na mensagem do lead', {
-        jailbreak_flag: true,
-        jailbreak_level: verdict.level,
+    try {
+      const verdict = await classifyJailbreak(
+        pool,
+        deps.llmCfg,
+        { tenantId, leadId, jobId: job.id },
+        {
+          message: skillSignal,
+          // Knob ausente + organização ligando = roda com o modelo padrão dela,
+          // que é a convenção já usada pelo stageClassifier.
+          ...argsAux(deps.knobs.jailbreak?.model),
+        },
+        { registry: deps.registry, log: runLog },
+      );
+      jailbreakLevel = verdict.level;
+      if (verdict.flag) {
+        // trace do turno: só flag/level (não PII) — a mensagem e o reason nunca são logados.
+        runLog.warn('jailbreak: sinal detectado na mensagem do lead', {
+          jailbreak_flag: true,
+          jailbreak_level: verdict.level,
+        });
+      }
+    } catch (err) {
+      // MESMO DEFEITO do stage-classifier acima, mesmo conserto: "NÃO veta o
+      // inbound" era a promessa do comentário e não a implementação — um
+      // 429/500 do provedor derrubava o turno inteiro antes da resposta
+      // principal. `jailbreakLevel` já nasceu 'none' acima; aqui só preserva
+      // esse default em vez de deixar a exceção subir.
+      if (err instanceof LlmBudgetExceededError) throw err;
+      runLog.warn('jailbreak: chamada falhou — turno segue sem sinal (nível "none")', {
+        error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
       });
     }
   }
