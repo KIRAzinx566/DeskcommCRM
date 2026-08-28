@@ -15,7 +15,7 @@
  * cacheWriteTokens}. Validado no ai@7 via scripts/smoke-llm.sh (modelo real) —
  * upgrade de major re-valida esses paths pelo mesmo gate (regra dura 16).
  */
-import { generateText, stepCountIs, type ModelMessage, type ToolSet } from 'ai';
+import { generateText, RetryError, stepCountIs, type ModelMessage, type ToolSet } from 'ai';
 import type pg from 'pg';
 import { z } from 'zod';
 
@@ -417,6 +417,17 @@ export async function runModelCall(db: pg.Pool, cfg: LlmEdgeConfig, input: RunMo
       topP,
       topK,
       maxOutputTokens,
+      // `maxRetries` do SDK, sem isto: 2 (3 tentativas, backoff 2s/4s — some
+      // 6s e desiste). O tier gratuito da NVIDIA aceita só 40 requisições por
+      // minuto POR MODELO — medido ao vivo: rajada de mensagens estourando
+      // isso vira 429 repetido, e 6s não é o bastante pra janela de um minuto
+      // resetar. Com 5, o backoff exponencial soma ~62s (2+4+8+16+32) antes de
+      // desistir de vez — dentro da folga que já existe no pipeline (job de
+      // fila só é reaper depois de QUEUE_VISIBILITY_TIMEOUT_MS, 10min por
+      // padrão). Providers com teto folgado (Anthropic/OpenAI/Google) quase
+      // nunca gastam mais que a 1ª tentativa; o custo extra é só para quem
+      // realmente precisa esperar a janela de rate limit passar.
+      maxRetries: 5,
     });
   } catch (err) {
     // ─── A LINHA QUE FALTAVA ────────────────────────────────────────────────
@@ -546,27 +557,43 @@ export function normalizarErro(err: unknown): {
   error_message: string;
   http_status: number | null;
 } {
-  const bruto = err instanceof Error ? err.message : String(err);
-  const status =
-    (err as { statusCode?: number; status?: number })?.statusCode ??
-    (err as { statusCode?: number; status?: number })?.status ??
-    null;
-
   // O único erro deste seam que NÃO vem do provedor: a recusa é NOSSA, e é
   // deliberada. Casada pela CLASSE e não por regex, porque aqui não há três
   // grafias de fornecedor para reconciliar — há um objeto que nós mesmos
   // construímos. Sem este ramo a tela de Execuções mostraria "Não conseguimos
   // classificar esta falha" no caso mais bem explicado do produto.
   if (err instanceof LlmBudgetExceededError) {
-    return { error_code: 'orcamento_esgotado', error_message: redigirMensagemDoProvedor(bruto), http_status: null };
+    const brutoOrcamento = err instanceof Error ? err.message : String(err);
+    return {
+      error_code: 'orcamento_esgotado',
+      error_message: redigirMensagemDoProvedor(brutoOrcamento),
+      http_status: null,
+    };
   }
+
+  // `generateText` embrulha toda tentativa esgotada num `RetryError` cuja
+  // `.message` é genérica ("Failed after N attempts. Last error: …") — SEM o
+  // `statusCode` do provedor. O erro de verdade, com o status, é o último de
+  // `.errors` (`.lastError`). Sem este desembrulho, todo 429/404/500 que
+  // sobrevive a `maxRetries` cai em `erro_desconhecido` na tela de Execuções —
+  // medido ao vivo: NVIDIA 429 ("Too Many Requests") virando "não conseguimos
+  // classificar esta falha" em vez de `limite_ou_saldo`.
+  const erroReal = RetryError.isInstance(err) ? err.lastError : err;
+  const bruto = erroReal instanceof Error ? erroReal.message : String(erroReal);
+  const status =
+    (erroReal as { statusCode?: number; status?: number })?.statusCode ??
+    (erroReal as { statusCode?: number; status?: number })?.status ??
+    null;
 
   let codigo = 'erro_desconhecido';
   if (status === 401 || status === 403 || /unauthor|invalid.*api.?key|authentication|incorrect api key/i.test(bruto)) {
     codigo = 'credencial_recusada';
   } else if (status === 404 || /model.*not.*found|does not exist/i.test(bruto)) {
     codigo = 'modelo_inexistente';
-  } else if (status === 429 || /rate.?limit|quota|insufficient.*credit/i.test(bruto)) {
+  } else if (
+    status === 429 ||
+    /rate.?limit|quota|insufficient.*credit|too many requests/i.test(bruto)
+  ) {
     codigo = 'limite_ou_saldo';
   } else if ((status !== null && status >= 500) || /timeout|ECONNREFUSED|fetch failed|network/i.test(bruto)) {
     codigo = 'provedor_indisponivel';
