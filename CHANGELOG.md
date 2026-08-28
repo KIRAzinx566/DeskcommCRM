@@ -8,6 +8,113 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.10.0] — 2026-08-28
+
+### Adicionado
+
+- **Delete/Backspace apagam nó ou aresta no editor de follow-up** O editor visual de fluxos de follow-up não tinha como remover um nó ou uma
+  aresta a não ser recomeçando o fluxo. Agora Delete/Backspace apagam o que está
+  selecionado no canvas, e os painéis laterais ganharam um botão explícito de
+  apagar para quem não ia adivinhar a tecla. O nó de Início continua protegido —
+  é o disparo do fluxo, e sem ele o publish não teria como avisar ninguém.
+
+- **Agentes com modelo NVIDIA passam a usar ferramentas** O painel de agentes mostrava "Sem ferramentas" para todo modelo NVIDIA, mesmo
+  os que suportam de verdade — a API de catálogo da NVIDIA não informa essa
+  capacidade por modelo, e o catálogo assumia que nenhum suportava. Agora uma
+  lista de modelos com suporte confirmado libera o tool calling para eles.
+
+### Corrigido
+
+- **O Google Agenda conectado passa a aparecer como conectado** Quem conectava o Google Agenda continuava vendo o botão "Conectar Google" na
+  tela, como se nada tivesse acontecido — e ao clicar em desconectar recebia um
+  erro dizendo que não havia agenda conectada. Os compromissos marcados no CRM
+  também nunca chegavam ao Google Agenda, em silêncio.
+
+  A conexão sempre foi gravada corretamente; o que estava errado era o nome pelo
+  qual três partes do sistema a procuravam, e por isso nenhuma delas a encontrava.
+  Agora a tela mostra a conta conectada, desconectar funciona, e os compromissos
+  sobem para o Google na primeira rodada seguinte. Quem já conectou não precisa
+  reconectar: a conexão está lá e passa a ser vista.
+
+- **A lista de horários volta a rolar ao marcar um compromisso** Ao escolher o dia, os últimos horários ficavam abaixo da borda da tela sem
+  nenhuma forma de alcançá-los — nem rolando a página, nem a própria lista. Quem
+  precisava de um horário do fim da tarde não conseguia marcar. Agora a lista rola
+  sozinha, com o calendário e os dados do atendimento parados ao lado, e em telas
+  menores o painel inteiro rola.
+
+- **As verificações automáticas do projeto voltaram a caber no tempo** Isto é do nosso processo de desenvolvimento, não do sistema que você usa: a
+  bateria de testes que roda antes de cada mudança tinha crescido a ponto de
+  estourar o tempo limite e ser cancelada no meio. Ela passou a rodar em duas
+  frentes ao mesmo tempo, o que a devolveu para dentro do limite com folga. Para
+  quem opera uma VPS nada muda — só a chance de uma correção demorar mais a sair
+  porque a verificação foi cancelada por tempo.
+
+- **O kit de instalação volta a apontar para o registro de imagens certo** O namespace do registro de imagens estava fixo no código do kit de instalação,
+  então toda atualização recalculava as três imagens a partir dele e sobrescrevia
+  qualquer correção manual no `.env` — o `.env` nunca foi a fonte da verdade.
+  Agora o kit aponta para o registro correto.
+
+- **A marca da instalação não pisca mais logo depois de carregar** Um provedor de contexto de marca (usado fora do resolvedor de servidor) caía
+  para o padrão do produto por um instante antes de aplicar a marca real —
+  divergência entre o que o servidor desenha e o que o navegador desenha por
+  cima, visível como um piscar do logo/cor na primeira tela. Agora ele usa o
+  mesmo padrão de resolução única já aplicado no restante do sistema.
+
+- **Agentes com OpenRouter ou NVIDIA voltam a responder** Testar um agente configurado com OpenRouter ou NVIDIA sempre falhava com
+  "Not Found", e o mesmo acontecia em produção. Desde a versão 4 do SDK de IA
+  usado aqui, chamar o provedor OpenAI diretamente passou a usar por padrão a
+  API nova da OpenAI (`/responses`) — que a api.openai.com real também fala,
+  então ninguém notou ali, mas OpenRouter e NVIDIA só falam a API antiga
+  (`/chat/completions`). Agora as duas explicitam a API antiga.
+
+- **Os interruptores do painel de segurança do agente passam a ligar** Dois interruptores de guardrail no painel de segurança do agente não
+  respondiam ao clique — nem para quem era admin. A tela mandava o NOME do gate
+  para a API, que esperava a CHAVE da camada; a chamada era recusada em
+  silêncio e o interruptor voltava sozinho para a posição anterior. Agora manda
+  a chave certa.
+
+- **Áreas de administração passam a exigir a verificação em duas etapas** Quatorze telas e ações de administração conferiam apenas o papel de quem
+  acessava, sem cobrar a verificação em duas etapas de quem a tem ativada. Entre
+  elas estavam as que conectam o número oficial do WhatsApp, as que trocam a
+  credencial do provedor de inteligência artificial e as que alteram os limites de
+  segurança do agente — justamente as que mais importam.
+
+  Quem já usa o sistema não precisa fazer nada, e quem não ativou a verificação
+  continua entrando como antes. A mudança é que, para quem a tem ativada, ela
+  passa a valer também nesses lugares.
+
+- **Testar um agente não corta mais a resposta antes da hora** O botão "Testar" do agente sempre dava como falha um teste que ainda estava
+  em andamento: o cliente tinha um teto de 10 segundos para a chamada inteira,
+  mas uma resposta real de IA pode levar mais que isso. Agora o teste do agente
+  usa um teto próprio de 120 segundos.
+
+- **Trocar para uma organização ainda não configurada deixava você preso** Quem participa de mais de uma organização podia trocar pelo seletor no topo e
+  cair no assistente de configuração da organização nova — o que está certo, ela
+  não foi configurada ainda. **O que estava errado é que não havia como sair de lá.**
+  O seletor de organização some junto com o resto do sistema nessa tela, e sobravam
+  só os links de Termos e Privacidade e um botão "Continuar" desabilitado. A saída
+  era fechar o navegador e limpar os dados do site.
+
+  Agora o assistente mostra, no topo, o caminho de volta para as outras
+  organizações de que você participa — um clique e você está de volta onde estava
+  trabalhando.
+
+  Nada muda para quem administra uma organização só: o botão não aparece, porque
+  não há para onde voltar.
+
+- **update.sh volta a recriar os containers na versão nova** Depois de puxar a imagem nova e reescrever o `.env`, `docker compose up -d`
+  puro às vezes deixava o container antigo rodando em vez de recriá-lo — a
+  atualização parecia concluída, mas o produto seguia na versão anterior até um
+  `--force-recreate` manual. Agora o `update.sh` já força a recriação de
+  `app`, `worker` e `scheduler` depois de puxar a versão nova.
+
+- **Voltar da autorização do Google não pede login de novo** Ao conectar o Google Agenda, o navegador voltava e caía na tela de login — o que
+  se lia como "o sistema me deslogou". A sessão nunca foi encerrada: o navegador é
+  que, por segurança, não apresenta a credencial numa página aberta a partir de
+  outro site, e a volta do Google era exatamente isso. Agora o retorno passa por
+  uma página intermediária do próprio sistema, e a pessoa cai direto na Agenda,
+  ainda conectada. Quem já usava não precisa fazer nada.
+
 ## [1.9.0] — 2026-08-28
 
 ### Adicionado
@@ -1262,7 +1369,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.9.0...HEAD
+[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.6.0...v1.7.0
