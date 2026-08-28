@@ -110,9 +110,17 @@ async function abrirPainelComDiaEscolhido(page: Page, nomeDoTipo: string): Promi
   await expect(page.getByTestId("tipos-de-agendamento")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: new RegExp(`^${nomeDoTipo}`) }).click();
 
-  // O primeiro dia CLICÁVEL. `data-disponivel` é o que a tela usa para decidir
-  // o clique, então usá-lo aqui mede o mesmo estado que o usuário enxerga.
-  const dia = page.locator('[data-testid^="dia-"][data-disponivel="true"]').first();
+  // O ÚLTIMO dia clicável do mês, não o primeiro — e a diferença já custou dois
+  // runs de CI (8 horários, depois 7, a mesma asserção). `agenda-marcar-pela-tela`
+  // e as demais specs que reservam compromisso pegam sempre o PRIMEIRO dia
+  // disponível (mesma tela, mesmo `.first()`), e todas rodam no MESMO banco desta
+  // parte do job, sem reset entre specs. O dia mais cedo vai perdendo horário a
+  // cada spec que reservou antes desta — a asserção de suficiência (abaixo) media
+  // exatamente essa erosão, não um defeito do produto. Nenhuma outra spec reserva
+  // no ÚLTIMO dia do mês, então ele chega aqui com a jornada inteira: 18 horários.
+  // `data-disponivel` é o que a tela usa para decidir o clique, então usá-lo aqui
+  // mede o mesmo estado que o usuário enxerga.
+  const dia = page.locator('[data-testid^="dia-"][data-disponivel="true"]').last();
   await expect(
     dia,
     "nenhum dia disponível — o seed da agenda não deixou jornada publicada, e sem " +
