@@ -1508,3 +1508,36 @@ ou ontem, e fora disso imprime `dd/MM/yyyy` — idêntico nos dois idiomas.
 
 **O que segue fora:** e-mail e o PDF de LGPD, com o motivo escrito em
 `tests/unit/i18n-a-data-segue-o-idioma.test.ts`.
+
+## Débito conhecido — specs de Agenda colidem entre si no job `e2e-parte (2)` (2026-08-31)
+
+**O que acontece.** Várias specs de Agenda (`agenda-marcar-pela-tela`,
+`agenda-painel-cabe-na-tela`, `agenda-remarcar-e-cancelar`, `agenda-ver-na-agenda`,
+entre outras) falham intermitentemente com "nenhum dia disponível" — o painel/
+coluna de horários não encontra nenhum dia com `data-disponivel="true"`.
+
+Medido no PR #9 (merge do upstream v1.9.1..v1.11.0), reproduzido em 2 execuções
+seguidas do mesmo job, sempre no mesmo conjunto de specs (`agenda-marcar-pela-tela`
+é a primeira a cair, na posição 8 da ordem alfabética real de execução).
+
+**Causa provável, não confirmada.** As specs de Agenda compartilham o MESMO
+profissional (`agent` do seed) e o MESMO banco dentro da parte do job, sem reset
+entre specs. Várias usam `helpers/agenda-semana-integra.ts`
+(`irParaASemanaSeguinte`, `escolherPrimeiroDiaCheio`) para escapar de "hoje já
+gasto" — mas como todas rodam dentro de poucos minutos, "a semana seguinte"
+resolve para a MESMA semana em todas, e elas competem pelos mesmos horários. Uma
+spec que reserva/cancela cedo pode deixar o painel sem vaga nenhuma para a spec
+seguinte, na MESMA semana.
+
+**Por que não é regressão de produto.** `verify`, `invariants`, `build-and-size`
+e `imagens-ok` passaram limpo nas duas execuções — é fragilidade de FIXTURE de
+teste (isolamento entre specs), não bug de schema/RLS/lógica de negócio. O PR foi
+mesclado com override de admin por essa razão: decisão consciente do dono do
+produto, dado o custo de investigar mais fundo em ~8 arquivos de spec que vieram
+prontos do upstream.
+
+**Próximo passo sugerido, não feito ainda.** Cada spec de Agenda que reserva/
+cancela compromisso deveria usar um profissional (ou pelo menos uma semana)
+PRÓPRIO, não compartilhado — análogo ao que `agenda-painel-cabe-na-tela` já faz
+ao escolher o ÚLTIMO dia do mês em vez do primeiro (`escolherUltimoDiaCheio`).
+Isolar por spec fecha a classe inteira em vez de reagir spec por spec.
