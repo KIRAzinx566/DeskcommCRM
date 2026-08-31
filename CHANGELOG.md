@@ -8,6 +8,361 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.10.4] — 2026-08-29
+
+### Adicionado
+
+- **Marcar ou confirmar um agendamento move o lead no funil sozinho** Antes, marcar ou confirmar um horário na agenda não mexia no card do negócio: a
+  equipe precisava arrastar o lead manualmente para "Agendamento solicitado" ou
+  "Agendado" (ou como quer que a organização tenha nomeado essas etapas).
+
+  Agora, quando um agendamento nasce pendente de confirmação, o lead se move para
+  a etapa do funil marcada com o slug `agendamento-solicitado`; quando o
+  agendamento é confirmado, ele se move para a etapa `agendado`. É opt-in: quem
+  não criou essas etapas no funil não vê nenhuma mudança de comportamento. Cancelar
+  ou faltar a um compromisso não move o lead — o negócio pode ter outro horário
+  remarcado, e quem decide que ele esfriou continua sendo o agente de IA ou uma
+  pessoa da equipe.
+
+- **O atendente de IA passa a marcar consulta pela conversa** Quem instalou e ligou a agenda tinha um atendente de IA que consultava horário e
+  não fechava nada: o paciente pedia "quinta às 14h" e a resposta era sempre "vou
+  confirmar com a equipe". Faltavam duas coisas, e nenhuma delas era o modelo.
+
+  A primeira: ele não sabia que dia era hoje. Nenhuma informação sobre a data
+  chegava até ele, então não tinha como transformar "quinta que vem" ou "amanhã de
+  manhã" num horário de verdade. Agora todo atendimento começa sabendo a data, a
+  hora e o dia da semana, no fuso que você escolheu nas configurações da empresa.
+
+  A segunda: ele não tinha como descobrir o que a sua empresa atende. Consulta,
+  retorno, avaliação, procedimento — a lista está no sistema, e ele não conseguia
+  lê-la; tinha que adivinhar o nome exato e errava. Agora existe uma capacidade
+  nova, "Ver o que a empresa atende", que mostra a ele os tipos de atendimento com
+  a duração de cada um.
+
+  Junto vieram outras duas: confirmar um horário quando a pessoa avisa que vem, e
+  registrar depois se ela foi atendida ou não apareceu. E a lista de horários
+  livres passou a sair em português — "sexta-feira 04/09 às 14:00" em vez de um
+  código de data —, com um número menor de opções por vez, o que também deixa a
+  resposta mais rápida.
+
+  O sistema também passou a recusar um registro que antes aceitava calado: marcar
+  "faltou" num compromisso que ainda nem começou. Isso devolvia o horário para
+  outra pessoa enquanto o cliente original ainda estava contando com ele.
+
+  **As capacidades novas não entram sozinhas nos agentes que já existem.** Para o
+  seu atendente usá-las, abra *O que o agente pode fazer*, ligue o pacote
+  **Vender** de novo e publique. Agente criado a partir de agora já nasce com elas.
+
+- **O sistema inteiro em espanhol, com o idioma trocável em três lugares** Quem instala na América Latina agora escolhe o idioma **na própria instalação**,
+  e o sistema abre em espanhol para todo mundo da empresa — inclusive para quem
+  for convidado depois e nunca abriu o próprio perfil.
+
+  Antes, o espanhol existia pela metade: só as telas do dia a dia estavam
+  traduzidas, e o resto aparecia em português para quem tinha escolhido espanhol.
+  Agora a tradução cobre Agenda, Desempenho, Radar, Respostas rápidas, IA e o
+  painel de administração, com um teste automático que reprova qualquer texto novo
+  que apareça sem tradução.
+
+  O idioma se troca em três lugares, na ordem em que se costuma precisar deles:
+
+  - **No topo de qualquer tela** — o botão `PT`/`ES` ao lado do controle de tema.
+    Um clique, sem procurar nada. É onde recorre quem abriu o sistema num idioma
+    que não lê.
+  - **Na instalação** — o `install.sh` pergunta, e a resposta define o idioma da
+    empresa inteira.
+  - **Em Configurações** — no seu perfil (só para você) ou em Organização (para
+    todo mundo que entrar sem preferência própria).
+
+  Também está consertado um controle que não fazia nada: o seletor de Idioma em
+  Configurações › Organização era gravado no banco e nunca era lido. Quem o
+  mudasse não via diferença nenhuma. Agora ele vale para toda pessoa da empresa
+  que não tenha escolhido um idioma seu.
+
+  **As datas também acompanham o idioma.** "quinta-feira, 3 de março" vira
+  "jueves, 3 de marzo" — não sobrou aquele meio-termo em que a tela fala espanhol
+  e a data insiste no português.
+
+  Duas exceções, de propósito: os **e-mails** que o sistema envia seguem em
+  português (quem recebe um convite ainda não tem conta, então não há preferência
+  de idioma para consultar), e o **relatório de LGPD** também — ele responde a uma
+  lei brasileira, e mudar a forma dele conforme quem apertou o botão seria errado.
+
+  ---
+
+  A tradução para espanhol é, em boa parte, contribuição de **@JowaniOrantes**, que
+  abriu três frentes de trabalho por conta própria: as áreas de IA e administração
+  (#352), o módulo de Agenda (#379) e as correções que vieram do QA visual dele.
+  São 57 commits e mais de 460 entradas de dicionário que este release não teria
+  sem esse trabalho.
+
+### Corrigido
+
+- **O canal Zernio volta a enviar em quem configurou a partir do arquivo de exemplo** Quem conectou o canal Zernio numa instalação montada a partir do arquivo de
+  exemplo não conseguia enviar mensagem nenhuma por ele. As duas credenciais
+  estavam certas, o canal aparecia configurado, e o envio falhava assim mesmo —
+  tanto para quem deixou as credenciais na configuração quanto para quem as
+  cadastrou pela tela.
+
+  A causa estava no endereço do provedor. O arquivo de exemplo traz essa linha
+  vazia, e o comentário ao lado dela promete que vazio usa o endereço de produção
+  do provedor — a linha só existe para quem precisa apontar o sistema a um
+  ambiente de homologação. Não era o que acontecia: o vazio era tratado como se
+  fosse um endereço de verdade, e o sistema tentava falar com um lugar que não
+  existe.
+
+  Agora vazio significa o que o arquivo sempre disse que significava. Quem
+  preencheu a linha para apontar para homologação continua sendo respeitado, e
+  espaço sobrando em volta do endereço deixa de atrapalhar.
+
+  Ninguém precisa mexer em nada. Instalações que já enviavam seguem iguais, e as
+  que estavam com esse envio quebrado voltam a funcionar sozinhas.
+
+- **Quem pede para sair em espanhol passa a ser atendido** Pedir para sair em espanhol só funcionava numa forma: a palavra sozinha, ou
+  "no quiero recibir". As formas que as pessoas realmente escrevem — "deja de
+  escribirme", "no quiero más mensajes", "dame de baja" — não casavam padrão
+  nenhum, e o pedido se perdia em silêncio.
+
+  O sinal que faz o robô parar de responder e chamar uma pessoa (o nível
+  "ambíguo", usado quando o pedido não é claro o bastante para bloquear
+  sozinho) também não existia em espanhol: nenhuma frase daquele idioma
+  chegava a ativá-lo, então esse cliente nunca era escalado.
+
+  De passagem, corrige um caso em português que só apareceu ao testar os dois
+  idiomas juntos: "pare de mandar o pedido nesse endereço" bloqueava um
+  cliente que só queria mudar a entrega.
+
+- **O relógio interno do assistente deixa de depender da versão do banco** Quando uma conexão de WhatsApp entra em espera, o sistema marca a fila com uma
+  data "infinita" — é assim que ele segura o atendimento até alguém resolver o
+  aviso. O cálculo de quanto falta para a próxima tarefa fazia uma conta com essa
+  data que **só funciona no Postgres 17**; em Postgres 15 ou 16 o banco recusa a
+  conta e o relógio do assistente para.
+
+  Isso nunca afetou quem seguiu a versão recomendada. Passa a importar agora que a
+  instalação aceita bancos mais antigos — e é exatamente onde apareceria: numa
+  máquina nova, com uma conexão em espera, sem nada na tela explicando.
+
+  A proteção já existia, mas na ordem errada: ela limitava o resultado da conta,
+  e a conta estourava antes. Agora limita a data antes de calcular.
+
+- **Quando a IA fica calada, agora dá para ver por quê** Três consertos que atacam o mesmo problema: o sistema fazia a coisa certa em
+  silêncio, e de fora parecia quebrado.
+
+  **A ficha de proteção de envio parou de congelar o padrão do dia.** O botão
+  "Enviar aos domingos" era o único controle daquela ficha que não sabia dizer
+  "não mexi": ele gravava sempre o valor que estava na tela, e o valor na tela,
+  sem escolha própria, era o padrão vigente. Quem abriu a ficha para declarar o
+  aquecimento do número acabou congelando o padrão daquele dia — e, quando o
+  produto passou a liberar domingo, essa instalação ficou para trás com uma
+  escolha que ninguém fez. Agora só um valor DIFERENTE do padrão vira escolha.
+  Quem desligou o domingo de propósito continua com ele desligado.
+
+  **A espera pela janela de envio virou aviso na Central.** Quando o número está
+  fora do horário de envio, as respostas ficam na fila e saem na abertura — isso
+  não mudou. O que mudou é que agora existe um aviso dizendo que estão esperando,
+  a partir de quando saem e o que fazer. Um aviso por número, e ele se resolve
+  sozinho quando o horário reabre.
+
+  **A aba "Execuções" de um agente mostra o que ele realmente fez.** Ela lia uma
+  tabela que nenhum motor em uso escreve, e por isso dizia "Nenhuma execução
+  ainda" mesmo com o agente respondendo. Passou a ler o registro vivo. Execuções
+  anteriores a esta versão não aparecem ali — para o histórico completo, use
+  IA › Execuções.
+
+- **A Central de atendimento abre mais rápido quando a equipe é grande** Cada vez que a Central era aberta, o sistema perguntava o nome de cada pessoa
+  da equipe que aparecia na página — uma pergunta separada para cada uma, toda
+  vez, mesmo quando o nome nem ia ser mostrado na tela.
+
+  Numa equipe pequena isso passava despercebido. Numa equipe grande, não: o
+  tempo medido era de cerca de 350 milissegundos com dez pessoas atendendo, e de
+  mais de um segundo com cinquenta — só para descobrir nomes que o sistema já
+  poderia ter guardado.
+
+  Agora o nome de quem atende fica guardado junto com a conversa, e é atualizado
+  sozinho sempre que o atendimento troca de mãos. A Central abre no mesmo tempo
+  com uma pessoa ou com cinquenta.
+
+  Nada a fazer: a atualização do banco acontece sozinha quando você roda a
+  atualização normal, e os nomes de quem já estava atendendo são preenchidos na
+  hora.
+
+- **Quem administra duas empresas entra sempre na mesma** Quem participa de mais de uma empresa na mesma instalação podia entrar numa ou na
+  outra sem critério, ao acessar o sistema sem uma escolha anterior guardada — no
+  primeiro acesso, numa sessão nova ou depois de a preferência expirar. O sistema
+  não tinha regra para decidir qual delas abrir. Agora abre sempre a mais antiga, e
+  a escolha feita no seletor de empresa continua valendo por cima disso. Quem tem
+  uma empresa só não vê diferença.
+
+- **Agenda sem responsável configurado: o aviso agora diz onde resolver** Numa instalação nova, ou quando um novo tipo de agendamento aponta para alguém
+  que ainda não cadastrou horário de atendimento, tentar ver ou marcar um horário
+  mostrava "Invalid input: expected object, received undefined" — frase correta
+  para quem lê o código e inútil para quem opera a clínica.
+
+  Agora a mensagem diz o que realmente falta e onde resolver: "A disponibilidade
+  deste responsável ainda não foi configurada. Configure em Equipe →
+  Atendimento." Continua sendo a mesma recusa de antes (nenhum horário é
+  oferecido enquanto isso não for configurado) — só a explicação ficou legível.
+
+  Quem já tinha disponibilidade cadastrada não percebe nenhuma diferença.
+
+- **Quem publica o sistema com a própria marca passa a checar a atualização no lugar certo** Se você mantém uma cópia própria do projeto e publica as imagens do sistema com
+  o seu próprio endereço, o comando de atualização olhava para o endereço do
+  projeto original — e não para o seu — quando a configuração do servidor não
+  dizia explicitamente qual imagem usar. Ele então comparava a versão instalada
+  com a de outra pessoa, e podia anunciar que havia atualização quando não havia,
+  ou o contrário.
+
+  O endereço agora é lido de um ponto único do próprio kit, o mesmo que o resto
+  da instalação usa. Quem opera com o projeto original não percebe diferença: o
+  endereço lido é exatamente o que já estava escrito antes.
+
+- **O que você marca no Google passa a aparecer na agenda do CRM** Compromissos criados direto no Google Agenda já bloqueavam o horário — ninguém
+  conseguia marcar por cima —, mas não apareciam na tela: a agenda parecia vazia e
+  o horário indisponível ao mesmo tempo. Agora eles aparecem como faixa de
+  ocupação, com visual próprio e sem clique, porque não são compromissos do CRM:
+  não têm cliente, tipo nem responsável, e remarcá-los teria de ser feito no
+  Google.
+
+  A faixa mostra apenas o horário ocupado, **não o nome do evento**. A agenda
+  conectada é pessoal de quem atende, e esta tela é vista por outras pessoas da
+  empresa — o título de um compromisso particular não deve aparecer aí.
+
+- **Os compromissos do CRM voltam a aparecer no Google Agenda** Quem conectou o Google Agenda não via os compromissos marcados no CRM chegarem
+  lá — nenhum, nunca. O sistema tentava a cada cinco minutos e o Google recusava
+  todas as vezes, porque o pedido usava a operação de "alterar um evento
+  existente" para criar um evento que ainda não existia. Agora ele cria com a
+  operação certa e só altera o que já está lá. Os compromissos pendentes sobem na
+  primeira rodada após a atualização, sem duplicar os que porventura já existam.
+
+  A falha também deixou de ser silenciosa: quando o Google recusar, o motivo passa
+  a aparecer no registro do sistema, e não só numa coluna interna que ninguém abre.
+
+- **Pausar um agente de IA agora o cala de verdade** Pausar o único agente publicado da organização fazia um agente que a tela
+  chamava de "Rascunho" voltar a responder no WhatsApp pelo caminho antigo de
+  resposta — com o texto do cadastro, sem as ferramentas nem os limites da versão
+  publicada.
+
+  Junto disso, a tela passou a dizer a mesma coisa que o motor faz: o seletor de
+  dono de negócio deixou de esconder agentes publicados (e de oferecer os
+  pausados), e o selo da Inbox só diz "Automático" quando existe mesmo alguém para
+  atender.
+
+- **O mesmo celular escrito das duas formas passa a cair sempre no mesmo cadastro** Quando um celular ainda existia gravado nas duas formas — com e sem o nono
+  dígito —, o sistema podia escolher qualquer uma das duas ao reencontrar a
+  pessoa. Na prática isso aparecia no pior momento: a resposta do cliente entrava
+  no cadastro errado, o follow-up não a reconhecia como resposta, e a mesma
+  pergunta era enviada de novo.
+
+  Agora a escolha é sempre a mesma e é sempre a forma com o nono dígito, que é a
+  que o CRM guarda e mostra. Você não precisa fazer nada.
+
+- **Quando a IA falha ao responder (caminho legado), o erro deixa de sumir** A peça que faz a IA responder às conversas registrava as próprias falhas apenas
+  num log que ninguém lê. Se ela parava de responder por um erro, não havia sinal
+  em lugar nenhum — só o silêncio no WhatsApp do cliente. Agora esse erro é
+  enviado ao serviço de monitoramento, o mesmo que o resto do sistema já usava.
+
+  Quem opera não precisa fazer nada, e nenhum dado de conversa é enviado: o
+  sistema já limpa o conteúdo antes de mandar.
+
+- **O instalador para de confundir comentário com valor de configuração** No arquivo de exemplo que serve de base para a configuração da VPS, as
+  explicações ficavam na mesma linha dos valores. O instalador lê esse arquivo
+  linha a linha e tratava a explicação como parte do valor — então uma senha, um
+  endereço ou uma chave podiam chegar ao servidor com um texto extra colado no
+  fim, e o erro só aparecia depois, num lugar sem relação com a causa.
+
+  As explicações passaram para a linha de cima. Quem já tem o servidor rodando não
+  precisa refazer nada; a mudança protege quem instala do zero a partir de agora.
+
+- **O relógio externo do follow-up passou a ser testado de ponta a ponta** Quem roda o sistema numa hospedagem sem agendador próprio — o plano gratuito da
+  Vercel é o caso comum — depende de um serviço de cron externo bater de tempos em
+  tempos para os follow-ups andarem. Esse caminho tinha runbook e nunca tinha sido
+  exercitado: se ele parasse de funcionar, ninguém receberia erro, e os follow-ups
+  simplesmente ficariam parados.
+
+  Agora um teste automático dispara a batida de fora, como o cron real faz, e
+  confere que o follow-up de fato anda — e que uma batida sem a chave certa é
+  recusada sem mexer em nada. Você não precisa fazer nada: nada mudou no
+  comportamento, só passou a existir uma rede que avisa se ele quebrar.
+
+- **Uma rede a mais contra vazamento entre empresas** O sistema separa os dados de cada empresa por uma regra no banco, e essa regra
+  precisa ser ligada tabela por tabela. Faltava uma verificação automática que
+  recusasse uma tabela nova sem essa proteção — a conferência dependia de alguém
+  lembrar. Agora ela é feita a cada mudança, e o que já existe está registrado
+  como dívida conhecida, para a lista só diminuir.
+
+  Nada muda para quem opera: é uma proteção contra um erro futuro, não a correção
+  de um vazamento existente.
+
+- **A Fila mostra quem realmente espera uma pessoa, e a aba do automático deixa de ficar vazia** A Inbox dizia quem estava no comando de cada conversa olhando um campo que o
+  atendimento automático nunca consulta. O efeito era grande e silencioso: a aba
+  **Fila** listava como "aguardando atendente" conversas que o robô estava
+  respondendo naquele instante, e a aba do automático ficava quase vazia mesmo com
+  ele atendendo a maior parte da caixa. Numa instalação real, medido: a Fila
+  mostrava 83 conversas, a aba do automático mostrava 2, e o robô atendia 47.
+
+  Quem via isso concluía a coisa errada em qualquer direção — ou que havia uma
+  montanha de gente esperando, ou que a IA tinha parado de trabalhar.
+
+  Agora as duas abas perguntam a mesma coisa que o motor: quem responde a próxima
+  mensagem deste cliente. A Fila passa a listar só o que precisa de uma pessoa de
+  verdade — conversas que a IA escalou, contatos travados para atendimento humano —
+  e a aba do automático mostra o que ele está de fato conduzindo.
+
+  **O número da Fila vai encolher bastante no primeiro acesso depois de atualizar.**
+  Isso é o número certo aparecendo, não trabalho sumindo.
+
+  A mesma correção alcança o "você é o Nº da fila" que o cliente ouve pelo WhatsApp,
+  a numeração na tela e o painel de espera do gerente — os três passam a contar a
+  mesma fila. Antes eles podiam divergir entre si.
+
+  Para quem opera: nada a fazer. Nenhuma configuração nova, nenhum passo de
+  atualização, nenhum dado alterado — só a leitura de quem está no comando.
+
+- **Reclamar de cobrança errada não bloqueia mais o cliente** Quem escrevia "não me mande mais boletos" — ou "no me manden más cobros
+  duplicados" — era tratado como se tivesse pedido para sair, e parava de ser
+  atendido. É o oposto do que a pessoa quis dizer: ela está reclamando de uma
+  cobrança e quer continuar falando com você.
+
+  A regra olhava só o verbo ("mandar"), que é o mesmo de "não me mande mais
+  mensagens". Agora ela olha também o que vem depois: quando o objeto é uma
+  cobrança, uma fatura, um pedido ou um produto, deixa de ser pedido de saída.
+
+  Pedir para sair de verdade continua funcionando igual, nas duas línguas.
+
+- **O atendimento automático não responde mais por cima de uma conversa entregue a uma pessoa** Quando a IA decide que um caso precisa de gente — cliente irritado, suspeita de
+  pedido de descadastro, termo delicado —, ela entrega a conversa e silencia o
+  atendimento automático até alguém resolver. A tela mostrava esse estado
+  corretamente ("Automático pausado"), mas um segundo motor de resposta, que ainda
+  atende instalações sem agente publicado, continuava respondendo assim mesmo.
+
+  O resultado aparecia como o pior tipo de contradição: o painel dizia que uma
+  pessoa ia assumir, o cliente recebia mensagem de robô, e ninguém do time ficava
+  sabendo. A causa era uma comparação de datas que nunca dava certo para o valor
+  "para sempre" que o produto usa nesses casos — a proteção existia no código e
+  nunca chegava a agir.
+
+  Agora os dois motores usam a mesma regra, a mesma que move a tela. Para quem
+  opera, nada muda no dia a dia: nenhuma configuração nova, nenhum passo de
+  atualização. O que muda é que "entreguei para uma pessoa" passa a valer de fato.
+
+- **O atendente de IA volta a achar horário quando consulta a agenda** Numa clínica, o atendente de IA tentou marcar um procedimento e não conseguiu —
+  duas vezes seguidas. Ele fez tudo certo: descobriu o tipo de atendimento,
+  resolveu a data que a pessoa pediu e foi consultar os horários. Mesmo assim
+  respondeu que a equipe precisava confirmar, e abriu um chamado interno.
+
+  A causa não era a agenda nem o atendente. Quando a IA não tem um dado opcional
+  para preencher — no caso, qual profissional atenderia —, alguns modelos escrevem
+  um código vazio em vez de simplesmente não mandar o campo. O sistema aceitava
+  esse código como se fosse um profissional de verdade, procurava a agenda de
+  alguém que não existe, e concluía que não havia horário publicado. Nenhum erro
+  aparecia em lugar nenhum: a consulta era registrada como bem-sucedida.
+
+  O sistema agora reconhece esses códigos vazios e os ignora, voltando a usar o
+  profissional configurado no tipo de atendimento. Isso valia para dezenas de
+  lugares além da agenda — inclusive a busca no acervo de conhecimento, em que o
+  efeito era o atendente responder "não sei" com o material publicado ao lado, e o
+  cadastro de negócios, em que um responsável inexistente ficava gravado e sumia
+  dos filtros por dono.
+
 ## [1.10.2] — 2026-08-28
 
 ### Corrigido
@@ -47,30 +402,6 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   lista de modelos com suporte confirmado libera o tool calling para eles.
 
 ### Corrigido
-
-- **O Google Agenda conectado passa a aparecer como conectado** Quem conectava o Google Agenda continuava vendo o botão "Conectar Google" na
-  tela, como se nada tivesse acontecido — e ao clicar em desconectar recebia um
-  erro dizendo que não havia agenda conectada. Os compromissos marcados no CRM
-  também nunca chegavam ao Google Agenda, em silêncio.
-
-  A conexão sempre foi gravada corretamente; o que estava errado era o nome pelo
-  qual três partes do sistema a procuravam, e por isso nenhuma delas a encontrava.
-  Agora a tela mostra a conta conectada, desconectar funciona, e os compromissos
-  sobem para o Google na primeira rodada seguinte. Quem já conectou não precisa
-  reconectar: a conexão está lá e passa a ser vista.
-
-- **A lista de horários volta a rolar ao marcar um compromisso** Ao escolher o dia, os últimos horários ficavam abaixo da borda da tela sem
-  nenhuma forma de alcançá-los — nem rolando a página, nem a própria lista. Quem
-  precisava de um horário do fim da tarde não conseguia marcar. Agora a lista rola
-  sozinha, com o calendário e os dados do atendimento parados ao lado, e em telas
-  menores o painel inteiro rola.
-
-- **As verificações automáticas do projeto voltaram a caber no tempo** Isto é do nosso processo de desenvolvimento, não do sistema que você usa: a
-  bateria de testes que roda antes de cada mudança tinha crescido a ponto de
-  estourar o tempo limite e ser cancelada no meio. Ela passou a rodar em duas
-  frentes ao mesmo tempo, o que a devolveu para dentro do limite com folga. Para
-  quem opera uma VPS nada muda — só a chance de uma correção demorar mais a sair
-  porque a verificação foi cancelada por tempo.
 
 - **O kit de instalação volta a apontar para o registro de imagens certo** O namespace do registro de imagens estava fixo no código do kit de instalação,
   então toda atualização recalculava as três imagens a partir dele e sobrescrevia
@@ -1392,10 +1723,11 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.2...HEAD
-[1.10.2]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.1...v1.10.2
-[1.10.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.0...v1.10.1
-[1.10.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.9.0...v1.10.0
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.4...HEAD
+[1.10.4]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.2...v1.10.4
+[1.10.2]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.1...v1.10.2
+[1.10.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.0...v1.10.1
+[1.10.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.6.0...v1.7.0

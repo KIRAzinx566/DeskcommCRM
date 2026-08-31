@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Trash } from "@/lib/ui/icons";
 import type { FlowNode } from "@/lib/followup/graph-schema";
 import type { RFNode, RFNodeData } from "@/lib/followup/graph-mappers";
+import { useT } from "@/hooks/i18n/useT";
 
 import { ActionForm } from "./forms/ActionForm";
 import { ClassifyForm } from "./forms/ClassifyForm";
@@ -37,6 +38,7 @@ interface Props {
  * mantém a última config válida (nunca um valor pela metade rio acima).
  */
 export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Props) {
+  const t = useT();
   const type = node.type as FlowNode["type"];
   const visual = NODE_VISUALS[type];
   const Icon = visual.icon;
@@ -46,7 +48,7 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
   const commitLabel = (value: string) => {
     setLabel(value);
     if (value.trim().length < 1 || value.length > 60) {
-      setLabelError("Rótulo precisa ter 1 a 60 caracteres.");
+      setLabelError(t("Rótulo precisa ter 1 a 60 caracteres."));
       return;
     }
     setLabelError(null);
@@ -61,7 +63,7 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
             <span className={`flex h-6 w-6 items-center justify-center rounded-full ${visual.chipClassName}`}>
               <Icon size={14} aria-hidden />
             </span>
-            {visual.paletteLabel}
+            {t(visual.paletteLabel)}
           </h2>
           {/* No cabeçalho, não num bloco novo embaixo: um bloco extra empurra a
               altura do painel além da viewport em nós com formulário longo (ex.:
@@ -75,8 +77,8 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
               variant="ghost"
               size="icon"
               onClick={onDelete}
-              aria-label="Apagar nó"
-              title="Apagar nó (ou selecione-o no canvas e pressione Delete)"
+              aria-label={t("Apagar nó")}
+              title={t("Apagar nó (ou selecione-o no canvas e pressione Delete)")}
               data-testid="node-delete-button"
             >
               <Trash size={16} aria-hidden />
@@ -84,12 +86,12 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
           )}
         </div>
         <p className="text-sm text-text-muted">
-          Alterações aplicam no rascunho ao digitar — salve na barra de publicação.
+          {t("Alterações aplicam no rascunho ao digitar — salve na barra de publicação.")}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="node-label">Rótulo</Label>
+        <Label htmlFor="node-label">{t("Rótulo")}</Label>
         <Input
           id="node-label"
           value={label}
@@ -102,8 +104,9 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
       <div className="space-y-4 border-t border-border pt-4">
         {type === "trigger" && (
           <p className="text-sm text-text-muted">
-            Início do fluxo — sem configuração adicional. O disparo (manual, mudança de
-            etapa, silêncio ou fim de conversa) é definido nas configurações do fluxo.
+            {t(
+              "Início do fluxo — sem configuração adicional. O disparo (manual, mudança de etapa, silêncio ou fim de conversa) é definido nas configurações do fluxo.",
+            )}
           </p>
         )}
         {type === "wait" && (

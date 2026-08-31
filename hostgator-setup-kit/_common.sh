@@ -433,6 +433,13 @@ psql_run() { docker run --rm -i postgres:17-alpine psql "$(url_do_schema)" -v ON
 # APP_IMAGE/WORKER_IMAGE/SCHEDULER_IMAGE do jeito errado a cada execução — e
 # SOBRESCREVER qualquer correção manual no .env, porque a fonte da verdade
 # sempre foi esta constante, nunca o .env.
+#
+# Esta linha é a ÚNICA fonte do namespace para tudo que executa — os testes do
+# kit a leem em vez de repetir a string. Quem a confere é
+# `tests/unit/namespace-das-imagens.test.ts`, que assere este valor e cobra que
+# `docker-compose.prod.yml`, `.env.hostgator.example` e a matriz de
+# `publish-image.yml` digam o mesmo. Se você é um fork, é lá que está a lista do
+# que trocar junto.
 IMG_NS="ghcr.io/kirazinx566"
 IMG_APP="${IMG_NS}/deskcommcrm"
 IMG_WORKER="${IMG_NS}/deskcomm-worker"
