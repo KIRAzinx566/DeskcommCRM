@@ -26,7 +26,13 @@ const INBOX_TABS: { value: InboxTab; label: string }[] = [
   { value: "mine", label: "Minhas" },
   { value: "all", label: "Todas" },
   { value: "closed", label: "Fechadas" },
-  { value: "ai", label: "IA" },
+  // "Automático", não "IA": a palavra deste ator já é contrato em quatro arquivos
+  // e no dicionário, e `handoff-por-orcamento.test.ts` usa literalmente "Voltar
+  // para a IA" como a sabotagem que deve reprovar. A aba era a última fora do
+  // padrão — e ela mudou de significado junto (deixou de filtrar `ai_handling` e
+  // passou a perguntar a régua do motor), então o rótulo velho descreveria outra
+  // coisa.
+  { value: "ai", label: "Automático" },
 ];
 
 /**
@@ -64,7 +70,15 @@ export function InboxFilters({ value, onChange }: Props) {
     ? visibleInboxTabs(activeOrg.role, activeOrg.visibility_mode)
     : INBOX_TABS.map((t) => t.value);
   const countFor: Partial<Record<InboxTab, number>> = {
-    unassigned: counts?.unassigned,
+    // `fila` é o nome novo; `unassigned` é o alias que a rota versionada mantém.
+    // O `??` cobre a janela em que a página ainda lê um cache de react-query
+    // gravado antes do deploy — sem ele o badge sumiria por alguns segundos.
+    unassigned: counts?.fila ?? counts?.unassigned,
+    // A aba do automático ganhou contador junto com o significado: ela deixou de
+    // filtrar `ai_handling` (2 conversas) e passou a mostrar o que o robô conduz
+    // (47, na instalação onde isto foi medido). Um número que existe na API e não
+    // aparece na tela é trabalho feito que ninguém vê.
+    ai: counts?.automatico,
     mine: counts?.mine,
     all: counts?.all,
   };
@@ -104,7 +118,7 @@ export function InboxFilters({ value, onChange }: Props) {
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("Buscar mensagens…")}
           className="h-8 pl-8 text-sm"
-          aria-label="Buscar conversas"
+          aria-label={t("Buscar conversas")}
         />
       </div>
 
@@ -115,13 +129,13 @@ export function InboxFilters({ value, onChange }: Props) {
             onChange({ ...value, channel_session_id: v === "all" ? undefined : v })
           }
         >
-          <SelectTrigger className="h-8 text-sm" aria-label="Filtrar por número de WhatsApp">
+          <SelectTrigger className="h-8 text-sm" aria-label={t("Filtrar por número de WhatsApp")}>
             <SelectValue placeholder={t("Todos os números")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os números</SelectItem>
+            <SelectItem value="all">{t("Todos os números")}</SelectItem>
             {filtroForaDaLista && value.channel_session_id != null && (
-              <SelectItem value={value.channel_session_id}>Número removido</SelectItem>
+              <SelectItem value={value.channel_session_id}>{t("Número removido")}</SelectItem>
             )}
             {channels?.map((c) => (
               <SelectItem key={c.id} value={c.id}>
@@ -137,14 +151,14 @@ export function InboxFilters({ value, onChange }: Props) {
           value={value.tag ?? "all"}
           onValueChange={(v) => onChange({ ...value, tag: v === "all" ? undefined : v })}
         >
-          <SelectTrigger className="h-8 text-sm" aria-label="Filtrar por tag">
+          <SelectTrigger className="h-8 text-sm" aria-label={t("Filtrar por tag")}>
             <SelectValue placeholder={t("Todas as tags")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as tags</SelectItem>
-            {tagVocabulary?.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
+            <SelectItem value="all">{t("Todas as tags")}</SelectItem>
+            {tagVocabulary?.map((tag) => (
+              <SelectItem key={tag} value={tag}>
+                {tag}
               </SelectItem>
             ))}
           </SelectContent>
@@ -164,7 +178,7 @@ export function InboxFilters({ value, onChange }: Props) {
             const count = countFor[tab];
             return (
               <TabsTrigger key={tab} value={tab} className="gap-1 text-[11px]">
-                {meta.label}
+                {t(meta.label)}
                 {typeof count === "number" && count > 0 && (
                   <span className="text-[10px] tabular-nums text-muted-foreground">
                     {count}

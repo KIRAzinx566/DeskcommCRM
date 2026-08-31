@@ -34,7 +34,9 @@ import {
   HANDOFF_REASON_ORCAMENTO,
 } from "@/lib/agent-engine/edge/llm/orcamento";
 import { computeCost } from "@/lib/ai/cost";
+import { silencioVigente } from "@/lib/inbox/comando-da-conversa";
 import { logInvocation } from "@/lib/ai/log-invocation";
+import { elegivelParaWorkerLegado } from "@/lib/ai/agents/no-ar";
 import { renderSystemPrompt } from "@/lib/ai/render-system-prompt";
 import { triggerHandoff } from "@/lib/ai/handoff/orchestrator";
 import { checkG1, checkG3, checkG4Legal, checkG4Stage } from "@/lib/ai/handoff/triggers";
@@ -615,8 +617,24 @@ async function buildContext(input: BuildContextInput): Promise<GuardDecision> {
     const age = Date.now() - new Date(c.last_inbound_at).getTime();
     if (age > WINDOW_24H_MS) return skip("window_24h_expired");
   }
-  // Post-handoff silence (IA-06)
-  if (c.bot_silenced_until && new Date(c.bot_silenced_until).getTime() > Date.now()) {
+  // Post-handoff silence (IA-06).
+  //
+  // A regra vem de `lib/inbox/comando-da-conversa.ts` — a MESMA que move a tela —
+  // e não de uma comparação local, porque a cópia local que estava aqui discordava
+  // dela em produção. Ela era:
+  //
+  //     new Date(c.bot_silenced_until).getTime() > Date.now()
+  //
+  // e o valor que o produto grava para escalação permanente é `'infinity'`, cujo
+  // `new Date(...).getTime()` é `NaN`. Toda comparação com `NaN` é falsa, então a
+  // guarda nunca disparava: a tela mostrava "automático parado" e este worker
+  // seguia respondendo por cima de uma conversa que a IA havia entregado a um
+  // humano (medido na VPS em 2026-08-30, handoff por `low_sentiment`).
+  //
+  // `silencioVigente` também falha FECHADO em data ilegível, que é a direção certa:
+  // dizer "o automático está ativo" sobre um dado que não se sabe ler é a frase
+  // tranquilizadora que a doutrina proíbe.
+  if (silencioVigente(c.bot_silenced_until, new Date()).vigente) {
     return skip("silenced_post_handoff");
   }
   // Recent handoff (idempotency for S-06.03)
@@ -638,18 +656,40 @@ async function buildContext(input: BuildContextInput): Promise<GuardDecision> {
   const inbound_body = (msg.body ?? "").trim();
   if (!inbound_body) return skip("empty_inbound_body");
 
-  // Default agent for this tenant.
-  const { data: agent } = await admin
+  // O agente legado desta organização.
+  //
+  // `is_active` sozinho NÃO é "quem atende", e tratá-lo como se fosse era o
+  // buraco: pausar um `mcp_agent` limpa `published_version_id` e deixa
+  // `is_active` de pé, então este SELECT continuava trazendo o agente que o dono
+  // acabara de pausar — e a trava `engine_owns_reply` logo abaixo, que é
+  // ORG-WIDE, deixa de valer exatamente quando o último publicado é pausado.
+  // Resultado medido em produção: pausar o agente o fazia VOLTAR a responder,
+  // com o `system_prompt` do cadastro no lugar do da versão publicada.
+  //
+  // A régua agora é a mesma que a tela usa (`lib/ai/agents/no-ar.ts`).
+  //
+  // ⚠️ Quem PROTEGE é a régua, não o `.is("archived_at", null)` abaixo — medido
+  // por sabotagem: apagar o filtro deixa os 4 casos de
+  // `tests/unit/agente-pausado-nao-atende.test.ts` verdes, porque
+  // `estadoDoAgente` já devolve "arquivado". O filtro fica por ser mais barato
+  // não trazer do banco o que vai ser descartado; não confie nele como guarda.
+  // Sem `.limit(1)`: o primeiro da ordem pode ser justamente o que a régua
+  // recusa, e cortar antes de filtrar faria um `mcp_agent` pausado — que é
+  // `is_default` na instalação que o onboarding cria — esconder o `rag_bot`
+  // legítimo logo abaixo dele. A ordem (`is_default`, depois `created_at`) é a
+  // de sempre; o que muda é que ela agora escolhe entre os ELEGÍVEIS.
+  const { data: candidatos } = await admin
     .from("ai_agents")
     .select(
-      "id, organization_id, model, system_prompt, config, guardrails, active_kb_version_id, is_active, is_default",
+      "id, organization_id, model, system_prompt, config, guardrails, active_kb_version_id, is_active, is_default, kind, published_version_id, archived_at",
     )
     .eq("organization_id", input.organizationId)
     .eq("is_active", true)
+    .is("archived_at", null)
     .order("is_default", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
+
+  const agent = (candidatos ?? []).find(elegivelParaWorkerLegado) ?? null;
 
   if (!agent) return skip("agent_inactive_or_missing");
 
