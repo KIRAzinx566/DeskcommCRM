@@ -17135,7 +17135,11 @@ alter table public.ai_provider_credentials
   add column if not exists base_url text;
 
 -- A view não usa `select *` — a coluna nova precisa entrar explícita, senão a
--- tela de Credenciais nunca a vê.
+-- tela de Credenciais nunca a vê. `base_url` vai no FIM da lista, não perto de
+-- `api_key_last4`: `CREATE OR REPLACE VIEW` só aceita coluna nova quando as
+-- existentes mantêm nome e posição — inseri-la no meio faz o Postgres ler como
+-- "renomear validated_at para base_url" e falhar (medido no CI: `cannot change
+-- name of view column "validated_at" to "base_url"`).
 create or replace view public.ai_provider_credentials_safe
   with (security_invoker = true) as
 select id,
@@ -17143,14 +17147,14 @@ select id,
        provider,
        label,
        api_key_last4,
-       base_url,
        validated_at,
        validation_error,
        models_available,
        is_active,
        created_by,
        created_at,
-       updated_at
+       updated_at,
+       base_url
   from public.ai_provider_credentials;
 
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----

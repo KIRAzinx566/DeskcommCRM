@@ -32,6 +32,10 @@ alter table public.ai_agent_versions
 alter table public.ai_provider_credentials
   add column if not exists base_url text;
 
+-- `base_url` entra no FIM da lista, não perto de `api_key_last4`: o Postgres só
+-- aceita `CREATE OR REPLACE VIEW` quando as colunas existentes mantêm nome e
+-- posição — inserir uma coluna nova no meio faz ele ler como "renomear
+-- validated_at para base_url" e falhar (`cannot change name of view column`).
 create or replace view public.ai_provider_credentials_safe
   with (security_invoker = true) as
 select id,
@@ -39,12 +43,12 @@ select id,
        provider,
        label,
        api_key_last4,
-       base_url,
        validated_at,
        validation_error,
        models_available,
        is_active,
        created_by,
        created_at,
-       updated_at
+       updated_at,
+       base_url
   from public.ai_provider_credentials;

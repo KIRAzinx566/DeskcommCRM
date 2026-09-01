@@ -31,6 +31,7 @@ const AGENTE_OPENAI: AgenteParaAux = {
   model: "openai/gpt-5-mini",
   provider: "openai",
   credentialId: "cred-openai-1",
+  baseUrl: null,
 };
 
 describe("de onde o classificador auxiliar tira modelo e provider", () => {
@@ -40,7 +41,7 @@ describe("de onde o classificador auxiliar tira modelo e provider", () => {
     expect(
       args.llmOverride,
       "modelo do agente sem o provider dele é o defeito: model id certo para o endpoint errado, 404, turno morto",
-    ).toEqual({ provider: "openai", credentialId: "cred-openai-1" });
+    ).toEqual({ provider: "openai", credentialId: "cred-openai-1", baseUrl: null });
   });
 
   it("com knob de env, NÃO força override — o operador escolheu, e a escolha pressupõe o default da org", () => {
@@ -60,7 +61,7 @@ describe("de onde o classificador auxiliar tira modelo e provider", () => {
     // `model` ausente é o self-host que configurou tudo pela tela e nunca
     // preencheu `default_model`. Herdar o provider sem o modelo apontaria o
     // default da org para um provider que não é o dela.
-    const args = auxModelArgs(undefined, { provider: "openai", credentialId: null });
+    const args = auxModelArgs(undefined, { provider: "openai", credentialId: null, baseUrl: null });
     expect(args).toEqual({});
   });
 
@@ -68,7 +69,12 @@ describe("de onde o classificador auxiliar tira modelo e provider", () => {
     // `credentialId: null` significa "use a credencial default deste provider" —
     // é informação, não ausência. Se ela sumisse, o resolver cairia no provider
     // da org de novo, que é o defeito com outra roupa.
-    const args = auxModelArgs(undefined, { model: "openai/gpt-5-mini", provider: "openai", credentialId: null });
-    expect(args.llmOverride).toEqual({ provider: "openai", credentialId: null });
+    const args = auxModelArgs(undefined, {
+      model: "openai/gpt-5-mini",
+      provider: "openai",
+      credentialId: null,
+      baseUrl: null,
+    });
+    expect(args.llmOverride).toEqual({ provider: "openai", credentialId: null, baseUrl: null });
   });
 });
