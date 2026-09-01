@@ -101,7 +101,11 @@ test.describe("Provedor 'API customizada' no editor de agente", () => {
 
     // Trocar de provedor reseta a credencial — e o seletor reconhece "custom"
     // como provedor de verdade (mensagem nomeia o provedor, não "desconhecido").
+    // É um <Select> do Radix: a opção "sem opção" só existe no DOM com o menu
+    // aberto (mesma pegadinha documentada em agente-novo-e-uso.spec.ts).
+    await page.locator("#credential_id").click();
     await expect(page.getByText(/Nenhuma credencial custom cadastrada/i)).toBeVisible();
+    await page.keyboard.press("Escape");
 
     // Vazio: bloqueia o salvar com a mensagem certa.
     const salvar = page.getByRole("button", { name: /salvar rascunho/i });
@@ -174,7 +178,10 @@ test.describe("Provedor 'API customizada' no painel de Provedores", () => {
     await expect(salvar).toBeEnabled();
 
     await salvar.click();
-    await expect(page.getByText(/agora usa|não sabe usar/i).first()).toBeVisible({
+    // "qualquer/modelo" não está em catálogo nenhum — cai no aviso de modelo
+    // desconhecido (lib/ai/pontos/validar-binding.ts), não no toast de sucesso
+    // "agora usa" que um modelo catalogado (ex.: OpenRouter) recebe.
+    await expect(page.getByText(/não está no catálogo/i).first()).toBeVisible({
       timeout: 15_000,
     });
 
