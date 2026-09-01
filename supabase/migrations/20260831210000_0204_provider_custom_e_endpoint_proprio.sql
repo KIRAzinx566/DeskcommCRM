@@ -32,11 +32,14 @@ alter table public.ai_agent_versions
 alter table public.ai_provider_credentials
   add column if not exists base_url text;
 
--- `base_url` entra no FIM da lista, não perto de `api_key_last4`: o Postgres só
--- aceita `CREATE OR REPLACE VIEW` quando as colunas existentes mantêm nome e
--- posição — inserir uma coluna nova no meio faz ele ler como "renomear
--- validated_at para base_url" e falhar (`cannot change name of view column`).
-create or replace view public.ai_provider_credentials_safe
+-- DROP + CREATE, não CREATE OR REPLACE — mesmo idioma da 0023 (que criou esta
+-- view) e da 0150. `CREATE OR REPLACE VIEW` proíbe encolher OU reordenar as
+-- colunas existentes, e o `test:db` reaplica o baseline.sql inteiro duas vezes
+-- (install e depois update, prova de idempotência): a base_url some e reaparece
+-- de execução em execução, e DROP + CREATE é o único jeito de nunca depender de
+-- qual for o estado anterior da view.
+drop view if exists public.ai_provider_credentials_safe;
+create view public.ai_provider_credentials_safe
   with (security_invoker = true) as
 select id,
        organization_id,
@@ -52,3 +55,16 @@ select id,
        updated_at,
        base_url
   from public.ai_provider_credentials;
+
+-- DROP apaga o ACL da view — reafirma exatamente o grant que o dump original
+-- já tinha (GRANT ALL para authenticated e service_role; anon nunca teve nada
+-- aqui). Nenhuma migration depois do dump estreitou isto — só a tabela base
+-- (0150) —, então estreitar aqui mudaria comportamento que não é desta PR.
+grant all on public.ai_provider_credentials_safe to authenticated;
+grant all on public.ai_provider_credentials_safe to service_role;
+
+-- `security_invoker = true`: quem lê a view precisa do grant na TABELA base
+-- para cada coluna que a view seleciona (0150 já restringiu isso a uma lista
+-- fechada de 12 colunas) — sem esta linha, `authenticated` lê a view inteira
+-- e recebe "permission denied for column base_url" na hora de contar linhas.
+grant select (base_url) on public.ai_provider_credentials to authenticated;

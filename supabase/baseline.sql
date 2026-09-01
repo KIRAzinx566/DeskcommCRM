@@ -1212,6 +1212,13 @@ CREATE TABLE IF NOT EXISTS "public"."ai_provider_credentials" (
 ALTER TABLE "public"."ai_provider_credentials" OWNER TO "postgres";
 
 
+-- DROP antes do CREATE (mesmo idioma da migration 0204 mais abaixo, adicionado
+-- quando essa migration mostrou que este CREATE OR REPLACE, sozinho, quebra o
+-- update.sh do self-host: `test:db` reaplica o baseline.sql inteiro duas vezes
+-- — install e update, prova de idempotência —, e o segundo passe encontra a
+-- view já ampliada com colunas que este SELECT congelado não lista, e
+-- `CREATE OR REPLACE VIEW` recusa encolher (`cannot drop columns from view`).
+DROP VIEW IF EXISTS "public"."ai_provider_credentials_safe";
 CREATE OR REPLACE VIEW "public"."ai_provider_credentials_safe" WITH ("security_invoker"='true') AS
  SELECT "id",
     "organization_id",
@@ -17135,12 +17142,13 @@ alter table public.ai_provider_credentials
   add column if not exists base_url text;
 
 -- A view não usa `select *` — a coluna nova precisa entrar explícita, senão a
--- tela de Credenciais nunca a vê. `base_url` vai no FIM da lista, não perto de
--- `api_key_last4`: `CREATE OR REPLACE VIEW` só aceita coluna nova quando as
--- existentes mantêm nome e posição — inseri-la no meio faz o Postgres ler como
--- "renomear validated_at para base_url" e falhar (medido no CI: `cannot change
--- name of view column "validated_at" to "base_url"`).
-create or replace view public.ai_provider_credentials_safe
+-- tela de Credenciais nunca a vê. DROP + CREATE, não CREATE OR REPLACE — mesmo
+-- idioma da 0023/0150 (que já criaram e tocaram esta view): `CREATE OR REPLACE
+-- VIEW` proíbe encolher ou reordenar colunas existentes, e o `test:db` reaplica
+-- o baseline.sql duas vezes seguidas (install e update, prova de idempotência)
+-- — DROP + CREATE é o único jeito de nunca depender do estado anterior.
+drop view if exists public.ai_provider_credentials_safe;
+create view public.ai_provider_credentials_safe
   with (security_invoker = true) as
 select id,
        organization_id,
@@ -17156,6 +17164,19 @@ select id,
        updated_at,
        base_url
   from public.ai_provider_credentials;
+
+-- DROP apaga o ACL da view — reafirma exatamente o grant que o dump original
+-- já tinha (GRANT ALL para authenticated e service_role; anon nunca teve nada
+-- aqui). Nenhuma migration depois do dump estreitou isto — só a tabela base
+-- (0150) —, então estreitar aqui mudaria comportamento que não é desta PR.
+grant all on public.ai_provider_credentials_safe to authenticated;
+grant all on public.ai_provider_credentials_safe to service_role;
+
+-- `security_invoker = true`: quem lê a view precisa do grant na TABELA base
+-- para cada coluna que ela seleciona (0150 restringiu isso a uma lista fechada
+-- de 12 colunas) — sem esta linha, `authenticated` recebe "permission denied
+-- for column base_url" ao ler a view.
+grant select (base_url) on public.ai_provider_credentials to authenticated;
 
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
