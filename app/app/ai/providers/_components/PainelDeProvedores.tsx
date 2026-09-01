@@ -468,17 +468,25 @@ function CartaoDoPonto({
 
           {aceitaEndpointProprio && (
             <div className="sm:col-span-3">
-              <Label className="text-xs">{t("Endereço próprio (opcional)")}</Label>
+              <Label className="text-xs">
+                {provider === "custom"
+                  ? t("Endereço do endpoint (obrigatório)")
+                  : t("Endereço próprio (opcional)")}
+              </Label>
               <Input
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://mi-gateway.ejemplo.com/v1"
+                placeholder="https://meu-gateway.exemplo.com/v1"
                 data-testid={`base-url-${ponto.id}`}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                {t(
-                  "Deixe em branco para usar o endereço oficial do provedor. Use isto para apontar para um gateway compatível com a API da OpenAI — inclusive um modelo rodando na sua própria máquina.",
-                )}
+                {provider === "custom"
+                  ? t(
+                      "Provider customizado não tem endereço padrão — informe o endpoint compatível com a API da OpenAI (Groq, Together, Cerebras, gateway próprio, modelo local).",
+                    )
+                  : t(
+                      "Deixe em branco para usar o endereço oficial do provedor. Use isto para apontar para um gateway compatível com a API da OpenAI — inclusive um modelo rodando na sua própria máquina.",
+                    )}
               </p>
             </div>
           )}
@@ -486,7 +494,7 @@ function CartaoDoPonto({
           <div className="sm:col-span-3">
             <Button
               size="sm"
-              disabled={salvando || !modelId}
+              disabled={salvando || !modelId || (provider === "custom" && baseUrl.trim() === "")}
               onClick={() => void salvar()}
               data-testid={`salvar-${ponto.id}`}
             >

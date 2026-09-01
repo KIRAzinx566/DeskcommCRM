@@ -30,6 +30,8 @@ import { decryptKey, byteaToBuffer } from "@/lib/crypto/aes_gcm";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { NVIDIA_ENDPOINT } from "@/lib/agent-engine/edge/llm/providers";
+
 import { OPENROUTER_BASE_URL, resolveLanguageModel, type ModelId } from "./gateway";
 
 export interface ModeloResolvido {
@@ -172,8 +174,27 @@ function instanciar(
       return createOpenAI({ apiKey })(modelId);
     case "google":
       return createGoogleGenerativeAI({ apiKey })(modelId);
+    // `.chat(modelId)`, não a chamada direta: desde @ai-sdk/openai@4, o
+    // provider chamado direto usa a Responses API por padrão, e OpenRouter/
+    // NVIDIA só implementam Chat Completions (`/chat/completions`) — mesmo
+    // bug já corrigido em `createDefaultRegistry` (providers.ts) e em
+    // `buildModel` (lib/ai/runtime/agent.ts). Esta ponte tinha ficado para
+    // trás: `sentiment_classify`/`bot_respond` em OpenRouter batiam em
+    // `/responses` e voltavam 404/410 do provedor.
     case "openrouter":
-      return createOpenAI({ apiKey, baseURL: baseUrl ?? OPENROUTER_BASE_URL })(modelId);
+      return createOpenAI({ apiKey, baseURL: baseUrl ?? OPENROUTER_BASE_URL }).chat(modelId);
+    // Faltava inteiro — `createDefaultRegistry` (o registry de produção do
+    // agent-engine) já executa NVIDIA desde que ela virou opção [1] do
+    // instalador; esta ponte (que serve sentiment_classify/bot_respond na
+    // pilha antiga) nunca ganhou o caso, e um binding em NVIDIA para esses
+    // dois pontos caía no padrão com aviso, silenciosamente.
+    case "nvidia":
+      return createOpenAI({ apiKey, baseURL: baseUrl ?? NVIDIA_ENDPOINT }).chat(modelId);
+    // "custom" não tem endpoint canônico — sem baseUrl, cai no padrão com
+    // aviso (mesmo caminho de "provider desconhecido"), nunca um endpoint que
+    // ninguém escolheu.
+    case "custom":
+      return baseUrl === null ? null : createOpenAI({ apiKey, baseURL: baseUrl }).chat(modelId);
     default:
       return null;
   }

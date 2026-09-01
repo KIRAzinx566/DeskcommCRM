@@ -103,6 +103,17 @@ export function montarRequisicaoDeProva(
         headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
         body: { model: modelo, max_tokens: 1, messages: msg },
       };
+    // Igual a openrouter/nvidia (mesma API), mas SEM fallback: "custom" não tem
+    // endpoint canônico, e um `?? algo` aqui testaria um endereço que o
+    // operador não escolheu — false negative (ou pior, false positive contra
+    // um serviço qualquer) em vez de dizer "falta configurar".
+    case "custom":
+      if (!baseUrl) return null;
+      return {
+        url: `${baseUrl}/chat/completions`,
+        headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+        body: { model: modelo, max_tokens: 1, messages: msg },
+      };
     default:
       // Fail-closed: provedor que este módulo não sabe cobrar não recebe um
       // "ok" por omissão — seria a frase tranquilizadora de novo.

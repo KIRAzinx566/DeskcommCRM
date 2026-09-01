@@ -69,6 +69,13 @@ export interface AgentePublicado {
   provider: string;
   credentialId: string | null;
   model: string | undefined;
+  /**
+   * Endpoint compatível com a API da OpenAI, próprio da versão publicada —
+   * mesmo papel do `base_url` de `LinhaDeBinding`. `null` para todo provider
+   * com endpoint canônico; para `provider: "custom"` é sempre preenchido (a
+   * rota de versões recusa publicar sem ele).
+   */
+  baseUrl: string | null;
 }
 
 /** O padrão da organização (`organizations.settings.llm`). */
@@ -177,7 +184,7 @@ export function decidirBinding(entrada: EntradaDaDecisao): DecisaoDeBinding {
       provider: agente.provider,
       modelId: agente.model,
       credentialId: agente.credentialId,
-      baseUrl: null,
+      baseUrl: agente.baseUrl,
       origem: "agente_publicado",
       avisos,
     };
@@ -235,7 +242,7 @@ export function decidirBinding(entrada: EntradaDaDecisao): DecisaoDeBinding {
       provider: quemChamou.provider,
       modelId: modeloDeQuemChamou,
       credentialId: quemChamou.credentialId,
-      baseUrl: null,
+      baseUrl: quemChamou.baseUrl,
       origem: "herdado_de_quem_chamou",
       avisos,
     };

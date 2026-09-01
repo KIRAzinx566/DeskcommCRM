@@ -17115,6 +17115,44 @@ grant  execute on function public.comando_da_conversa(public.conversations) to a
 -- packaging proíbe pedir a quem opera uma VPS.
 notify pgrst, 'reload schema';
 
+-- ---- provider "custom" e endpoint próprio na credencial e na versão do agente (migration 0204) ----
+--
+-- Até aqui, "endpoint próprio" (endereço OpenAI-compatível escolhido pelo
+-- operador) só existia em `ai_purpose_bindings.base_url` (migration 0126) —
+-- serve os pontos AUXILIARES, configurados no painel de Provedores. Os DOIS
+-- pontos que são o próprio agente conversando (`agent_turn`, `operator_turn`)
+-- tiram provider e modelo de `ai_agent_versions`, que não tinha onde guardar
+-- um endereço — um agente publicado em OpenRouter/NVIDIA com gateway próprio,
+-- ou num serviço genérico compatível com a API da OpenAI (Groq, Together,
+-- Cerebras, modelo local), sempre batia no endpoint canônico do provider.
+--
+-- Duas colunas nullable, sem CHECK (vocabulário aberto, mesma razão da 0127):
+-- quem valida a obrigatoriedade cruzada com o provider é a rota, não o banco.
+alter table public.ai_agent_versions
+  add column if not exists base_url text;
+
+alter table public.ai_provider_credentials
+  add column if not exists base_url text;
+
+-- A view não usa `select *` — a coluna nova precisa entrar explícita, senão a
+-- tela de Credenciais nunca a vê.
+create or replace view public.ai_provider_credentials_safe
+  with (security_invoker = true) as
+select id,
+       organization_id,
+       provider,
+       label,
+       api_key_last4,
+       base_url,
+       validated_at,
+       validation_error,
+       models_available,
+       is_active,
+       created_by,
+       created_at,
+       updated_at
+  from public.ai_provider_credentials;
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ ESTE BLOCO É, DE PROPÓSITO, O ÚLTIMO DO ARQUIVO. Apêndice novo entra ANTES

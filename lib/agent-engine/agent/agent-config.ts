@@ -24,6 +24,8 @@ export interface PublishedAgentConfig {
   systemPrompt: string;
   provider: string;
   model: string;
+  /** Endpoint compatível com a API da OpenAI, próprio desta versão — ver `ai_agent_versions.base_url`. */
+  baseUrl: string | null;
   credentialId: string | null;
   maxSteps: number;
   historyMessageWindow: number;
@@ -94,6 +96,7 @@ interface Row {
   system_prompt: string;
   provider: string;
   model: string;
+  base_url: string | null;
   credential_id: string | null;
   max_steps: number;
   history_message_window: number;
@@ -123,6 +126,7 @@ const SELECT_AGENT_CONFIG_COLUMNS = `a.id as agent_id,
             v.system_prompt,
             v.provider,
             v.model,
+            v.base_url,
             v.credential_id,
             v.max_steps,
             v.history_message_window,
@@ -168,6 +172,7 @@ function mapAgentConfigRow(r: Row): PublishedAgentConfig {
     systemPrompt: r.system_prompt,
     provider: r.provider,
     model: r.model,
+    baseUrl: r.base_url,
     credentialId: r.credential_id,
     maxSteps: r.max_steps,
     historyMessageWindow: r.history_message_window,

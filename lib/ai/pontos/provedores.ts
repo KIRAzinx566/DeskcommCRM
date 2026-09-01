@@ -86,6 +86,18 @@ export const PROVEDORES = [
     catalogoSincronizavel: true,
     ondePegarAChave: "https://build.nvidia.com",
   },
+  {
+    id: "custom",
+    rotulo: "API customizada (compatível com OpenAI)",
+    quandoUsar:
+      "Qualquer endpoint que fale a API da OpenAI e você mesmo escolheu — Groq, Together, Cerebras, um gateway próprio, um modelo rodando na sua máquina. O endereço é obrigatório aqui: não existe um padrão para apontar sozinho.",
+    aceitaEndpointProprio: true,
+    catalogoSincronizavel: false,
+    // Não há uma única página de credencial — o operador cadastra a chave do
+    // serviço que ele escolheu. O link explica o CONTRATO (API da OpenAI) que
+    // o endpoint precisa falar, não onde pegar uma chave específica.
+    ondePegarAChave: "https://platform.openai.com/docs/api-reference",
+  },
 ] as const satisfies readonly ProvedorSuportado[];
 // `as const satisfies` e não anotação de tipo: a anotação apagaria os literais
 // e `Provider` viraria `string`, deixando o compilador aceitar qualquer texto

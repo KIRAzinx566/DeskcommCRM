@@ -72,7 +72,7 @@ export async function GET(): Promise<Response> {
     db
       .from("ai_agents")
       .select(
-        "id, name, published_version_id, versao:ai_agent_versions!ai_agents_published_version_id_fkey(provider, model, credential_id)",
+        "id, name, published_version_id, versao:ai_agent_versions!ai_agents_published_version_id_fkey(provider, model, credential_id, base_url)",
       )
       .eq("organization_id", org.orgId)
       .is("archived_at", null)
@@ -92,10 +92,18 @@ export async function GET(): Promise<Response> {
     defaultModel: typeof llm.default_model === "string" ? llm.default_model : null,
   };
 
-  const versao = (agenteRes.data as { versao?: { provider: string; model: string; credential_id: string | null } } | null)
-    ?.versao;
+  const versao = (
+    agenteRes.data as {
+      versao?: { provider: string; model: string; credential_id: string | null; base_url: string | null };
+    } | null
+  )?.versao;
   const agentePublicado = versao
-    ? { provider: versao.provider, credentialId: versao.credential_id, model: versao.model }
+    ? {
+        provider: versao.provider,
+        credentialId: versao.credential_id,
+        model: versao.model,
+        baseUrl: versao.base_url,
+      }
     : null;
 
   const modelos = (modelosRes.data ?? []) as ModeloDoCatalogo[];
@@ -213,6 +221,17 @@ export async function PUT(req: NextRequest): Promise<Response> {
 
   const ponto = PONTO_POR_ID.get(corpo.purpose);
   if (!ponto) return fail("ponto_desconhecido", `"${corpo.purpose}" não é um ponto do sistema`, 404);
+
+  // "custom" não tem endpoint canônico — sem endereço, todo turno deste ponto
+  // recusaria com o registry (providers.ts) lançando em runtime, e o operador
+  // só descobriria olhando o log de uma falha ao invés de na hora de salvar.
+  if (corpo.provider === "custom" && !corpo.base_url) {
+    return fail(
+      "validation_failed",
+      "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+      422,
+    );
+  }
 
   const db = await createClient();
 

@@ -10,7 +10,14 @@ describe("createDefaultRegistry", () => {
     // que ninguém alcança pela tela, e o inverso é uma tela que oferece o que
     // toda chamada recusaria. O par é vigiado por provedores-x-registry.test.ts.
     const reg = createDefaultRegistry();
-    expect(Object.keys(reg).sort()).toEqual(["anthropic", "google", "nvidia", "openai", "openrouter"]);
+    expect(Object.keys(reg).sort()).toEqual([
+      "anthropic",
+      "custom",
+      "google",
+      "nvidia",
+      "openai",
+      "openrouter",
+    ]);
   });
   it("cada factory produz um LanguageModel (não lança ao instanciar)", () => {
     const reg = createDefaultRegistry();
@@ -21,6 +28,13 @@ describe("createDefaultRegistry", () => {
     // Endpoint próprio (gateway compatível, ou modelo local no roteiro).
     expect(() => reg.openrouter!("k", "x/y", "https://gateway.exemplo/v1")).not.toThrow();
     expect(() => reg.nvidia!("k", "meta/llama-3.3-70b-instruct")).not.toThrow();
+    // "custom" SÓ funciona com baseUrl — sem endpoint canônico, de propósito.
+    expect(() => reg.custom!("k", "qualquer/modelo", "https://gateway.exemplo/v1")).not.toThrow();
+  });
+
+  it("'custom' lança sem baseUrl — não existe endpoint canônico para cair", () => {
+    const reg = createDefaultRegistry();
+    expect(() => reg.custom!("k", "qualquer/modelo")).toThrow();
   });
 
   it("openrouter e nvidia falam Chat Completions, não Responses API", () => {

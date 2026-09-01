@@ -2906,7 +2906,11 @@ async function executarTurnoDoAgente(
       ...(agentConfig !== null
         ? {
             model: agentConfig.model,
-            llmOverride: { provider: agentConfig.provider, credentialId: agentConfig.credentialId },
+            llmOverride: {
+              provider: agentConfig.provider,
+              credentialId: agentConfig.credentialId,
+              baseUrl: agentConfig.baseUrl,
+            },
           }
         : {}),
     },
@@ -2964,7 +2968,11 @@ async function executarTurnoDoAgente(
       ...(agentConfig !== null
         ? {
             model: agentConfig.model,
-            llmOverride: { provider: agentConfig.provider, credentialId: agentConfig.credentialId },
+            llmOverride: {
+              provider: agentConfig.provider,
+              credentialId: agentConfig.credentialId,
+              baseUrl: agentConfig.baseUrl,
+            },
           }
         : {}),
       system,

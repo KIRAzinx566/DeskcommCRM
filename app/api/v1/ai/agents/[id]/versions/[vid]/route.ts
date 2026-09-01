@@ -17,7 +17,7 @@ import { versionPatchSchema } from "@/lib/ai/agents/validation";
 export const dynamic = "force-dynamic";
 
 const VERSION_COLUMNS =
-  "id, organization_id, agent_id, version_number, system_prompt, provider, model, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
+  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -80,7 +80,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
   const admin = createAdminClient();
   const { data: existing } = await admin
     .from("ai_agent_versions")
-    .select("id, status, agent_id, organization_id")
+    .select("id, status, agent_id, organization_id, provider, base_url")
     .eq("id", vid)
     .eq("organization_id", activeOrg.orgId)
     .eq("agent_id", id)
@@ -94,10 +94,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     });
   }
 
+  // "custom" não tem endpoint canônico — o resultado EFETIVO do patch (não só
+  // os campos que ele toca) é o que importa: trocar pra custom sem endereço,
+  // ou apagar o endereço de uma versão já em custom, publicaria uma versão que
+  // o registry recusaria em toda mensagem.
+  const provedorEfetivo = patch.provider ?? (existing as { provider: string }).provider;
+  const baseUrlEfetiva =
+    patch.base_url !== undefined ? patch.base_url : (existing as { base_url: string | null }).base_url;
+  if (provedorEfetivo === "custom" && !baseUrlEfetiva) {
+    return fail(
+      "validation_failed",
+      "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+      422,
+      { requestId },
+    );
+  }
+
   const update: Record<string, unknown> = {};
   if (patch.system_prompt !== undefined) update.system_prompt = patch.system_prompt;
   if (patch.provider !== undefined) update.provider = patch.provider;
   if (patch.model !== undefined) update.model = patch.model;
+  if (patch.base_url !== undefined) update.base_url = patch.base_url;
   if (patch.credential_id !== undefined) update.credential_id = patch.credential_id;
   if (patch.tool_ids !== undefined) update.tool_ids = patch.tool_ids;
   if (patch.trigger_config !== undefined) update.trigger_config = patch.trigger_config;

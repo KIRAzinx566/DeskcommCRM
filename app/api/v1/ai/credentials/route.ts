@@ -24,7 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 const SAFE_COLUMNS =
-  "id, organization_id, provider, label, api_key_last4, validated_at, validation_error, models_available, is_active, created_by, created_at, updated_at";
+  "id, organization_id, provider, label, api_key_last4, base_url, validated_at, validation_error, models_available, is_active, created_by, created_at, updated_at";
 
 const createSchema = z.object({
   // Derivado de `lib/ai/pontos/provedores.ts`, a lista única desde a migration
@@ -34,6 +34,9 @@ const createSchema = z.object({
   provider: z.enum(IDS_DE_PROVEDOR),
   label: z.string().trim().min(1).max(80),
   api_key: z.string().trim().min(8).max(2048),
+  // Só "custom" exige — a checagem cruzada mora abaixo do parse (schema valida
+  // FORMA, não a obrigatoriedade por provider).
+  base_url: z.string().trim().url().optional(),
 });
 
 export async function GET(): Promise<Response> {
@@ -78,6 +81,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   const input = parsed.data;
   const provider = input.provider as Provider;
 
+  if (provider === "custom" && !input.base_url) {
+    return fail(
+      "validation_failed",
+      "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+      422,
+      { requestId },
+    );
+  }
+
   // O miolo — cifrar, gravar, auditar e validar em segundo plano — mora em
   // `lib/ai/credenciais/guardar.ts` porque o wizard precisa exatamente do mesmo
   // e cada item dessa lista tem consequência de segurança se as duas cópias
@@ -89,6 +101,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     provider,
     label: input.label,
     apiKey: input.api_key,
+    ...(input.base_url !== undefined ? { baseUrl: input.base_url } : {}),
     requestId,
   });
 

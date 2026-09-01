@@ -1476,6 +1476,7 @@ export const DICIONARIO: Traducoes = {
   },
   "Documento da organização": { es: "Documento de la organización" },
   "Editar limite": { es: "Editar límite" },
+  "Endereço do endpoint (obrigatório)": { es: "Dirección del endpoint (obligatoria)" },
   "Endereço próprio (opcional)": { es: "Dirección propia (opcional)" },
   "Enviar skill (.zip)": { es: "Enviar skill (.zip)" },
   "Escolha o que acontece quando o gasto do mês chega no limite. Os valores são em dólar — é a moeda em que o provedor de IA cobra.": {
@@ -5949,6 +5950,12 @@ export const DICIONARIO: Traducoes = {
   "phone_number_id, waba_id e token são obrigatórios": { es: "phone_number_id, waba_id y token son obligatorios" },
   "Pipeline não encontrado.": { es: "Pipeline no encontrado." },
   "provar a chave requer papel de administrador": { es: "probar la clave requiere rol de administrador" },
+  "Provider customizado exige o endereço do endpoint (compatível com a API da OpenAI).": {
+    es: "El provider personalizado exige la dirección del endpoint (compatible con la API de OpenAI).",
+  },
+  "Provider customizado não tem endereço padrão — informe o endpoint compatível com a API da OpenAI (Groq, Together, Cerebras, gateway próprio, modelo local).": {
+    es: "El provider personalizado no tiene dirección predeterminada — indica el endpoint compatible con la API de OpenAI (Groq, Together, Cerebras, gateway propio, modelo local).",
+  },
   "Provider desconhecido.": { es: "Provider desconocido." },
   "Rascunho da IA indisponível (config).": { es: "Borrador de la IA no disponible (config)." },
   "Regra do run não encontrada.": { es: "Regla del run no encontrada." },
