@@ -8,6 +8,24 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.11.0] — 2026-09-01
+
+### Adicionado
+
+- **Novo provedor de IA "API customizada" — qualquer endpoint compatível com OpenAI** Até aqui, os únicos provedores disponíveis (em IA › Provedores e em cada
+  agente) eram Anthropic, OpenAI, Google, OpenRouter e NVIDIA — todos com
+  endpoint fixo. Quem queria usar Groq, Together, Cerebras, um gateway próprio
+  ou um modelo rodando na própria máquina não tinha como, mesmo o serviço
+  falando a mesma API da OpenAI.
+
+  Agora existe a opção "API customizada (compatível com OpenAI)", que aceita
+  qualquer endereço `https://` escolhido por quem administra. O endereço é
+  obrigatório (não existe um padrão para cair sozinho) e pode ser configurado
+  tanto no painel de Provedores (para os pontos auxiliares) quanto na própria
+  versão do agente — inclusive para o ponto que responde o cliente no
+  WhatsApp, que antes só herdava o endpoint fixo de um dos cinco provedores
+  prontos.
+
 ## [1.10.4] — 2026-08-29
 
 ### Adicionado
@@ -1723,7 +1741,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.4...HEAD
+[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.4...v1.11.0
 [1.10.4]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.2...v1.10.4
 [1.10.2]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.0...v1.10.1
