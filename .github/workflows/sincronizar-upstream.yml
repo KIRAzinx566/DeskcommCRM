@@ -1,0 +1,146 @@
+name: sincronizar upstream
+
+# Confere diariamente se melgarafael/DeskcommCRM (o upstream original, de onde
+# este fork nasceu) tem commits novos. Se tiver, tenta trazê-los para a branch
+# `sync-upstream` e abre (ou atualiza) um PR pronto pra revisão — NUNCA mescla
+# sozinho. Se o merge tiver conflito, não empurra código quebrado: abre uma
+# ISSUE avisando, porque conflito precisa de alguém resolvendo com cabeça, não
+# dá pra automatizar direito.
+#
+# `sync-upstream` é uma branch GERENCIADA por este workflow — ele a recria do
+# zero (force-push) a cada execução com novidade. Não commite nela direto: o
+# próximo run apaga. Se quiser resolver algo manualmente, crie outra branch a
+# partir dela e mude o "head" do PR.
+#
+# Mesmo cuidado de token do release.yml, e pelo mesmo motivo: quem escreve
+# (branch, PR, issue) precisa ser um token que NÃO seja o GITHUB_TOKEN, senão
+# o PR nasce e nenhum outro workflow (verify, invariants, e2e) roda nele — a
+# mesma armadilha documentada lá. Reusa o mesmo secret, RELEASE_APP_TOKEN.
+#
+# Este workflow NÃO corta release sozinho: depois de mesclado o PR, decidir se
+# e como versionar continua manual (o merge de um upstream inteiro pode trazer
+# fragmentos deles, que não seguem necessariamente a mesma convenção daqui).
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_URL: https://github.com/melgarafael/DeskcommCRM.git
+  BRANCH: sync-upstream
+
+jobs:
+  verificar-e-trazer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: RELEASE_APP_TOKEN está configurado?
+        id: cfg
+        run: |
+          if [ -z "${{ secrets.RELEASE_APP_TOKEN }}" ]; then
+            echo "::notice::RELEASE_APP_TOKEN não configurado — esta sincronização automática (e o release.yml) precisam dele. Configure em Settings › Secrets and variables › Actions."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.cfg.outputs.ok == 'true'
+        with:
+          # `fetch-depth: 0` porque compara main com upstream/main inteiros.
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_APP_TOKEN }}
+
+      - name: Buscar o upstream
+        if: steps.cfg.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          git remote add upstream "${{ env.UPSTREAM_URL }}"
+          git fetch upstream main
+
+      - name: Tem commit novo no upstream?
+        id: diff
+        if: steps.cfg.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          novos=$(git rev-list --count HEAD..upstream/main)
+          echo "novos=${novos}" >> "$GITHUB_OUTPUT"
+          echo "${novos} commit(s) novo(s) no upstream"
+
+      - name: Já existe PR aberto desta sincronização?
+        id: pr_existente
+        if: steps.cfg.outputs.ok == 'true' && steps.diff.outputs.novos != '0'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_APP_TOKEN }}
+        run: |
+          set -euo pipefail
+          numero=$(gh pr list --head "${{ env.BRANCH }}" --state open --json number --jq '.[0].number // empty')
+          echo "numero=${numero}" >> "$GITHUB_OUTPUT"
+
+      - name: Tentar o merge
+        id: merge
+        if: steps.cfg.outputs.ok == 'true' && steps.diff.outputs.novos != '0'
+        run: |
+          set -euo pipefail
+          git config user.name  'deskcomm-release-bot'
+          git config user.email 'deskcomm-release-bot@users.noreply.github.com'
+          git checkout -B "${{ env.BRANCH }}"
+          if git merge upstream/main --no-edit; then
+            echo "limpo=sim" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "limpo=nao" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push + abrir/atualizar PR (merge limpo)
+        if: steps.cfg.outputs.ok == 'true' && steps.diff.outputs.novos != '0' && steps.merge.outputs.limpo == 'sim'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_APP_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push origin "${{ env.BRANCH }}" --force
+          if [ -n "${{ steps.pr_existente.outputs.numero }}" ]; then
+            echo "PR #${{ steps.pr_existente.outputs.numero }} já existe — atualizado pelo push."
+            exit 0
+          fi
+          {
+            echo "Traz ${{ steps.diff.outputs.novos }} commit(s) novo(s) de melgarafael/DeskcommCRM (upstream) — merge automático, sem conflito."
+            echo
+            echo "**Antes de mesclar:** confira \`docs/current-state.md\`, e rode \`pnpm test:db\` localmente se algo aqui tocar schema/RLS/RBAC. Este PR NÃO corta release sozinho — depois de mesclado, decida manualmente se e como versionar (dispare o workflow \`release\`)."
+            echo
+            echo "⚠️ \`${{ env.BRANCH }}\` é gerenciada por este workflow — ele a recria a cada execução com novidade. Não commite direto nela."
+            echo
+            echo "Commits trazidos:"
+            echo '```'
+            git log --oneline "HEAD..upstream/main" 2>/dev/null || git log --oneline upstream/main -20
+            echo '```'
+          } > /tmp/corpo.md
+          gh pr create --base main --head "${{ env.BRANCH }}" \
+            --title "sync: traz ${{ steps.diff.outputs.novos }} commit(s) do upstream" \
+            --body-file /tmp/corpo.md
+
+      - name: Conflito — abrir ISSUE em vez de PR quebrado
+        if: steps.cfg.outputs.ok == 'true' && steps.diff.outputs.novos != '0' && steps.merge.outputs.limpo == 'nao'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_APP_TOKEN }}
+        run: |
+          set -euo pipefail
+          aberta=$(gh issue list --search 'in:title "merge automático deu conflito"' --state open --json number --jq '.[0].number // empty')
+          if [ -n "$aberta" ]; then
+            echo "Issue #$aberta já avisa sobre isso — não duplica."
+            exit 0
+          fi
+          {
+            echo "O upstream (melgarafael/DeskcommCRM) tem ${{ steps.diff.outputs.novos }} commit(s) novo(s), e o merge automático deu CONFLITO — precisa de alguém resolvendo com cabeça, não dá pra automatizar."
+            echo
+            echo "Pra ver os commits: \`git fetch https://github.com/melgarafael/DeskcommCRM.git main && git log --oneline HEAD..FETCH_HEAD\`."
+            echo
+            echo "Esta issue não fecha sozinha — feche depois de trazer o upstream (manual, ou rodando este workflow de novo depois de resolvido)."
+          } > /tmp/issue.md
+          gh issue create --title "upstream tem commits novos, e o merge automático deu conflito" \
+            --body-file /tmp/issue.md
