@@ -8,6 +8,18 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.11.1] — 2026-09-01
+
+### Corrigido
+
+- **O diálogo de cadastrar credencial oferecia "API customizada" sem o campo do endereço** A v1.11.0 trouxe o provider "API customizada" pro editor de agente e pro
+  painel de Provedores, mas o terceiro lugar onde ele já aparecia — o diálogo
+  "Adicionar credencial", em IA › Credenciais — listava a opção no seletor sem
+  ter o campo de endereço nenhum. Quem escolhesse "API customizada" ali recebia
+  sempre "Provider customizado exige o endereço do endpoint", sem nenhuma forma
+  de preencher o que faltava. Agora o campo existe, nasce obrigatório para esse
+  provider, e o cadastro completa.
+
 ## [1.11.0] — 2026-09-01
 
 ### Adicionado
@@ -1741,7 +1753,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.0...HEAD
+[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.4...v1.11.0
 [1.10.4]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.2...v1.10.4
 [1.10.2]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.1...v1.10.2
