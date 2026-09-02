@@ -466,6 +466,7 @@ export function createOperatorTurnHandler(deps: InboundTurnDeps) {
             llmOverride: {
               provider: agentConfig.provider,
               credentialId: agentConfig.credentialId,
+              baseUrl: agentConfig.baseUrl,
             },
           },
           { ...(deps.registry !== undefined ? { registry: deps.registry } : {}), log },

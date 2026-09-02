@@ -329,6 +329,7 @@ export async function runModelCall(db: pg.Pool, cfg: LlmEdgeConfig, input: RunMo
         : {
             provider: input.llmOverride.provider ?? padrao.provider,
             credentialId: input.llmOverride.credentialId ?? null,
+            baseUrl: input.llmOverride.baseUrl ?? null,
             model: input.model,
           },
     padraoDaOrganizacao: { provider: padrao.provider, defaultModel: padrao.defaultModel },

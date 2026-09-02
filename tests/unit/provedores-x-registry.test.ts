@@ -246,7 +246,11 @@ describe("a corrente inteira: lista × execução × tela", () => {
     const recusados: string[] = [];
     for (const id of IDS_DE_PROVEDOR) {
       try {
-        buildModel(id, "chave-de-teste", "modelo/qualquer");
+        // "custom" não tem endpoint canônico — o teto do que este caso mede
+        // é "a lista inteira roda no ensaio", não "sem endereço nenhum". O
+        // caso abaixo ("recusa provedor…") cobre a ausência de propósito.
+        const baseUrl = id === "custom" ? "https://gateway.exemplo/v1" : undefined;
+        buildModel(id, "chave-de-teste", "modelo/qualquer", baseUrl);
       } catch {
         recusados.push(id);
       }
@@ -268,8 +272,15 @@ describe("a corrente inteira: lista × execução × tela", () => {
     const { buildModel } = await import("@/lib/ai/runtime/agent");
     const openrouterModel = buildModel("openrouter", "k", "meta-llama/llama-3.3-70b-instruct");
     const nvidiaModel = buildModel("nvidia", "k", "meta/llama-3.3-70b-instruct");
+    const customModel = buildModel("custom", "k", "qualquer/modelo", "https://gateway.exemplo/v1");
     expect((openrouterModel as { provider: string }).provider).toBe("openai.chat");
     expect((nvidiaModel as { provider: string }).provider).toBe("openai.chat");
+    expect((customModel as { provider: string }).provider).toBe("openai.chat");
+  });
+
+  it("'custom' recusa o ensaio sem endereço — não existe canônico para cair", async () => {
+    const { buildModel } = await import("@/lib/ai/runtime/agent");
+    expect(() => buildModel("custom", "k", "qualquer/modelo")).toThrow(/unsupported_provider/);
   });
 
   it("e continua recusando provedor que ninguém declarou (a catraca não virou peneira)", async () => {

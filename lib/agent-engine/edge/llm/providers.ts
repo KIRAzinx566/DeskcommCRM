@@ -130,6 +130,23 @@ export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): Provi
       const endpoint = baseUrl ?? NVIDIA_ENDPOINT;
       return createOpenAI({ apiKey, baseURL: endpoint, fetch: contain(endpoint) }).chat(modelId);
     },
+    /**
+     * SEM ENDPOINT CANÔNICO, de propósito: "custom" existe exatamente para o
+     * operador apontar pra onde quiser (Groq, Together, Cerebras, gateway
+     * próprio, modelo local) — um fallback aqui devolveria a garantia que este
+     * provider promete. A tela exige o endereço no cadastro (nunca opcional
+     * para "custom"); chegar aqui sem ele é configuração quebrada, não
+     * ausência normal, e por isso lança em vez de silenciar num endpoint que
+     * ninguém escolheu.
+     */
+    custom: (apiKey, modelId, baseUrl) => {
+      if (!baseUrl) {
+        throw new Error(
+          "provider 'custom' sem endereço configurado — cadastre o endpoint em IA › Provedores ou na versão do agente",
+        );
+      }
+      return createOpenAI({ apiKey, baseURL: baseUrl, fetch: contain(baseUrl) }).chat(modelId);
+    },
   };
 }
 

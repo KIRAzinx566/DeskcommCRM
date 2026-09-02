@@ -42,6 +42,7 @@ const agente = (over: Partial<AgentePublicado> = {}): AgentePublicado => ({
   provider: "openai",
   credentialId: "cred-openai",
   model: "gpt-5-mini",
+  baseUrl: null,
   ...over,
 });
 

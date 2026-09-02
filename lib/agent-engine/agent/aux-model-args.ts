@@ -38,6 +38,7 @@ export interface AgenteParaAux {
   model?: string | undefined;
   provider: string;
   credentialId: string | null;
+  baseUrl: string | null;
 }
 
 export interface AuxModelArgs {
@@ -55,7 +56,13 @@ export function auxModelArgs(
   return {
     model: agentModel,
     ...(agente !== null
-      ? { llmOverride: { provider: agente.provider, credentialId: agente.credentialId } }
+      ? {
+          llmOverride: {
+            provider: agente.provider,
+            credentialId: agente.credentialId,
+            baseUrl: agente.baseUrl,
+          },
+        }
       : {}),
   };
 }

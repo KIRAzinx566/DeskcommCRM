@@ -133,6 +133,8 @@ interface FormState {
   priority: number;
   provider: Provider;
   model: string;
+  /** "" = sem endereço próprio (endpoint canônico do provider, quando existe). */
+  base_url: string;
   credential_id: string;
   channel_session_id: string;
   system_prompt: string;
@@ -187,6 +189,7 @@ function buildState(args: {
     priority: agent?.priority ?? 0,
     provider: (version?.provider as Provider) ?? "anthropic",
     model: version?.model ?? "",
+    base_url: version?.base_url ?? "",
     // `null` gravado = a versão usa a chave da instalação. Sem esta tradução,
     // reabrir o agente mostraria o campo em branco e pediria para escolher de novo.
     credential_id: version ? (version.credential_id ?? CHAVE_DA_INSTALACAO) : "",
@@ -228,6 +231,7 @@ function toVersionPayload(s: FormState) {
     system_prompt: s.system_prompt,
     provider: s.provider,
     model: s.model,
+    base_url: s.base_url.trim() === "" ? null : s.base_url.trim(),
     // O token é da TELA; o contrato da versão é `null` = chave da instalação.
     credential_id: s.credential_id === CHAVE_DA_INSTALACAO ? null : s.credential_id,
     tool_ids: s.tool_ids,
@@ -290,9 +294,10 @@ export function AgentForm(props: Props) {
     setForm((prev) => ({ ...prev, ...p }));
   }
 
-  // Quando provider muda, limpa credential e modelo (eles dependem do provider).
+  // Quando provider muda, limpa credential, modelo e endereço próprio (todos
+  // dependem do provider — "custom" de um serviço não é "custom" de outro).
   function changeProvider(p: Provider) {
-    patch({ provider: p, credential_id: "", model: "" });
+    patch({ provider: p, credential_id: "", model: "", base_url: "" });
   }
 
   const cred = findCredential(props.credentials, form.credential_id);
@@ -322,6 +327,11 @@ export function AgentForm(props: Props) {
         `${t("As instruções têm")} ${tamanhoDoPrompt.toLocaleString("pt-BR")} ${t("caracteres, e o máximo é 20.000. Corte")} ` +
         `${(tamanhoDoPrompt - 20000).toLocaleString("pt-BR")} ${t("para conseguir salvar.")}`;
     if (!form.model) errors.model = t("Escolha o modelo de inteligência artificial.");
+    // "custom" não tem endpoint canônico — sem endereço, o agente publicado
+    // morreria em toda mensagem (o registry recusa em runtime, sem aviso na
+    // hora de salvar).
+    if (form.provider === "custom" && form.base_url.trim() === "")
+      errors.base_url = t("Provider customizado exige o endereço do endpoint (compatível com a API da OpenAI).");
     if (!form.credential_id)
       errors.credential_id = t("Escolha a chave de acesso da empresa de inteligência artificial.");
     // Escolher "a chave desta instalação" para um provedor que a instalação NÃO
@@ -675,6 +685,35 @@ export function AgentForm(props: Props) {
                 </SelectContent>
               </Select>
             </div>
+
+            {(PROVEDORES.find((p) => p.id === form.provider)?.aceitaEndpointProprio === true) && (
+              <div className="space-y-1">
+                <Label htmlFor="base_url">
+                  {form.provider === "custom"
+                    ? t("Endereço do endpoint (obrigatório)")
+                    : t("Endereço próprio (opcional)")}
+                </Label>
+                <Input
+                  id="base_url"
+                  value={form.base_url}
+                  onChange={(e) => patch({ base_url: e.target.value })}
+                  placeholder="https://meu-gateway.exemplo.com/v1"
+                  disabled={disabled}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {form.provider === "custom"
+                    ? t(
+                        "Provider customizado não tem endereço padrão — informe o endpoint compatível com a API da OpenAI (Groq, Together, Cerebras, gateway próprio, modelo local).",
+                      )
+                    : t(
+                        "Deixe em branco para usar o endereço oficial do provedor. Use isto para apontar para um gateway compatível com a API da OpenAI — inclusive um modelo rodando na sua própria máquina.",
+                      )}
+                </p>
+                {validation.base_url ? (
+                  <p className="text-xs text-destructive">{validation.base_url}</p>
+                ) : null}
+              </div>
+            )}
 
             <ModelPicker
               provider={form.provider}

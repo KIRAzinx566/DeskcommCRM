@@ -12,6 +12,7 @@ export interface AgentVersionRow {
   system_prompt: string;
   provider: Provider;
   model: string;
+  base_url: string | null;
   credential_id: string;
   tool_ids: string[];
   trigger_config: Record<string, unknown> | null;

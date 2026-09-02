@@ -100,6 +100,7 @@ interface VersionRow {
   system_prompt: string;
   provider: string;
   model: string;
+  base_url: string | null;
   credential_id: string | null;
   tool_ids: string[];
   channel_session_id: string;
@@ -162,7 +163,12 @@ export function chaveDePlataforma(provider: string): string | null {
   return v === "" ? null : v;
 }
 
-export function buildModel(provider: string, apiKey: string, modelId: string): LanguageModel {
+export function buildModel(
+  provider: string,
+  apiKey: string,
+  modelId: string,
+  baseUrl?: string,
+): LanguageModel {
   switch (provider) {
     case "anthropic":
       return createAnthropic({ apiKey })(modelId);
@@ -186,13 +192,22 @@ export function buildModel(provider: string, apiKey: string, modelId: string): L
     case "openrouter":
       return createOpenAI({
         apiKey,
-        baseURL: OPENROUTER_ENDPOINT,
+        baseURL: baseUrl ?? OPENROUTER_ENDPOINT,
         headers: cabecalhosDeAtribuicaoOpenRouter(),
       }).chat(modelId);
     // Mesma razão do caso openrouter acima: sem este caso, o ensaio recusa um
     // provedor que o registry de produção (createDefaultRegistry) já executa.
     case "nvidia":
-      return createOpenAI({ apiKey, baseURL: NVIDIA_ENDPOINT }).chat(modelId);
+      return createOpenAI({ apiKey, baseURL: baseUrl ?? NVIDIA_ENDPOINT }).chat(modelId);
+    // Sem endpoint canônico, igual ao registry de produção (providers.ts) — um
+    // fallback aqui faria o ensaio "passar" contra um endereço que ninguém
+    // escolheu, e a mensagem real (que exige o campo na rota de versões)
+    // falharia depois, com o ensaio tendo mentido que estava tudo certo.
+    case "custom":
+      if (!baseUrl) {
+        throw new Error("unsupported_provider: custom sem base_url");
+      }
+      return createOpenAI({ apiKey, baseURL: baseUrl }).chat(modelId);
     default:
       throw new Error(`unsupported_provider: ${provider}`);
   }
@@ -282,7 +297,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
         // valia aqui. Coluna lida que o SELECT não pede é o defeito que
         // `agent-version-columns-drift.test.ts` existe para pegar nas cópias
         // vigiadas; esta não é uma delas.
-        "id, organization_id, agent_id, system_prompt, provider, model, credential_id, tool_ids, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, created_by, pipeline_ids, knowledge_source_ids",
+        "id, organization_id, agent_id, system_prompt, provider, model, base_url, credential_id, tool_ids, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, created_by, pipeline_ids, knowledge_source_ids",
       )
       .eq("id", run.agent_version_id)
       .eq("organization_id", run.organization_id)
@@ -479,7 +494,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
       : [];
 
     // 9) Build LM directly against the provider (BYOK credential — see buildModel doc).
-    const model = buildModel(version.provider, credentialApiKey, version.model);
+    const model = buildModel(version.provider, credentialApiKey, version.model, version.base_url ?? undefined);
 
     // 10) Cost/token guard. Fires BEFORE the next step is taken.
     let abortReason: string | null = null;

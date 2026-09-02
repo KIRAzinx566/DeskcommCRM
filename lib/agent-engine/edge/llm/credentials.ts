@@ -241,6 +241,8 @@ function causaDoBanco(err: unknown): string {
 export interface LlmResolveOverride {
   provider?: string;
   credentialId?: string | null;
+  /** Endpoint compatível com a API da OpenAI, próprio da versão publicada. */
+  baseUrl?: string | null;
 }
 
 export async function resolveOrgLlmConfig(

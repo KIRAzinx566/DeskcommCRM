@@ -71,6 +71,14 @@ const versionShapeSchema = z
     provider: z.enum(PROVIDERS),
     model: z.string().trim().min(1).max(120),
     /**
+     * Endpoint compatível com a API da OpenAI, próprio deste agente — mesmo
+     * campo que `ai_purpose_bindings.base_url` já tem para os pontos
+     * auxiliares. `null` = usa o endpoint canônico do provider (ou, para
+     * `provider: "custom"`, nenhum — a rota que publica exige o campo nesse
+     * caso; o schema valida só a FORMA, a obrigatoriedade cruzada é dela).
+     */
+    base_url: z.string().trim().url().nullable().default(null),
+    /**
      * `null` = usar a chave que veio na INSTALAÇÃO.
      *
      * Era UUID obrigatório, e isso trancava a porta para o cenário mais comum do

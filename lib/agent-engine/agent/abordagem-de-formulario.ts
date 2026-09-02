@@ -179,7 +179,7 @@ export async function gerarAbordagemDeFormulario(
     system,
     messages,
     model: agent.model,
-    llmOverride: { provider: agent.provider, credentialId: agent.credentialId },
+    llmOverride: { provider: agent.provider, credentialId: agent.credentialId, baseUrl: agent.baseUrl },
     // SEM tools e SEM maxSteps: o SDK para no 1º step e `result.text` vem
     // pronto. Quem envia é a ação da automação, com janela e opt-out.
   });

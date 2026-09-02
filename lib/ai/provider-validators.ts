@@ -166,9 +166,39 @@ export async function validateNvidiaKey(apiKey: string): Promise<ValidationResul
   }
 }
 
+/**
+ * "custom" não tem endpoint fixo — a validação só faz sentido com o endereço
+ * que o operador cadastrou. `GET {baseUrl}/models` é o único ponto de
+ * descoberta que a API da OpenAI padroniza; um endpoint que não o implemente
+ * (alguns gateways mínimos não têm) faz esta validação devolver um erro que
+ * NÃO significa "chave errada" — por isso o chamador (rota de credenciais)
+ * trata `unreachable_or_no_models_endpoint` como aviso, nunca como recusa.
+ */
+export async function validateCustomKey(apiKey: string, baseUrl?: string): Promise<ValidationResult> {
+  if (!baseUrl) return { ok: false, error: "base_url_required" };
+  try {
+    const res = await timedFetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, error: "auth_failed_401" };
+    }
+    if (!res.ok) {
+      return { ok: false, error: "unreachable_or_no_models_endpoint" };
+    }
+    const json = (await res.json()) as { data?: { id?: string }[] };
+    const models = (json.data ?? []).map((m) => m.id ?? "").filter(Boolean);
+    return { ok: true, models };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.name : "network_error" };
+  }
+}
+
 export function validateProviderKey(
   provider: Provider,
   apiKey: string,
+  baseUrl?: string,
 ): Promise<ValidationResult> {
   switch (provider) {
     case "anthropic":
@@ -181,6 +211,8 @@ export function validateProviderKey(
       return validateOpenRouterKey(apiKey);
     case "nvidia":
       return validateNvidiaKey(apiKey);
+    case "custom":
+      return validateCustomKey(apiKey, baseUrl);
     default: {
       // Sem `never` aqui: `Provider` agora é derivado de PROVEDORES, e a lista
       // cresce sem que este arquivo saiba. Provedor novo cadastrado antes de

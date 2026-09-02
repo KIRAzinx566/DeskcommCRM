@@ -31,6 +31,7 @@ const AGENT: PublishedAgentConfig = {
   systemPrompt: "Você é a vendedora da loja X.",
   provider: "anthropic",
   model: "claude-sonnet-4-6",
+  baseUrl: null,
   credentialId: "cred-1",
   maxSteps: 8,
   historyMessageWindow: 20,

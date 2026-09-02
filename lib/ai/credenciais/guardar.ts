@@ -43,6 +43,12 @@ export interface PedidoDeGuardar {
   label: string;
   /** Plaintext. Vive só no escopo desta chamada — nunca persistido nem logado. */
   apiKey: string;
+  /**
+   * Endpoint compatível com a API da OpenAI — obrigatório para `provider:
+   * "custom"` (o chamador já validou isso antes de chegar aqui), `undefined`
+   * para todo provider com endpoint canônico.
+   */
+  baseUrl?: string;
   requestId?: string;
 }
 
@@ -65,6 +71,7 @@ export async function guardarCredencial(p: PedidoDeGuardar): Promise<ResultadoDe
       api_key_iv: bufToBytea(encrypted.iv),
       api_key_tag: bufToBytea(encrypted.tag),
       api_key_last4: encrypted.last4,
+      base_url: p.baseUrl ?? null,
       is_active: true,
       created_by: p.userId,
     })
@@ -92,7 +99,7 @@ export async function guardarCredencial(p: PedidoDeGuardar): Promise<ResultadoDe
   // espera uma ida ao provedor. Guardar a chave e validá-la são coisas
   // diferentes — a segunda pode falhar por rede sem que a primeira precise ser
   // desfeita.
-  void validarEmSegundoPlano(p.admin, id, p.orgId, p.provider, p.apiKey);
+  void validarEmSegundoPlano(p.admin, id, p.orgId, p.provider, p.apiKey, p.baseUrl);
 
   return { ok: true, id, last4: encrypted.last4 };
 }
@@ -103,9 +110,10 @@ async function validarEmSegundoPlano(
   organizationId: string,
   provider: Provider,
   apiKey: string,
+  baseUrl?: string,
 ): Promise<void> {
   try {
-    const r = await validateProviderKey(provider, apiKey);
+    const r = await validateProviderKey(provider, apiKey, baseUrl);
     await admin
       .from("ai_provider_credentials")
       .update(

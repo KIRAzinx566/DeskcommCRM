@@ -21,7 +21,7 @@ import { lerAmbiente } from "@/lib/instalacao/ambiente";
 export const dynamic = "force-dynamic";
 
 const VERSION_COLUMNS =
-  "id, organization_id, agent_id, version_number, system_prompt, provider, model, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
+  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -120,6 +120,19 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       );
     }
 
+    // "custom" não tem endpoint canônico — sem endereço, o registry recusaria
+    // TODA mensagem depois de publicado. O schema valida só a FORMA de
+    // `base_url` (URL bem-formada); a obrigatoriedade cruzada com o provider é
+    // regra de negócio, e mora aqui.
+    if (v.provider === "custom" && !v.base_url) {
+      return fail(
+        "validation_failed",
+        "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+        422,
+        { requestId },
+      );
+    }
+
     // O escopo aponta para coisas que EXISTEM nesta organização. Sem esta
     // conferência, um id de outra organização (ou de um material apagado) entra
     // no array, a versão é publicada, e o assistente não acha nada — sem erro,
@@ -143,6 +156,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
         system_prompt: v.system_prompt,
         provider: v.provider,
         model: v.model,
+        base_url: v.base_url,
         credential_id: v.credential_id,
         tool_ids: v.tool_ids,
         trigger_config: v.trigger_config ?? undefined,

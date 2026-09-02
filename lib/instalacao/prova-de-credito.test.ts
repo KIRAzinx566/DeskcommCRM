@@ -15,12 +15,21 @@ import {
 } from "@/lib/instalacao/prova-de-credito";
 import { IDS_DE_PROVEDOR } from "@/lib/ai/pontos/provedores";
 
+// "custom" não tem endpoint canônico — sem endereço, cair num fallback
+// testaria um serviço que o operador não escolheu. Por isso ele é o único
+// provedor da lista que exige o 4º argumento; os dois testes abaixo passam
+// esse endereço só para ele, e um terceiro teste guarda o caso sem endereço.
+const BASE_URL_DE_TESTE = "https://gateway.exemplo/v1";
+function comBaseUrlSeNecessario(id: string): string | undefined {
+  return id === "custom" ? BASE_URL_DE_TESTE : undefined;
+}
+
 describe("montarRequisicaoDeProva", () => {
   it("sabe cobrar TODOS os provedores que a lista oferece", () => {
     // Se a lista ganhar um provedor e este módulo não souber testá-lo, o
     // diagnóstico ficaria mudo justamente para quem escolheu o mais novo.
     const semProva = IDS_DE_PROVEDOR.filter(
-      (id) => montarRequisicaoDeProva(id, "k", "m") === null,
+      (id) => montarRequisicaoDeProva(id, "k", "m", comBaseUrlSeNecessario(id)) === null,
     );
     expect(semProva).toEqual([]);
   });
@@ -28,7 +37,7 @@ describe("montarRequisicaoDeProva", () => {
   it("é uma GERAÇÃO, não uma listagem — é o que o provedor cobra", () => {
     // O ponto do arquivo inteiro: listar modelos passa com saldo zero.
     for (const id of IDS_DE_PROVEDOR) {
-      const req = montarRequisicaoDeProva(id, "k", "modelo-x");
+      const req = montarRequisicaoDeProva(id, "k", "modelo-x", comBaseUrlSeNecessario(id));
       expect(req, id).not.toBeNull();
       expect(req!.url, `${id} está batendo num endpoint de catálogo`).not.toMatch(/\/models$/);
     }
@@ -41,6 +50,11 @@ describe("montarRequisicaoDeProva", () => {
 
   it("provedor desconhecido não recebe 'ok' por omissão", () => {
     expect(montarRequisicaoDeProva("inventado", "k", "m")).toBeNull();
+  });
+
+  it("'custom' sem endereço falha fechado — não existe padrão para cair sozinho", () => {
+    expect(montarRequisicaoDeProva("custom", "k", "m")).toBeNull();
+    expect(montarRequisicaoDeProva("custom", "k", "m", BASE_URL_DE_TESTE)).not.toBeNull();
   });
 });
 

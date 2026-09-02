@@ -98,7 +98,7 @@ export async function generateDraftReply(
     system,
     messages,
     model: agent.model,
-    llmOverride: { provider: agent.provider, credentialId: agent.credentialId },
+    llmOverride: { provider: agent.provider, credentialId: agent.credentialId, baseUrl: agent.baseUrl },
     // SEM tools, SEM maxSteps → o SDK para no 1º step (default stepCountIs(1)):
     // result.text vem pronto, sem risco do modelo tentar chamar send_message.
   });

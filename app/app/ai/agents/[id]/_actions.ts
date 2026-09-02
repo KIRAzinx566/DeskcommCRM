@@ -36,7 +36,7 @@ import { VALID_TOOL_IDS } from "@/lib/mcp/tools";
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const VERSION_COLUMNS =
-  "id, organization_id, agent_id, version_number, system_prompt, provider, model, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
+  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids";
 
 type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -97,6 +97,14 @@ export async function saveAgentDraftAction(
   });
   if (!escopo.ok) {
     return { ok: false, error: "validation_failed", message: mensagemDoEscopo(escopo) };
+  }
+
+  if (v.provider === "custom" && !v.base_url) {
+    return {
+      ok: false,
+      error: "validation_failed",
+      message: "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+    };
   }
 
   // Procura draft existente (latest por version_number)
@@ -358,6 +366,7 @@ export async function revertToVersionAction(
     system_prompt: string;
     provider: string;
     model: string;
+    base_url: string | null;
     credential_id: string;
     tool_ids: string[];
     trigger_config: Record<string, unknown> | null;
@@ -402,6 +411,7 @@ export async function revertToVersionAction(
         system_prompt: src.system_prompt,
         provider: src.provider,
         model: src.model,
+        base_url: src.base_url,
         credential_id: src.credential_id,
         tool_ids: src.tool_ids,
         trigger_config: src.trigger_config ?? undefined,
@@ -549,6 +559,17 @@ export async function createMcpAgentAction(
   }
 
   const v = parsed.data.version;
+  if (v.provider === "custom" && !v.base_url) {
+    await admin
+      .from("ai_agents")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", agentRow.id);
+    return {
+      ok: false,
+      error: "validation_failed",
+      message: "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+    };
+  }
   const { error: versionErr } = await admin.from("ai_agent_versions").insert({
     organization_id: activeOrg.orgId,
     agent_id: agentRow.id,
@@ -556,6 +577,7 @@ export async function createMcpAgentAction(
     system_prompt: v.system_prompt,
     provider: v.provider,
     model: v.model,
+    base_url: v.base_url,
     credential_id: v.credential_id,
     tool_ids: v.tool_ids,
     trigger_config: v.trigger_config ?? undefined,
