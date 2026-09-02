@@ -203,3 +203,60 @@ test.describe("Provedor 'API customizada' no painel de Provedores", () => {
     });
   });
 });
+
+/**
+ * Regressão de um bug real, achado em produção (não em teste): o diálogo
+ * "Adicionar credencial" listava "API customizada" como opção de provider e
+ * NÃO tinha campo de endereço nenhum — quem escolhesse "custom" recebia
+ * sempre "Provider customizado exige o endereço do endpoint", sem jeito
+ * nenhum de preencher o que faltava. AgentForm e o painel de Provedores
+ * ganharam o campo; este terceiro lugar (AddCredentialDialog.tsx) ficou pra
+ * trás porque nenhum spec de e2e cobria o cadastro de credencial pela tela.
+ */
+test.describe("Provedor 'API customizada' no diálogo de Adicionar credencial", () => {
+  let credsCred: CredsE2E;
+
+  test.beforeAll(() => {
+    credsCred = lerCreds();
+  });
+
+  test.beforeEach(async ({ page }) => {
+    credsCred = await loginComoAdmin(page, credsCred);
+  });
+
+  test("o campo de endereço existe, é obrigatório, e o cadastro completa", async ({ page }) => {
+    await page.goto("/app/ai/credentials");
+    await page.getByRole("button", { name: /Adicionar credencial/i }).click();
+
+    await page.locator("#cred-provider").click();
+    await page.getByRole("option", { name: /API customizada/i }).click();
+
+    // O campo existe (o bug era exatamente ele não existir) e nasce
+    // OBRIGATÓRIO — moldura diferente de OpenRouter/NVIDIA, onde é opcional.
+    const baseUrl = page.locator("#cred-base-url");
+    await expect(baseUrl).toBeVisible();
+    await expect(page.getByText(/Endereço do endpoint \(obrigatório\)/i)).toBeVisible();
+
+    await page.locator("#cred-label").fill(`custom e2e ${Date.now()}`);
+    await page.locator("#cred-key").fill("sk-teste-0123456789");
+
+    // Vazio: a validação do próprio diálogo barra ANTES de enviar — nunca
+    // chega a bater no servidor pra receber o erro que o bug original dava.
+    await page.getByRole("button", { name: /Salvar e validar/i }).click();
+    await expect(
+      page.getByText(/Provider customizado exige o endereço do endpoint/i),
+    ).toBeVisible();
+
+    // Preenchido: o cadastro completa — a mesma tela que sempre falhava agora
+    // fecha com sucesso.
+    await baseUrl.fill("https://meu-gateway.exemplo.com/v1");
+    await page.getByRole("button", { name: /Salvar e validar/i }).click();
+    await expect(page.getByText(/Credencial salva/i).first()).toBeVisible({ timeout: 15_000 });
+
+    fs.mkdirSync(EVIDENCIA, { recursive: true });
+    await page.screenshot({
+      path: path.join(EVIDENCIA, "provedor-custom-04-credencial-cadastrada.png"),
+      fullPage: true,
+    });
+  });
+});
