@@ -40,6 +40,7 @@ const formSchema = z.object({
   provider: z.enum(IDS_DE_PROVEDOR),
   label: z.string().trim().min(1, "Obrigatório").max(80),
   api_key: z.string().trim().min(8, "API key muito curta").max(2048),
+  base_url: z.string().trim().url().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -60,13 +61,18 @@ export function AddCredentialDialog({ open, onOpenChange }: Props) {
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
+
+  const aceitaEndpointProprio =
+    PROVEDORES.find((p) => p.id === provider)?.aceitaEndpointProprio === true;
 
   const reset = () => {
     setProvider("anthropic");
     setLabel("");
     setApiKey("");
+    setBaseUrl("");
     setErrors({});
   };
 
@@ -74,13 +80,33 @@ export function AddCredentialDialog({ open, onOpenChange }: Props) {
     e.preventDefault();
     setErrors({});
 
-    const parsed = formSchema.safeParse({ provider, label, api_key: apiKey });
+    const baseUrlAplicavel = aceitaEndpointProprio && baseUrl.trim() !== "" ? baseUrl.trim() : undefined;
+    const parsed = formSchema.safeParse({
+      provider,
+      label,
+      api_key: apiKey,
+      base_url: baseUrlAplicavel,
+    });
     if (!parsed.success) {
       const flat = parsed.error.flatten().fieldErrors;
       setErrors({
         provider: flat.provider?.[0] ? t(flat.provider[0]) : undefined,
         label: flat.label?.[0] ? t(flat.label[0]) : undefined,
         api_key: flat.api_key?.[0] ? t(flat.api_key[0]) : undefined,
+        base_url: flat.base_url?.[0] ? t(flat.base_url[0]) : undefined,
+      });
+      return;
+    }
+    // "custom" não tem endpoint canônico — a mesma exigência que a rota aplica,
+    // aqui ANTES do clique: sem isto, o envio chegava ao servidor sem endereço
+    // e o "Salvar e validar" sempre falhava, mesmo com o campo preenchido, se
+    // ele nunca existisse na tela (era exatamente o caso: este diálogo listava
+    // "API customizada" como opção e não tinha o campo nenhum).
+    if (provider === "custom" && !baseUrlAplicavel) {
+      setErrors({
+        base_url: t(
+          "Provider customizado exige o endereço do endpoint (compatível com a API da OpenAI).",
+        ),
       });
       return;
     }
@@ -139,7 +165,13 @@ export function AddCredentialDialog({ open, onOpenChange }: Props) {
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cred-provider">{t("Provider")}</Label>
-            <Select value={provider} onValueChange={(v) => setProvider(v as Provider)}>
+            <Select
+              value={provider}
+              onValueChange={(v) => {
+                setProvider(v as Provider);
+                setBaseUrl("");
+              }}
+            >
               <SelectTrigger id="cred-provider">
                 <SelectValue />
               </SelectTrigger>
@@ -155,6 +187,25 @@ export function AddCredentialDialog({ open, onOpenChange }: Props) {
               <p className="text-xs text-destructive">{errors.provider}</p>
             )}
           </div>
+
+          {aceitaEndpointProprio && (
+            <div className="space-y-2">
+              <Label htmlFor="cred-base-url">
+                {provider === "custom"
+                  ? t("Endereço do endpoint (obrigatório)")
+                  : t("Endereço próprio (opcional)")}
+              </Label>
+              <Input
+                id="cred-base-url"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://meu-gateway.exemplo.com/v1"
+              />
+              {errors.base_url && (
+                <p className="text-xs text-destructive">{errors.base_url}</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="cred-label">{t("Label")}</Label>
