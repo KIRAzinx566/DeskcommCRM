@@ -8,7 +8,109 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
-## [1.11.1] — 2026-09-01
+## [1.12.0] — 2026-09-02
+
+### Adicionado
+
+- **Catálogo de produtos próprio — com o preço que a IA responde ao cliente** Quem vende produto agora tem onde cadastrar o que vende. Antes, o único catálogo
+  do sistema era o espelho de uma loja Nuvemshop: quem não usa Nuvemshop — a loja
+  de rua, o showroom, quem vende pelo WhatsApp e só — não tinha lugar nenhum para
+  pôr preço, e o agente de IA respondia "vou confirmar com a equipe" para a
+  pergunta mais comum que existe, que é "quanto custa".
+
+  Há uma tela nova em **Produtos**, no menu do CRM. Dá para cadastrar um a um, e dá
+  para **importar a planilha que a loja já tem** — o arquivo do Excel, com os
+  nomes de coluna que ela já usa (`código` ou `sku`, `preço` ou `valor`,
+  `estoque` ou `qtd`). Reimportar a mesma planilha com preços novos **atualiza** os
+  produtos em vez de duplicar, que é o gesto real de quando o custo muda.
+
+  A importação recusa em vez de adivinhar. Uma linha com preço que não dá para ler
+  não entra, e o relatório diz qual linha e qual foi o texto encontrado — um chute
+  aqui vira preço errado dito a um cliente três dias depois. As linhas boas entram
+  mesmo assim: uma planilha de 300 itens não morre inteira por causa da linha 7.
+
+  Para a IA, a diferença é maior do que parece. A busca dela entende o cliente que
+  escreve "ifone 15 128" e devolve exatamente o modelo de 128GB — nunca o de
+  256GB, mesmo sendo quase o mesmo texto, porque é aí que o preço sai errado. E
+  quando dois produtos casam igualmente bem, ela **pergunta** em vez de escolher.
+
+  Só quem é gerente ou administrador altera preço; quem atende lê. Nada muda para
+  quem já usa a integração com Nuvemshop — aquele catálogo continua onde estava.
+
+### Corrigido
+
+- **O segundo material que você ensina ao agente volta a funcionar** Ensinar mais de um documento ao mesmo assistente não funcionava, e **não havia como perceber**:
+  o primeiro material era lido normalmente, e do segundo em
+  diante a tela mostrava "pronto" enquanto o conteúdo nunca ficava disponível para
+  a busca. O assistente respondia "não encontrei isso" sobre uma coisa que estava
+  escrita num arquivo que você subiu — e nenhum aviso aparecia em lugar nenhum.
+
+  Medido numa instalação real: cinco documentos enviados para o mesmo assistente,
+  um funcionou, quatro ficaram parados. Os cinco apareciam como concluídos.
+
+  A causa era interna: a numeração das versões do acervo passou a contar por
+  documento, mas a regra do banco continuava contando por assistente — então o
+  segundo documento sempre esbarrava no primeiro. Não era intermitente; nunca
+  funcionava.
+
+  Agora cada material tem a própria contagem, e os materiais antigos continuam
+  válidos como estavam. Se você já subiu documentos que ficaram parados, basta
+  reenviá-los depois de atualizar.
+
+  Para quem opera uma instalação, nada muda no dia a dia: nenhuma configuração
+  nova, nenhum passo de atualização.
+
+- **O preço da planilha deixa de entrar dez vezes maior no catálogo** O catálogo de produtos aceita uma planilha para a loja não ter de cadastrar item
+  por item. A leitura do preço tinha um erro de escala nas duas formas mais comuns
+  de uma planilha brasileira chegar.
+
+  **Um centavo escrito com um dígito só.** Quando a célula está formatada como
+  número e mostra `1.299,90`, o Excel grava `1299,9` no arquivo — ele corta o zero
+  do fim. O sistema lia esse único dígito como separador de milhar e gravava
+  **R$ 12.999,00** no lugar de R$ 1.299,90. Dez vezes o preço, sem recusar a linha
+  e sem avisar ninguém — e é esse preço que o atendimento automático responderia ao
+  cliente.
+
+  **Uma observação escrita ao lado do preço.** Quem escreve `R$ 5.499,00 (promo até
+  10)` na mesma célula via os dígitos da observação grudarem no valor, e o produto
+  entrava a R$ 54.990.010,00.
+
+  Agora um ou dois dígitos depois da vírgula são sempre centavos — grupo de milhar
+  tem sempre três, então um grupo menor não pode ser outra coisa. E célula com
+  qualquer texto junto do número passa a ser **recusada**, com a linha apontada no
+  relatório e a instrução de como escrever, em vez de virar um número plausível que
+  ninguém confere numa lista de 300 itens.
+
+  Para quem opera, nada muda: nenhuma configuração nova, nenhum passo de
+  atualização. E nenhum catálogo precisa ser corrigido — o conserto sai na mesma
+  versão que traz a importação de planilha, então nenhuma loja chegou a importar
+  com o preço errado.
+
+- **O atendimento automático não responde mais por cima de uma conversa entregue a uma pessoa** Quando a IA decide que um caso precisa de gente — cliente irritado, suspeita de
+  pedido de descadastro, termo delicado —, ela entrega a conversa e silencia o
+  atendimento automático até alguém resolver. A tela mostrava esse estado
+  corretamente ("Automático pausado"), mas um segundo motor de resposta, que ainda
+  atende instalações sem agente publicado, continuava respondendo assim mesmo.
+
+  O resultado aparecia como o pior tipo de contradição: o painel dizia que uma
+  pessoa ia assumir, o cliente recebia mensagem de robô, e ninguém do time ficava
+  sabendo. A causa era uma comparação de datas que nunca dava certo para o valor
+  "para sempre" que o produto usa nesses casos — a proteção existia no código e
+  nunca chegava a agir.
+
+  Agora os dois motores usam a mesma regra, a mesma que move a tela. Para quem
+  opera, nada muda no dia a dia: nenhuma configuração nova, nenhum passo de
+  atualização. O que muda é que "entreguei para uma pessoa" passa a valer de fato.
+
+<!--
+  As duas seções abaixo (1.11.1-kirazinx / 1.11.0-kirazinx) são releases DESTE
+  FORK, cortadas em paralelo ao upstream — por isso o sufixo: o número puro
+  colidiria com o 1.11.1/1.11.0 do upstream logo abaixo, que é conteúdo
+  DIFERENTE. As tags reais no GitHub (v1.11.0, v1.11.1) já existem sem o
+  sufixo; ele é só a chave que desambigua as duas seções aqui dentro.
+-->
+
+## [1.11.1-kirazinx] — 2026-09-01
 
 ### Corrigido
 
@@ -20,7 +122,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   de preencher o que faltava. Agora o campo existe, nasce obrigatório para esse
   provider, e o cadastro completa.
 
-## [1.11.0] — 2026-09-01
+## [1.11.0-kirazinx] — 2026-09-01
 
 ### Adicionado
 
@@ -38,7 +140,66 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   WhatsApp, que antes só herdava o endpoint fixo de um dos cinco provedores
   prontos.
 
-## [1.10.4] — 2026-08-29
+## [1.11.1] — 2026-08-31
+
+### Corrigido
+
+- **A Fila mostra quem realmente espera uma pessoa, e a aba do automático deixa de ficar vazia** A Inbox dizia quem estava no comando de cada conversa olhando um campo que o
+  atendimento automático nunca consulta. O efeito era grande e silencioso: a aba
+  **Fila** listava como "aguardando atendente" conversas que o robô estava
+  respondendo naquele instante, e a aba do automático ficava quase vazia mesmo com
+  ele atendendo a maior parte da caixa. Numa instalação real, medido: a Fila
+  mostrava 83 conversas, a aba do automático mostrava 2, e o robô atendia 47.
+
+  Quem via isso concluía a coisa errada em qualquer direção — ou que havia uma
+  montanha de gente esperando, ou que a IA tinha parado de trabalhar.
+
+  Agora as duas abas perguntam a mesma coisa que o motor: quem responde a próxima
+  mensagem deste cliente. A Fila passa a listar só o que precisa de uma pessoa de
+  verdade — conversas que a IA escalou, contatos travados para atendimento humano —
+  e a aba do automático mostra o que ele está de fato conduzindo.
+
+  **O número da Fila vai encolher bastante no primeiro acesso depois de atualizar.**
+  Isso é o número certo aparecendo, não trabalho sumindo.
+
+  A mesma correção alcança o "você é o Nº da fila" que o cliente ouve pelo WhatsApp,
+  a numeração na tela e o painel de espera do gerente — os três passam a contar a
+  mesma fila. Antes eles podiam divergir entre si.
+
+  Para quem opera: nada a fazer. Nenhuma configuração nova, nenhum passo de
+  atualização, nenhum dado alterado — só a leitura de quem está no comando.
+
+- **Reclamar de cobrança errada não bloqueia mais o cliente** Quem escrevia "não me mande mais boletos" — ou "no me manden más cobros
+  duplicados" — era tratado como se tivesse pedido para sair, e parava de ser
+  atendido. É o oposto do que a pessoa quis dizer: ela está reclamando de uma
+  cobrança e quer continuar falando com você.
+
+  A regra olhava só o verbo ("mandar"), que é o mesmo de "não me mande mais
+  mensagens". Agora ela olha também o que vem depois: quando o objeto é uma
+  cobrança, uma fatura, um pedido ou um produto, deixa de ser pedido de saída.
+
+  Pedir para sair de verdade continua funcionando igual, nas duas línguas.
+
+- **O atendente de IA volta a achar horário quando consulta a agenda** Numa clínica, o atendente de IA tentou marcar um procedimento e não conseguiu —
+  duas vezes seguidas. Ele fez tudo certo: descobriu o tipo de atendimento,
+  resolveu a data que a pessoa pediu e foi consultar os horários. Mesmo assim
+  respondeu que a equipe precisava confirmar, e abriu um chamado interno.
+
+  A causa não era a agenda nem o atendente. Quando a IA não tem um dado opcional
+  para preencher — no caso, qual profissional atenderia —, alguns modelos escrevem
+  um código vazio em vez de simplesmente não mandar o campo. O sistema aceitava
+  esse código como se fosse um profissional de verdade, procurava a agenda de
+  alguém que não existe, e concluía que não havia horário publicado. Nenhum erro
+  aparecia em lugar nenhum: a consulta era registrada como bem-sucedida.
+
+  O sistema agora reconhece esses códigos vazios e os ignora, voltando a usar o
+  profissional configurado no tipo de atendimento. Isso valia para dezenas de
+  lugares além da agenda — inclusive a busca no acervo de conhecimento, em que o
+  efeito era o atendente responder "não sei" com o material publicado ao lado, e o
+  cadastro de negócios, em que um responsável inexistente ficava gravado e sumia
+  dos filtros por dono.
+
+## [1.11.0] — 2026-08-31
 
 ### Adicionado
 
@@ -1753,13 +1914,17 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.1...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.11.1...HEAD
+[1.12.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.1...v1.12.0
+[1.11.1-kirazinx]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.11.0...v1.11.1
+[1.11.0-kirazinx]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.4...v1.11.0
 [1.11.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.0...v1.11.1
-[1.11.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.4...v1.11.0
+[1.11.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.10.2...v1.11.0
 [1.10.4]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.2...v1.10.4
 [1.10.2]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.9.0...v1.10.0
+[1.9.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.6.0...v1.7.0
