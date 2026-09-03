@@ -8,6 +8,21 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.12.2] — 2026-09-03
+
+### Corrigido
+
+- **Indexar/buscar material e ouvir áudio mostravam o modelo errado no painel de Provedores** Os cards de "Indexar o seu material", "Buscar no seu material" e "Ouvir o
+  áudio do cliente" — os três marcados como fixos, sem seletor — mostravam
+  "usando o padrão da organização" com o modelo de conversa da organização
+  (por exemplo, um modelo da Anthropic). Isso nunca foi verdade: os três
+  sempre bateram na OpenAI, hardcoded no código, indiferente ao que a
+  organização tem configurado — é assim desde o início, porque embedding e
+  transcrição não seguem o mesmo catálogo dos modelos de conversa. Quem
+  olhasse o painel para diagnosticar por que a busca no material não estava
+  funcionando via uma informação que não correspondia à realidade. Agora os
+  três mostram o modelo que de fato usam.
+
 ## [1.12.1] — 2026-09-02
 
 ### Corrigido
@@ -2024,7 +2039,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.1...HEAD
+[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.2...HEAD
+[1.12.2]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.1...v1.12.0
 [1.11.1-kirazinx]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.11.0...v1.11.1
