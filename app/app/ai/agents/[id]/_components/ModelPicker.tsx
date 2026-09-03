@@ -3,6 +3,7 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,6 +60,40 @@ export function ModelPicker({ provider, value, onChange, disabled, id, placehold
   });
 
   const models = query.data ?? [];
+  const catalogoSincronizavel =
+    PROVEDORES.find((p) => p.id === provider)?.catalogoSincronizavel === true;
+
+  // Catálogo vazio não pode ser beco sem saída — mesmo problema e mesma cura
+  // do seletor de modelo do painel de Provedores (PainelDeProvedores.tsx):
+  // `ai_models` só tem linha pra anthropic/openai/google (seed) e openrouter/
+  // nvidia (cron diário); "custom" NUNCA tem, de propósito, porque não existe
+  // catálogo universal pra um endpoint que o operador escolheu. Antes desta
+  // correção, um agente em "custom" ficava com o combo permanentemente vazio
+  // e desabilitado — sem NENHUMA forma de escolher modelo, travando o form
+  // inteiro (que exige `model` preenchido pra salvar).
+  if (models.length === 0 && !query.isLoading) {
+    return (
+      <div className="space-y-1">
+        <Label htmlFor={id}>{t("Modelo")}</Label>
+        <Input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value, { contextWindow: null })}
+          placeholder={placeholder ?? "ex.: meta-llama/llama-3.3-70b-instruct"}
+          disabled={disabled}
+        />
+        <p className="text-xs text-muted-foreground">
+          {catalogoSincronizavel
+            ? t(
+                "O catálogo deste provedor ainda não foi baixado. Digite o identificador do modelo como o provedor o nomeia — a lista completa aparece sozinha depois da primeira sincronização.",
+              )
+            : t(
+                "Este provedor não tem catálogo pra baixar — o campo é sempre texto livre. Digite o identificador do modelo exatamente como o serviço o nomeia.",
+              )}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">
@@ -81,11 +116,6 @@ export function ModelPicker({ provider, value, onChange, disabled, id, placehold
               {m.is_default_for_provider ? ` · ${t("default")}` : ""}
             </SelectItem>
           ))}
-          {models.length === 0 && !query.isLoading ? (
-            <SelectItem value="__none__" disabled>
-              {t("Nenhum modelo disponível")}
-            </SelectItem>
-          ) : null}
         </SelectContent>
       </Select>
     </div>

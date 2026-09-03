@@ -1485,6 +1485,9 @@ export const DICIONARIO: Traducoes = {
   "Este ponto usa o modelo definido na versão publicada do agente.": {
     es: "Este punto usa el modelo definido en la versión publicada del agente.",
   },
+  "Este provedor não tem catálogo pra baixar — o campo é sempre texto livre. Digite o identificador do modelo exatamente como o serviço o nomeia.": {
+    es: "Este proveedor no tiene catálogo para descargar — el campo siempre es texto libre. Escribe el identificador del modelo exactamente como el servicio lo nombra.",
+  },
   "Ex.: Nunca prometa desconto sem confirmar com um humano. Horário de atendimento: 9h–18h, seg-sex. Sempre chame o cliente pelo primeiro nome.": {
     es: "Ej.: Nunca prometas un descuento sin confirmar con un humano. Horario de atención: 9h–18h, lun-vie. Llama siempre al cliente por su primer nombre.",
   },
