@@ -148,8 +148,18 @@ export interface PontoDeIa {
    * Ponto que NÃO aceita troca de modelo, com a razão por escrito. A tela
    * mostra o cadeado junto da razão: sem ela, o operador conclui que o produto
    * é limitado, em vez de entender que a troca quebraria algo em silêncio.
+   *
+   * `modeloReal`, quando presente, é o provider+modelo que o CÓDIGO realmente
+   * usa — hardcoded, sem passar por `organizations.settings.llm` nem por
+   * binding nenhum. Sem isto, a tela roda estes pontos pelo MESMO resolvedor
+   * dos pontos configuráveis, e o card mostra "usando o padrão da
+   * organização" com o modelo de CONVERSA da org (ex.: Claude) — quando o
+   * embedding/transcrição na verdade sempre bate na OpenAI, hardcoded,
+   * indiferente ao que a organização configurou. Omitido nos dois pontos que
+   * espelham "o modelo do agente que está em uso" (ensaio, contagem de
+   * tokens): esses não têm UM valor fixo — dependem de qual agente.
    */
-  fixo?: { razao: string };
+  fixo?: { razao: string; modeloReal?: { provider: string; modelId: string } };
   registraEm: DestinoDeTelemetria;
 }
 
@@ -353,6 +363,9 @@ export const PONTOS_DE_IA: readonly PontoDeIa[] = [
     fixo: {
       razao:
         "O material indexado e a busca precisam usar exatamente o mesmo modelo — são coordenadas de um mesmo mapa. Trocar só um dos lados não dá erro: o agente simplesmente para de achar o seu conteúdo, sem avisar. Para mudar de modelo aqui é preciso reindexar tudo de uma vez.",
+      // `MODELO_DE_EMBEDDING` (lib/ai/embeddings/chave.ts) — hardcoded, nunca
+      // consulta `organizations.settings.llm`.
+      modeloReal: { provider: "openai", modelId: "text-embedding-3-small" },
     },
     sintomaDeFalha:
       "Você sobe um documento e ele nunca fica pronto para uso; o agente responde sem conhecer o seu material.",
@@ -373,6 +386,7 @@ export const PONTOS_DE_IA: readonly PontoDeIa[] = [
     fixo: {
       razao:
         "Precisa usar o mesmo modelo com que o material foi indexado. Se divergir, a busca continua funcionando e devolve resultados errados — falha silenciosa, e por isso a troca é feita junto com a reindexação, não aqui.",
+      modeloReal: { provider: "openai", modelId: "text-embedding-3-small" },
     },
     sintomaDeFalha:
       "O agente responde de forma genérica, ignorando o que está escrito nos seus documentos.",
@@ -390,6 +404,8 @@ export const PONTOS_DE_IA: readonly PontoDeIa[] = [
     fixo: {
       razao:
         "Usa o padrão de transcrição da OpenAI, que é o formato que os serviços do mercado implementam. Aceita apontar para outro serviço compatível — inclusive um rodando na sua própria máquina — mas exige uma chave desse serviço, separada da chave do modelo de conversa.",
+      // DEFAULT_MODEL (lib/messaging/media/transcription.ts) — hardcoded.
+      modeloReal: { provider: "openai", modelId: "whisper-1" },
     },
     sintomaDeFalha:
       "O cliente manda áudio e o agente responde como se não tivesse recebido nada.",

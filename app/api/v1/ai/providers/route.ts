@@ -134,7 +134,23 @@ export async function GET(): Promise<Response> {
       modeloDeAmbiente: undefined,
       padraoDaOrganizacao,
     });
-    const chave = `${decisao.provider}|${decisao.modelId ?? ""}`;
+    // Pontos com `fixo.modeloReal` (embedding, transcrição) NUNCA consultam o
+    // resolvedor genérico em runtime — o código sempre usa o mesmo provider+
+    // modelo, hardcoded. Sem este desvio, a tela rodava `decidirBinding` pra
+    // eles como qualquer outro ponto e mostrava "usando o padrão da
+    // organização" com o modelo de CONVERSA da org (ex.: Claude) — quando na
+    // prática é sempre a OpenAI, indiferente ao que a organização configurou.
+    const efetiva = ponto.fixo?.modeloReal
+      ? {
+          provider: ponto.fixo.modeloReal.provider,
+          modelId: ponto.fixo.modeloReal.modelId,
+          credentialId: null,
+          baseUrl: null,
+          origem: "fixo_no_codigo" as const,
+          avisos: [] as string[],
+        }
+      : decisao;
+    const chave = `${efetiva.provider}|${efetiva.modelId ?? ""}`;
     const capacidade = capacidadePorModelo.get(chave);
     return {
       id: ponto.id,
@@ -157,15 +173,15 @@ export async function GET(): Promise<Response> {
        */
       mandadoPeloAgente: agentePublicado !== null && PONTOS_DO_AGENTE_PUBLICADO.has(ponto.id),
       efetivo: {
-        provider: decisao.provider,
-        modelId: decisao.modelId,
-        credentialId: decisao.credentialId,
-        baseUrl: decisao.baseUrl,
-        origem: decisao.origem,
-        porQue: EXPLICACAO_DA_ORIGEM[decisao.origem],
+        provider: efetiva.provider,
+        modelId: efetiva.modelId,
+        credentialId: efetiva.credentialId,
+        baseUrl: efetiva.baseUrl,
+        origem: efetiva.origem,
+        porQue: EXPLICACAO_DA_ORIGEM[efetiva.origem],
       },
       avisos: [
-        ...decisao.avisos,
+        ...efetiva.avisos,
         // O aviso de capacidade é recalculado aqui porque só o servidor tem o
         // catálogo; o resolvedor puro não consulta banco.
         ...(capacidade && ponto.exige.tools === true && !capacidade.supports_tools

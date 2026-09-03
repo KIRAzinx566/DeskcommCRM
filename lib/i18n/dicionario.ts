@@ -2096,6 +2096,9 @@ export const DICIONARIO: Traducoes = {
   "Usando o padrão da organização.": {
     es: "Usando el valor predeterminado de la organización.",
   },
+  "Fixo no código — não muda com nenhuma configuração.": {
+    es: "Fijo en el código — no cambia con ninguna configuración.",
+  },
   "Default:": { es: "Predeterminado:" },
   "API key": { es: "Clave de API" },
 
