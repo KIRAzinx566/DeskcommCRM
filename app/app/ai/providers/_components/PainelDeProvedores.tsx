@@ -85,6 +85,8 @@ interface Provedor {
   ondePegarAChave: string;
   /** Aceita apontar para outro endpoint (é compatível com a API da OpenAI). */
   aceitaEndpointProprio: boolean;
+  /** Tem um cron que baixa o catálogo de modelos, ou o campo é texto livre pra sempre. */
+  catalogoSincronizavel: boolean;
 }
 
 interface Dados {
@@ -288,6 +290,8 @@ function CartaoDoPonto({
   // registry aplica junto da allowlist do egress.
   const aceitaEndpointProprio =
     dados.provedores.find((p) => p.id === provider)?.aceitaEndpointProprio === true;
+  const catalogoSincronizavel =
+    dados.provedores.find((p) => p.id === provider)?.catalogoSincronizavel === true;
 
   const editavel = dados.podeEditar && ponto.fixo === null && !ponto.mandadoPeloAgente;
 
@@ -428,9 +432,13 @@ function CartaoDoPonto({
                   data-testid={`modelo-${ponto.id}`}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {t(
-                    "O catálogo deste provedor ainda não foi baixado. Digite o identificador do modelo como o provedor o nomeia — a lista completa aparece sozinha depois da primeira sincronização.",
-                  )}
+                  {catalogoSincronizavel
+                    ? t(
+                        "O catálogo deste provedor ainda não foi baixado. Digite o identificador do modelo como o provedor o nomeia — a lista completa aparece sozinha depois da primeira sincronização.",
+                      )
+                    : t(
+                        "Este provedor não tem catálogo pra baixar — o campo é sempre texto livre. Digite o identificador do modelo exatamente como o serviço o nomeia.",
+                      )}
                 </p>
               </>
             ) : (

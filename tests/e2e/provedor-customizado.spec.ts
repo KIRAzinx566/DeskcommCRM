@@ -99,6 +99,20 @@ test.describe("Provedor 'API customizada' no editor de agente", () => {
     await expect(baseUrl).toBeVisible();
     await expect(page.getByText(/Endereço do endpoint \(obrigatório\)/i)).toBeVisible();
 
+    // Regressão de um bug real: `ai_models` nunca tem linha para "custom" (não
+    // existe catálogo universal pra um endpoint escolhido pelo operador), e o
+    // ModelPicker — antes desta correção — só sabia ser um <Select>: catálogo
+    // vazio virava um único item "Nenhum modelo disponível" DESABILITADO, sem
+    // NENHUMA forma de digitar um modelo. Resultado: um agente em "custom"
+    // nunca conseguia ter `model` preenchido, e o formulário (que exige isso
+    // pra salvar) ficava travado pra sempre. O campo precisa ser texto livre.
+    const modelo = page.locator("#model");
+    await expect(modelo).toBeVisible();
+    await expect(modelo).toBeEditable();
+    await modelo.fill("qualquer/modelo-de-teste");
+    await expect(modelo).toHaveValue("qualquer/modelo-de-teste");
+    await expect(page.getByText(/Este provedor não tem catálogo pra baixar/i)).toBeVisible();
+
     // Trocar de provedor reseta a credencial — e o seletor reconhece "custom"
     // como provedor de verdade (mensagem nomeia o provedor, não "desconhecido").
     // É um <Select> do Radix: a opção "sem opção" só existe no DOM com o menu
