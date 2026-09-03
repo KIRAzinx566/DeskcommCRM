@@ -43,7 +43,8 @@ export type OrigemDaEscolha =
   | "binding"
   | "variavel_de_ambiente"
   | "herdado_de_quem_chamou"
-  | "padrao_da_organizacao";
+  | "padrao_da_organizacao"
+  | "fixo_no_codigo";
 
 export const EXPLICACAO_DA_ORIGEM: Record<OrigemDaEscolha, string> = {
   agente_publicado: "Definido na versão publicada do agente.",
@@ -52,6 +53,9 @@ export const EXPLICACAO_DA_ORIGEM: Record<OrigemDaEscolha, string> = {
   herdado_de_quem_chamou:
     "Herdado de quem disparou a chamada — o agente publicado, ou o roteador de intenção.",
   padrao_da_organizacao: "Usando o padrão da organização.",
+  // Pontos como embedding/transcrição: o código sempre usa o mesmo modelo,
+  // sem consultar organização, binding nem variável nenhuma.
+  fixo_no_codigo: "Fixo no código — não muda com nenhuma configuração.",
 };
 
 /** Uma linha de `ai_purpose_bindings`, já filtrada por organização. */

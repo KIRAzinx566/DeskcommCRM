@@ -98,6 +98,18 @@ test("F1 — ponto fixo mostra a RAZÃO, não um cadeado mudo", async ({ page })
   );
   // E o ponto fixo NÃO oferece seletor — oferecer e ignorar seria a tela que mente.
   await expect(page.locator('[data-testid="provider-embedding_indexar"]')).toHaveCount(0);
+
+  // Regressão de um bug real: o card mostrava "usando o padrão da
+  // organização" com o modelo de CONVERSA da org (ex.: Claude) para os
+  // pontos de embedding/transcrição — que na prática SEMPRE batem na OpenAI,
+  // hardcoded, indiferente ao que a organização configurou. O card precisa
+  // mostrar o modelo REAL, não o genérico.
+  await expect(page.locator('[data-testid="ponto-embedding_indexar"]')).toContainText(
+    "text-embedding-3-small",
+  );
+  await expect(page.locator('[data-testid="origem-embedding_indexar"]')).toContainText(
+    /fixo no código/i,
+  );
   await page.screenshot({ path: "evidence/provedores/03-ponto-fixo-com-razao.png", fullPage: true });
 });
 
