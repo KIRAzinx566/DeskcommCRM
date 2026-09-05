@@ -45,6 +45,12 @@ import {
   crmSaveOrgMemory,
 } from "./evolucao";
 import { crmListContactOrders, crmSearchProducts } from "./comercio";
+import {
+  crmCancelarCobranca,
+  crmConsultarCobranca,
+  crmGerarCobranca,
+  crmListarCobrancas,
+} from "./faturamento";
 import { crmListPrivacyRequests } from "./privacidade";
 import {
   crmArchiveStage,
@@ -110,6 +116,8 @@ export const allTools: ReadonlyArray<McpToolDefinition> = [
   crmListContactOrders,
   crmSearchProducts,
   crmListPrivacyRequests,
+  crmConsultarCobranca,
+  crmListarCobrancas,
   // read — organizar a operação (W4)
   crmListStages,
   crmListTags,
@@ -151,6 +159,8 @@ export const allTools: ReadonlyArray<McpToolDefinition> = [
   crmAddCaseNote,
   crmCloseHumanCase,
   crmResumeAiAttendance,
+  crmGerarCobranca,
+  crmCancelarCobranca,
   // handoff (special)
   crmRequestHumanHandoff,
 ] as unknown as ReadonlyArray<McpToolDefinition>;

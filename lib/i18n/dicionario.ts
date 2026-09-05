@@ -6349,6 +6349,63 @@ export const DICIONARIO: Traducoes = {
   "Salvar produto": { es: "Guardar producto" },
   "em estoque": { es: "en stock" },
   "sem controle de estoque": { es: "sin control de stock" },
+
+  // ─── Sistema de cobrança (boleto/Pix/cartão via ASAAS) ───
+  "Cobranças": { es: "Cobros" },
+  "Boletos, Pix e cobranças no cartão geradas para os seus clientes.": {
+    es: "Boletos, Pix y cobros con tarjeta generados para tus clientes.",
+  },
+  "Nova cobrança": { es: "Nuevo cobro" },
+  "Método": { es: "Método" },
+  "Vencimento": { es: "Vencimiento" },
+  "Criada em": { es: "Creada el" },
+  "Nenhuma cobrança gerada ainda.": { es: "Ningún cobro generado todavía." },
+  "Gera um boleto, Pix ou link de cartão via ASAAS. O cliente recebe o link para pagar.": {
+    es: "Genera un boleto, Pix o link de tarjeta vía ASAAS. El cliente recibe el link para pagar.",
+  },
+  "Id do contato": { es: "Id del contacto" },
+  "Id do negócio (opcional)": { es: "Id del negocio (opcional)" },
+  "Boleto": { es: "Boleto" },
+  "Cartão": { es: "Tarjeta" },
+  "Vencimento (opcional — hoje se vazio)": { es: "Vencimiento (opcional — hoy si está vacío)" },
+  "CPF/CNPJ de quem paga": { es: "CPF/CNPJ de quien paga" },
+  "Descrição (opcional)": { es: "Descripción (opcional)" },
+  "Gerar cobrança": { es: "Generar cobro" },
+  "Cobrança gerada": { es: "Cobro generado" },
+  "Link para pagar": { es: "Link para pagar" },
+  "Pix copia e cola": { es: "Pix copiar y pegar" },
+  "Código de barras do boleto": { es: "Código de barras del boleto" },
+  "Credenciais de pagamento": { es: "Credenciales de pago" },
+  "A conta da ASAAS é sua: você cria a conta direto na ASAAS e cola a chave aqui. O dinheiro das cobranças cai direto nela — nunca passa pela": {
+    es: "La cuenta de ASAAS es tuya: tú creas la cuenta directo en ASAAS y pegas la clave aquí. El dinero de los cobros cae directo en ella — nunca pasa por",
+  },
+  "Chave inválida": { es: "Clave inválida" },
+  "Validando…": { es: "Validando…" },
+  "Conectar conta ASAAS": { es: "Conectar cuenta ASAAS" },
+  "Ambiente": { es: "Entorno" },
+  "Conectada como": { es: "Conectada como" },
+  "Nenhuma credencial conectada ainda.": { es: "Ninguna credencial conectada todavía." },
+  "Crie uma conta em asaas.com (ou use o sandbox para testar) e cole a API key aqui. Ela fica cifrada e não aparece mais depois de salva.": {
+    es: "Crea una cuenta en asaas.com (o usa el sandbox para probar) y pega la API key aquí. Queda cifrada y no vuelve a aparecer después de guardada.",
+  },
+  "Sandbox (testes)": { es: "Sandbox (pruebas)" },
+  "Produção (cobra de verdade)": { es: "Producción (cobra de verdad)" },
+  "API key da ASAAS": { es: "API key de ASAAS" },
+  "Configure o webhook na ASAAS": { es: "Configura el webhook en ASAAS" },
+  "Este token só aparece agora — copie os dois valores e cole no painel da ASAAS em Integrações › Webhooks, antes de fechar esta janela.": {
+    es: "Este token solo aparece ahora — copia los dos valores y pégalos en el panel de ASAAS en Integraciones › Webhooks, antes de cerrar esta ventana.",
+  },
+  "Token de acesso (cole em \"asaas-access-token\")": {
+    es: "Token de acceso (pégalo en \"asaas-access-token\")",
+  },
+  "Credencial conectada.": { es: "Credencial conectada." },
+  "Já configurei": { es: "Ya lo configuré" },
+  "Escreva o motivo do cancelamento (pelo menos 3 caracteres).": {
+    es: "Escribe el motivo de la cancelación (al menos 3 caracteres).",
+  },
+  "Motivo do cancelamento": { es: "Motivo de la cancelación" },
+  "Ex.: cliente desistiu, valor errado…": { es: "Ej.: el cliente desistió, valor incorrecto…" },
+  "Cancelar cobrança": { es: "Cancelar cobro" },
 };
 
 /**

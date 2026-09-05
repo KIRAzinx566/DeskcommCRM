@@ -17322,6 +17322,210 @@ create unique index if not exists ai_kbv_version_por_agente_legado
   on public.ai_knowledge_versions (agent_id, version_number)
   where knowledge_source_id is null;
 
+-- ---- sistema de cobrança ASAAS: boleto + Pix + cartão (migration 0208) ----
+--
+-- Três tabelas novas, greenfield (não existia subsistema de cobrança antes):
+-- `billing_gateway_credentials` (chave ASAAS por org+ambiente, AES-256-GCM
+-- com chave separada `BILLING_CRED_AES_KEY`), `billing_charges` (a cobrança —
+-- nunca guarda dado de cartão, cartão é link hospedado da ASAAS) e
+-- `billing_webhook_events` (arquivo bruto, molde de `webhook_events_log` da
+-- WAHA). RLS no molde da 0206: leitura pra org inteira, escrita só de
+-- `manager` pra cima. Ver a migration 0208 para o racional completo.
+
+create table if not exists public.billing_gateway_credentials (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+
+  provider text not null default 'asaas' check (provider = 'asaas'),
+  environment text not null default 'sandbox' check (environment in ('sandbox', 'production')),
+
+  api_key_encrypted bytea not null,
+  api_key_iv bytea not null,
+  api_key_tag bytea not null,
+  api_key_last4 text not null,
+
+  asaas_cpf_cnpj text,
+  webhook_path_token text not null,
+  webhook_token_hash bytea not null,
+
+  validated_at timestamptz,
+  validation_error text,
+  is_active boolean not null default true,
+
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists billing_gateway_credentials_org_env_key
+  on public.billing_gateway_credentials (organization_id, environment);
+
+create unique index if not exists billing_gateway_credentials_path_token_key
+  on public.billing_gateway_credentials (webhook_path_token);
+
+alter table public.billing_gateway_credentials enable row level security;
+
+drop policy if exists billing_gateway_credentials_select on public.billing_gateway_credentials;
+create policy billing_gateway_credentials_select on public.billing_gateway_credentials
+  for select using (
+    (organization_id in (select public.fn_user_org_ids())) or public.fn_is_platform_admin()
+  );
+
+drop policy if exists billing_gateway_credentials_write on public.billing_gateway_credentials;
+create policy billing_gateway_credentials_write on public.billing_gateway_credentials
+  using (
+    public.fn_is_platform_admin()
+    or ((organization_id in (select public.fn_user_org_ids()))
+        and public.fn_role_at_least(organization_id, 'manager'))
+  )
+  with check (
+    public.fn_is_platform_admin()
+    or ((organization_id in (select public.fn_user_org_ids()))
+        and public.fn_role_at_least(organization_id, 'manager'))
+  );
+
+revoke all on public.billing_gateway_credentials from anon;
+grant select, insert, update, delete on public.billing_gateway_credentials to authenticated;
+grant all on public.billing_gateway_credentials to service_role;
+
+drop trigger if exists trg_billing_gateway_credentials_updated_at on public.billing_gateway_credentials;
+create trigger trg_billing_gateway_credentials_updated_at
+  before update on public.billing_gateway_credentials
+  for each row execute function public.fn_set_updated_at();
+
+comment on table public.billing_gateway_credentials is
+  'Uma credencial de gateway de pagamento (hoje só ASAAS) por organização e ambiente. Cada organização usa a PRÓPRIA conta — o dinheiro cai direto nela, DeskcommCRM nunca é intermediário financeiro.';
+comment on column public.billing_gateway_credentials.webhook_token_hash is
+  'SHA-256 do token que o tenant configura no painel ASAAS como "token de acesso" do webhook. Comparado por hash, nunca decifrado.';
+
+drop view if exists public.billing_gateway_credentials_safe;
+create view public.billing_gateway_credentials_safe
+  with (security_invoker = true) as
+select
+  id, organization_id, provider, environment, api_key_last4, asaas_cpf_cnpj,
+  webhook_path_token, validated_at, validation_error, is_active, created_by, created_at, updated_at
+from public.billing_gateway_credentials;
+
+grant select on public.billing_gateway_credentials_safe to authenticated;
+grant all on public.billing_gateway_credentials_safe to service_role;
+
+create table if not exists public.billing_charges (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  gateway_credential_id uuid not null references public.billing_gateway_credentials(id) on delete restrict,
+
+  contact_id uuid references public.contacts(id) on delete set null,
+  lead_id uuid references public.crm_leads(id) on delete set null,
+
+  external_id text,
+
+  method text not null check (method in ('boleto', 'pix', 'cartao')),
+  status text not null default 'pending'
+    check (status in ('pending', 'awaiting_payment', 'paid', 'overdue', 'cancelled', 'refunded', 'failed')),
+
+  amount_cents bigint not null check (amount_cents > 0),
+  currency char(3) not null default 'BRL',
+  due_date date,
+  description text,
+
+  boleto_url text,
+  boleto_barcode text,
+  pix_qr_code text,
+  pix_copy_paste text,
+  invoice_url text,
+
+  paid_at timestamptz,
+  payload jsonb not null default '{}',
+
+  created_by_user_id uuid references auth.users(id) on delete set null,
+  created_by_api_token_id uuid references public.api_tokens(id) on delete set null,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint billing_charges_amount_positivo check (amount_cents > 0),
+  constraint billing_charges_moeda_iso check (currency ~ '^[A-Z]{3}$'),
+  constraint billing_charges_um_criador check (
+    (created_by_user_id is null) or (created_by_api_token_id is null)
+  )
+);
+
+create unique index if not exists billing_charges_org_external_key
+  on public.billing_charges (organization_id, external_id)
+  where external_id is not null;
+
+create index if not exists billing_charges_org_contact_idx
+  on public.billing_charges (organization_id, contact_id);
+
+create index if not exists billing_charges_org_status_idx
+  on public.billing_charges (organization_id, status);
+
+alter table public.billing_charges enable row level security;
+
+drop policy if exists billing_charges_select on public.billing_charges;
+create policy billing_charges_select on public.billing_charges
+  for select using (
+    (organization_id in (select public.fn_user_org_ids())) or public.fn_is_platform_admin()
+  );
+
+drop policy if exists billing_charges_write on public.billing_charges;
+create policy billing_charges_write on public.billing_charges
+  using (
+    public.fn_is_platform_admin()
+    or ((organization_id in (select public.fn_user_org_ids()))
+        and public.fn_role_at_least(organization_id, 'manager'))
+  )
+  with check (
+    public.fn_is_platform_admin()
+    or ((organization_id in (select public.fn_user_org_ids()))
+        and public.fn_role_at_least(organization_id, 'manager'))
+  );
+
+revoke all on public.billing_charges from anon;
+grant select, insert, update, delete on public.billing_charges to authenticated;
+grant all on public.billing_charges to service_role;
+
+drop trigger if exists trg_billing_charges_updated_at on public.billing_charges;
+create trigger trg_billing_charges_updated_at
+  before update on public.billing_charges
+  for each row execute function public.fn_set_updated_at();
+
+comment on table public.billing_charges is
+  'Uma cobrança real (boleto, Pix ou cartão) emitida via gateway de pagamento (ASAAS). Sobrevive à anonimização do contato — é histórico contábil, mesma regra de `orders`.';
+comment on column public.billing_charges.payload is
+  'Snapshot bruto do objeto de cobrança devolvido pela ASAAS, mesmo padrão de `orders.payload` — para auditoria/debug, nunca fonte de verdade de UI.';
+
+create table if not exists public.billing_webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+
+  external_event_id text not null,
+  event_type text not null,
+  raw_payload jsonb not null,
+  signature_verified boolean not null default false,
+  processed_at timestamptz,
+
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists billing_webhook_events_org_external_key
+  on public.billing_webhook_events (organization_id, external_event_id);
+
+alter table public.billing_webhook_events enable row level security;
+
+drop policy if exists billing_webhook_events_select on public.billing_webhook_events;
+create policy billing_webhook_events_select on public.billing_webhook_events
+  for select using (
+    (organization_id in (select public.fn_user_org_ids())) or public.fn_is_platform_admin()
+  );
+
+revoke all on public.billing_webhook_events from anon;
+grant select on public.billing_webhook_events to authenticated;
+grant all on public.billing_webhook_events to service_role;
+
+comment on table public.billing_webhook_events is
+  'Arquivo bruto de todo webhook recebido da ASAAS, uma linha por evento — molde de `webhook_events_log` da WAHA. Só o service role escreve; a tela só lê, para auditoria.';
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ ESTE BLOCO É, DE PROPÓSITO, O ÚLTIMO DO ARQUIVO. Apêndice novo entra ANTES
