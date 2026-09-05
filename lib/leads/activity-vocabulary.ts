@@ -100,7 +100,16 @@ export type ActivityType =
   | "conversation_claimed"
   | "conversation_transferred"
   | "conversation_released"
-  | "conversation_ai_paused";
+  | "conversation_ai_paused"
+  /**
+   * O ciclo de vida de uma cobrança (boleto/Pix/cartão via ASAAS). Sem estas
+   * três linhas, o dossiê do negócio mostra o card avançando de etapa sem
+   * dizer que dinheiro foi cobrado — e "o cliente pagou" é exatamente o tipo
+   * de acontecimento que decide o próximo passo do funil.
+   */
+  | "billing_charge_created"
+  | "billing_charge_paid"
+  | "billing_charge_cancelled";
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   lead_created: "Entrou pelo WhatsApp",
@@ -190,6 +199,9 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   // arquivos e o controle NEGATIVO de `handoff-por-orcamento.test.ts` usa
   // literalmente "Voltar para a IA" como a sabotagem que deve reprovar.
   conversation_ai_paused: "Pausou o automático",
+  billing_charge_created: "Cobrança gerada",
+  billing_charge_paid: "Pagamento recebido",
+  billing_charge_cancelled: "Cobrança cancelada",
 };
 
 /** Quando o tipo é legado/desconhecido, a linha ainda é honesta — sem jargão. */

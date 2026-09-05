@@ -121,6 +121,18 @@ const schema = z.object({
    */
   AI_CRED_AES_KEY: required("AI_CRED_AES_KEY"),
 
+  /**
+   * AES-256-GCM key (32 bytes em base64) usada pra cifrar a chave da ASAAS em
+   * `billing_gateway_credentials`. SEPARADA de `AI_CRED_AES_KEY` de propósito
+   * — vazamento de credencial de LLM não deveria expor gateway de pagamento,
+   * e vice-versa. Opcional MESMO em produção (nem toda instalação usa
+   * cobrança): `lib/billing/credenciais/guardar.ts` recusa a operação com
+   * mensagem clara ("gateway de pagamento não configurado") em vez de
+   * derrubar o boot do app inteiro por uma feature que a instalação pode
+   * nunca usar.
+   */
+  BILLING_CRED_AES_KEY: z.string().default(""),
+
   // Postgres direto do Supabase (Settings → Database) — só as rotas de skills
   // instaláveis (import/install) usam `pg` cru (mesmo pool do agent-engine).
   SUPABASE_DB_URL: required("SUPABASE_DB_URL"),

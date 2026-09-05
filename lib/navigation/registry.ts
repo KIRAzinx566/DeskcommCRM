@@ -228,6 +228,20 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     sidebar: true,
   },
   {
+    // Uso diário de quem cobra — mesmo raciocínio do catálogo acima: gerar e
+    // acompanhar boleto/Pix/cartão é trabalho de quem ATENDE, não configuração
+    // de "Sua empresa" (onde fica a credencial da ASAAS, ao lado das outras
+    // integrações). `manager` porque a policy de escrita de `billing_charges`
+    // já recusa `agent` no banco — a tela segue a mesma régua.
+    href: "/app/billing/charges",
+    label: "Cobranças",
+    description: "Boletos, Pix e cobranças no cartão geradas para os seus clientes.",
+    icon: Receipt,
+    group: "crm",
+    minRole: "manager",
+    sidebar: true,
+  },
+  {
     // A promessa que o comentário da Agenda fazia desde que ela nasceu. Aqui se
     // decide O QUE se pode marcar, quanto dura e quem atende — e é isto que a
     // tela de marcar e o agente de IA oferecem ao cliente.
@@ -545,6 +559,20 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     label: "Billing",
     description: "Plano e cobrança.",
     icon: Receipt,
+    group: "organizacao",
+    section: "Sua empresa",
+    minRole: "admin",
+  },
+  {
+    // NÃO confundir com a tela acima: aquela é sobre pagar a DeskcommCRM
+    // (roadmap Fase 2, ainda "em breve"); esta é a conta ASAAS que a
+    // organização usa para cobrar OS PRÓPRIOS clientes dela. Nomes distintos
+    // de propósito, para os dois "billing" não colidirem na cabeça de quem
+    // configura.
+    href: "/app/billing/credentials",
+    label: "Credenciais de pagamento",
+    description: "A conta da ASAAS usada para gerar boleto, Pix e cobrança no cartão.",
+    icon: Key,
     group: "organizacao",
     section: "Sua empresa",
     minRole: "admin",

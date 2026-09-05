@@ -1707,6 +1707,229 @@ export type Database = {
           },
         ]
       }
+      billing_charges: {
+        Row: {
+          amount_cents: number
+          boleto_barcode: string | null
+          boleto_url: string | null
+          contact_id: string | null
+          created_at: string
+          created_by_api_token_id: string | null
+          created_by_user_id: string | null
+          currency: string
+          description: string | null
+          due_date: string | null
+          external_id: string | null
+          gateway_credential_id: string
+          id: string
+          invoice_url: string | null
+          lead_id: string | null
+          method: string
+          organization_id: string
+          paid_at: string | null
+          payload: Json
+          pix_copy_paste: string | null
+          pix_qr_code: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          boleto_barcode?: string | null
+          boleto_url?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by_api_token_id?: string | null
+          created_by_user_id?: string | null
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          external_id?: string | null
+          gateway_credential_id: string
+          id?: string
+          invoice_url?: string | null
+          lead_id?: string | null
+          method: string
+          organization_id: string
+          paid_at?: string | null
+          payload?: Json
+          pix_copy_paste?: string | null
+          pix_qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          boleto_barcode?: string | null
+          boleto_url?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by_api_token_id?: string | null
+          created_by_user_id?: string | null
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          external_id?: string | null
+          gateway_credential_id?: string
+          id?: string
+          invoice_url?: string | null
+          lead_id?: string | null
+          method?: string
+          organization_id?: string
+          paid_at?: string | null
+          payload?: Json
+          pix_copy_paste?: string | null
+          pix_qr_code?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_charges_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_charges_gateway_credential_id_fkey"
+            columns: ["gateway_credential_id"]
+            isOneToOne: false
+            referencedRelation: "billing_gateway_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_charges_gateway_credential_id_fkey"
+            columns: ["gateway_credential_id"]
+            isOneToOne: false
+            referencedRelation: "billing_gateway_credentials_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_charges_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_charges_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_gateway_credentials: {
+        Row: {
+          api_key_encrypted: string
+          api_key_iv: string
+          api_key_last4: string
+          api_key_tag: string
+          asaas_cpf_cnpj: string | null
+          created_at: string
+          created_by: string | null
+          environment: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          provider: string
+          updated_at: string
+          validated_at: string | null
+          validation_error: string | null
+          webhook_path_token: string
+          webhook_token_hash: string
+        }
+        Insert: {
+          api_key_encrypted: string
+          api_key_iv: string
+          api_key_last4: string
+          api_key_tag: string
+          asaas_cpf_cnpj?: string | null
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          provider?: string
+          updated_at?: string
+          validated_at?: string | null
+          validation_error?: string | null
+          webhook_path_token: string
+          webhook_token_hash: string
+        }
+        Update: {
+          api_key_encrypted?: string
+          api_key_iv?: string
+          api_key_last4?: string
+          api_key_tag?: string
+          asaas_cpf_cnpj?: string | null
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          provider?: string
+          updated_at?: string
+          validated_at?: string | null
+          validation_error?: string | null
+          webhook_path_token?: string
+          webhook_token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_gateway_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_webhook_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          external_event_id: string
+          id: string
+          organization_id: string
+          processed_at: string | null
+          raw_payload: Json
+          signature_verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          external_event_id: string
+          id?: string
+          organization_id: string
+          processed_at?: string | null
+          raw_payload: Json
+          signature_verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          external_event_id?: string
+          id?: string
+          organization_id?: string
+          processed_at?: string | null
+          raw_payload?: Json
+          signature_verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_webhook_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_appointments: {
         Row: {
           cancellation_reason: string | null
@@ -6749,6 +6972,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ai_provider_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_gateway_credentials_safe: {
+        Row: {
+          asaas_cpf_cnpj: string | null
+          api_key_last4: string | null
+          created_at: string | null
+          created_by: string | null
+          environment: string | null
+          id: string | null
+          is_active: boolean | null
+          organization_id: string | null
+          provider: string | null
+          updated_at: string | null
+          validated_at: string | null
+          validation_error: string | null
+          webhook_path_token: string | null
+        }
+        Insert: {
+          asaas_cpf_cnpj?: string | null
+          api_key_last4?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          environment?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          organization_id?: string | null
+          provider?: string | null
+          updated_at?: string | null
+          validated_at?: string | null
+          validation_error?: string | null
+          webhook_path_token?: string | null
+        }
+        Update: {
+          asaas_cpf_cnpj?: string | null
+          api_key_last4?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          environment?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          organization_id?: string | null
+          provider?: string | null
+          updated_at?: string | null
+          validated_at?: string | null
+          validation_error?: string | null
+          webhook_path_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_gateway_credentials_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

@@ -152,6 +152,11 @@ const KNOWN_DEBT: { reason: string; files: string[] }[] = [
     files: [
       "app/api/v1/ai/agents/[id]/versions/[vid]/test/route.ts",
       "app/api/v1/conversations/[id]/media/route.ts",
+      // Comentário de cabeçalho compara o molde ("Molde de .../webhooks/in/
+      // [token]/route.ts (WAHA/captação)") e outro cita `dispatchWahaEvent`
+      // como referência de padrão — zero import, zero acoplamento. É webhook
+      // de gateway de pagamento (ASAAS), canal nenhum.
+      "app/api/v1/webhooks/asaas/[token]/route.ts",
       "app/api/v1/webhook-sources/route.ts",
       "app/api/v1/webhooks/in/[token]/route.ts",
       "app/app/ai/agents/[id]/_components/TestPanel.tsx",

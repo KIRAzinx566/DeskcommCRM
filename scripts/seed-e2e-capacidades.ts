@@ -113,24 +113,24 @@ async function main(): Promise<void> {
     "crm_get_lead",
     "crm_move_lead_stage",
     "crm_list_leads",
-    // ⚠️ AS CINCO ABAIXO ENTRARAM COM O TETO INDO DE 20 PARA 25, e não são enfeite.
+    // ⚠️ AS TRÊS ABAIXO ENTRARAM COM O TETO INDO DE 20 PARA 25, e não são enfeite.
     //
     // A jornada do teto (issue #162) só existe se o cenário ESTOURAR: eram 3 do
     // seed + 18 de "Atender" = 21 contra teto 20, e a tela recusava dizendo
     // "faltam 1 vaga". Com teto 25 essas mesmas 21 passam, a recusa nunca acontece
     // e o caso vira um clique que sempre dá certo — verde sem medir nada.
     //
-    // Oito reproduzem a MESMA aritmética no teto novo: 8 + 18 = 26 > 25, recusa
-    // por 1 vaga; desligar uma deixa 7 + 18 = 25, que é o teto exato e passa.
+    // Seis reproduzem a MESMA aritmética no teto novo: 6 + 20 = 26 > 25, recusa
+    // por 1 vaga; desligar uma deixa 5 + 20 = 25, que é o teto exato e passa.
+    // ("Atender" foi de 18 para 20 vagas na migration 0208 — as tools de
+    // CONSULTAR/LISTAR cobrança entraram nesse pacote; GERAR/CANCELAR foram
+    // para "Vender", que este cenário não liga.)
     //
     // As escolhidas ficam FORA do pacote "Atender" de propósito — se alguma
     // estivesse dentro, a união seria menor que a soma e a conta acima não valeria.
-    // Quatro são a família de agenda, que é o assunto do defeito que subiu o teto.
     "crm_find_free_slots",
     "crm_list_appointments",
     "crm_book_appointment",
-    "crm_reschedule_appointment",
-    "crm_list_pipelines",
   ];
 
   // REPÕE TODAS AS VERSÕES DRAFT DESTE AGENTE, não só a de maior número.

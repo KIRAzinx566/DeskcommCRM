@@ -400,6 +400,14 @@ export const AUDIT_ACTIONS = [
   "catalog_product.updated",
   "catalog_product.deleted",
   "catalog_product.imported",
+
+  // Sistema de cobrança ASAAS (migration 0208) — dinheiro real saindo do
+  // bolso do cliente. Toda credencial de gateway, cobrança gerada/cancelada
+  // e assinatura de webhook inválida ficam registradas.
+  "billing.credential_created",
+  "billing.charge_created",
+  "billing.charge_cancelled",
+  "billing.webhook_invalid_signature",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */
