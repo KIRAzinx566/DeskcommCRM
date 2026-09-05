@@ -1398,6 +1398,7 @@ export const DICIONARIO: Traducoes = {
   "Ative o roteador para poder testar a classificação.": { es: "Activa el enrutador para poder probar la clasificación." },
   "Ex.: oi, quero saber o preço do plano premium": { es: "Ej.: hola, quiero saber el precio del plan premium" },
   "Testando…": { es: "Probando…" },
+  Testar: { es: "Probar" },
   "nenhuma casou": { es: "ninguna coincidió" },
   "confiança": { es: "confianza" },
   "Confiança": { es: "Confianza" },
@@ -2666,8 +2667,20 @@ export const DICIONARIO: Traducoes = {
   Sucesso: { es: "Éxito" },
   "Aguardando envio": { es: "Esperando envío" },
   "Essa ação não funcionou.": { es: "Esta acción no funcionó." },
-  "Reenviado.": { es: "Reenviado." },
-  Reenviar: { es: "Reenviar" },
+  "Retomado.": { es: "Reanudado." },
+  "Escolha um evento recente do mesmo gatilho e veja o que a regra FARIA — nenhuma ação roda de verdade, nada é gravado.": {
+    es: "Elige un evento reciente del mismo gatillo y mira lo que la regla HARÍA — ninguna acción se ejecuta de verdad, nada se guarda.",
+  },
+  "Escolha um evento recente": { es: "Elige un evento reciente" },
+  "Nenhum evento recente deste gatilho ainda.": { es: "Todavía no hay ningún evento reciente de este gatillo." },
+  "As condições da regra NÃO bateriam contra este evento — nenhuma ação seria disparada.": {
+    es: "Las condiciones de la regla NO coincidirían con este evento — ninguna acción se dispararía.",
+  },
+  "As condições bateriam, mas a regra não tem nenhuma ação configurada.": {
+    es: "Las condiciones coincidirían, pero la regla no tiene ninguna acción configurada.",
+  },
+  "sem detalhe": { es: "sin detalle" },
+  "SIMULADO — nada disto aconteceu de verdade": { es: "SIMULADO — nada de esto sucedió de verdad" },
   "Nova tentativa em": { es: "Nuevo intento a las" },
   "Nenhuma automação rodou ainda. Assim que uma regra ligada disparar, o histórico aparece aqui.": {
     es: "Ninguna automatización corrió todavía. En cuanto una regla activada se dispare, el historial aparece aquí.",

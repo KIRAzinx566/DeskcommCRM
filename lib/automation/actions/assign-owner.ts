@@ -34,4 +34,33 @@ async function execute(ctx: ActionCtx, config: Record<string, unknown>): Promise
   return { type: "assign_owner", status: "success", detail: { user_id: userId } };
 }
 
-registerAction({ type: "assign_owner", execute });
+async function simulate(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const userId = typeof config.user_id === "string" ? config.user_id : null;
+  const lead = ctx.context.lead as { id: string } | undefined;
+  if (!userId || !lead) {
+    return { type: "assign_owner", status: "skipped", detail: { reason: "missing_input", simulated: true } };
+  }
+
+  // Leitura, sem gravar nada — é o mesmo check de `execute`, só que o
+  // veredito vira texto em vez de UPDATE.
+  const { data: member } = await ctx.admin
+    .from("user_organizations")
+    .select("user_id, role")
+    .eq("organization_id", ctx.organizationId)
+    .eq("user_id", userId)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (!member) {
+    return { type: "assign_owner", status: "failed", error: "user_not_in_org", detail: { simulated: true } };
+  }
+  if (member.role === "viewer") {
+    return { type: "assign_owner", status: "failed", error: "invalid_owner", detail: { simulated: true } };
+  }
+  return {
+    type: "assign_owner",
+    status: "success",
+    detail: { simulated: true, explicacao: `Atribuiria este lead a ${userId}.`, user_id: userId },
+  };
+}
+
+registerAction({ type: "assign_owner", execute, simulate });

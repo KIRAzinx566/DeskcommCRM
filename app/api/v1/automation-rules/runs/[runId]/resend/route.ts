@@ -1,8 +1,15 @@
 /**
- * POST /api/v1/automation-rules/runs/[runId]/resend — reexecuta SÓ as ações
- * `call_webhook` da regra do run, contra o evento original (`event_log` do
- * run.event_id). Se o evento foi apagado (FK on delete set null zera
- * event_id) → 409 `event_gone`. Grava um run NOVO com o resultado.
+ * POST /api/v1/automation-rules/runs/[runId]/resend — RETOMA as ações que
+ * falharam ou pularam neste run (qualquer tipo, não só `call_webhook`),
+ * contra o evento original (`event_log` do run.event_id). As ações que já
+ * tinham dado certo (ou que ficaram `postponed` — essas têm retry próprio
+ * via reagendamento) ficam como estavam. Se o evento foi apagado (FK on
+ * delete set null zera event_id) → 409 `event_gone`. Grava um run NOVO com
+ * o resultado.
+ *
+ * Generalizado de uma versão anterior que só reenviava `call_webhook` — e
+ * TODAS as ações desse tipo, não só as que tinham falhado. Duas correções
+ * no mesmo PR: por tipo→por índice, e "todas"→"só as que falharam/pularam".
  */
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
@@ -13,7 +20,15 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildContext } from "@/lib/automation/engine";
-import { executeCallWebhook } from "@/lib/automation/actions/call-webhook";
+import { getAction } from "@/lib/automation/actions";
+// Side-effect: registra os executores. A versão anterior desta rota importava
+// `executeCallWebhook` direto (sem passar pelo registro); a generalização
+// pra `getAction(action.type)` genérico passou a depender do registro estar
+// populado, e precisa do mesmo import que `engine.handler.ts` faz pro
+// caminho de produção — esta rota não passa por ele.
+import "@/lib/automation/actions/register-all";
+import { decidirRetomada } from "@/lib/automation/retomar";
+import { agregarStatusDoRun } from "@/lib/automation/agregar-status";
 import type { ActionCtx, ActionResultDetail } from "@/lib/automation/types";
 import type { EventRow } from "@/lib/event-log/dispatcher";
 
@@ -39,7 +54,7 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
 
   const { data: run, error: runErr } = await supabase
     .from("automation_rule_runs")
-    .select("id, rule_id, event_id")
+    .select("id, rule_id, event_id, actions_result")
     .eq("id", runId)
     .eq("organization_id", activeOrg.orgId)
     .maybeSingle();
@@ -59,6 +74,28 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
   if (ruleErr) return fail("internal_error", ruleErr.message, 500, { requestId });
   if (!rule) return fail("not_found", "Regra do run não encontrada.", 404, { requestId });
 
+  const ruleActions = (rule.actions ?? []) as RuleAction[];
+  const originalResults = (run.actions_result ?? []) as ActionResultDetail[];
+
+  const decisao = decidirRetomada(ruleActions.length, originalResults);
+  if (!decisao.ok) {
+    if (decisao.codigo === "rule_changed") {
+      return fail(
+        "rule_changed",
+        "Esta automação mudou desde essa execução — não dá para retomar com segurança. Rode a regra de novo (ou teste-a) para gerar um run atual.",
+        409,
+        { requestId },
+      );
+    }
+    return fail(
+      "no_actions_to_resend",
+      "Nenhuma ação deste run falhou ou foi pulada — não há o que retomar.",
+      409,
+      { requestId },
+    );
+  }
+  const indicesParaRetomar = decisao.indices;
+
   const { data: eventRow, error: eventErr } = await supabase
     .from("event_log")
     .select("*")
@@ -73,39 +110,19 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
   const typedEvent = eventRow as unknown as EventRow;
   const context = await buildContext(supabase, typedEvent);
 
-  const callWebhookActions = ((rule.actions ?? []) as RuleAction[]).filter(
-    (action) => action.type === "call_webhook",
-  );
-
-  // ─── REENVIAR NADA NÃO É SUCESSO ──────────────────────────────────────────
-  //
-  // `failed === 0` é VERDADEIRO para lista vazia, e sem esta guarda uma regra
-  // que perdeu as ações de webhook (o operador removeu a ação no editor, e o
-  // botão "Reenviar" segue renderizado no run antigo) gravava uma linha
-  // `status: "success"` com `actions_result: []`. A tela então mostra o toast
-  // verde e o badge "Sucesso" com corpo vazio: o operador é informado de um
-  // reenvio que não aconteceu.
-  //
-  // É exatamente a classe de defeito que este PR existe para fechar — a
-  // automação dizer que deu certo quando não deu —, e ela reapareceria pela
-  // porta nova. 409 e não 200 porque o estado do MUNDO mudou desde o run
-  // original: a regra não tem mais o que reenviar, e isso é informação, não
-  // erro do chamador.
-  if (callWebhookActions.length === 0) {
-    return fail(
-      "no_actions_to_resend",
-      "Esta automação não tem mais nenhuma ação de webhook — não há o que reenviar.",
-      409,
-      { requestId },
-    );
-  }
-
-  // Admin real no ctx: o executor decifra config.secret_enc via RPC
-  // fn_decrypt_oauth (grant só service_role) — client de sessão falharia e o
-  // outbound sairia sem assinatura silenciosamente.
+  // Admin real no ctx: mesmo motivo de sempre — algum executor decifra
+  // segredo via RPC restrita a service_role (ex.: call_webhook), e o client
+  // de sessão falharia ali sem avisar que o outbound saiu sem assinatura.
   const adminForActions = createAdminClient();
-  const results: ActionResultDetail[] = [];
-  for (const action of callWebhookActions) {
+  const merged = [...originalResults];
+  for (const i of indicesParaRetomar) {
+    const action = ruleActions[i]!;
+    const executor = getAction(action.type);
+    const started_at = new Date().toISOString();
+    if (!executor) {
+      merged[i] = { type: action.type, status: "failed", error: "unknown_action", started_at, finished_at: started_at };
+      continue;
+    }
     const actionCtx: ActionCtx = {
       admin: adminForActions,
       organizationId: activeOrg.orgId,
@@ -115,14 +132,24 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
       context,
       requestId,
     };
-    results.push(await executeCallWebhook(actionCtx, action.config ?? {}));
+    try {
+      const result = await executor.execute(actionCtx, action.config ?? {});
+      merged[i] = { ...result, started_at, finished_at: new Date().toISOString() };
+    } catch (err) {
+      merged[i] = {
+        type: action.type,
+        status: "failed",
+        error: err instanceof Error ? err.message : String(err),
+        started_at,
+        finished_at: new Date().toISOString(),
+      };
+    }
   }
 
-  const failed = results.filter((r) => r.status === "failed").length;
-  const status = failed === 0 ? "success" : failed === results.length ? "failed" : "partial";
+  const status = agregarStatusDoRun(merged);
 
   // RLS: automation_rule_runs é select-only p/ authenticated (escrita é do
-  // service_role, como no engine). Org vem do authz — nunca do body.
+  // service_role, como no engine).
   const admin = createAdminClient();
   const { data: newRun, error: insErr } = await admin
     .from("automation_rule_runs")
@@ -131,7 +158,7 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
       rule_id: rule.id,
       event_id: typedEvent.id,
       status,
-      actions_result: results,
+      actions_result: merged,
     })
     .select("*")
     .single();
@@ -146,7 +173,7 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
     resourceType: "automation_rule_run",
     resourceId: newRun.id,
     requestId,
-    metadata: { original_run_id: runId, rule_id: rule.id },
+    metadata: { original_run_id: runId, rule_id: rule.id, retried_indices: indicesParaRetomar },
   });
 
   return ok(newRun, { requestId, status: 201 });
