@@ -7,6 +7,15 @@
  *
  * NUNCA logamos plaintext do bearer. Em erro retornamos JSON-RPC 2.0
  * envelope com `error.code` MCP (-32001/-32002/etc).
+ *
+ * Rate limit por TOKEN (não por org): um cliente externo com token próprio
+ * não pode afogar o token efêmero do agente interno da mesma organização, e
+ * vice-versa (`lib/ai/runtime/mcp_token.ts` mints um token por run). Antes
+ * desta linha esta rota tinha ZERO proteção — gap #4.3 do
+ * `docs/current-state.md` ("rate limit HTTP praticamente inexistente") — e
+ * abrir a porta pra cliente externo (Claude Desktop, Cursor) sem isso seria
+ * irresponsável: um token vazado passaria a poder martelar o servidor sem
+ * limite nenhum.
  */
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
@@ -15,12 +24,15 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 
 import { createMcpServer } from "@/lib/mcp/server";
 import { McpAuthError, validateBearerToken } from "@/lib/mcp/auth";
+import { checkRateLimit } from "@/lib/ai/dispatcher/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-function jsonRpcError(code: number, message: string, status: number): Response {
+const MCP_RATE_LIMIT_PER_MIN = 60;
+
+function jsonRpcError(code: number, message: string, status: number, headers?: Record<string, string>): Response {
   return new Response(
     JSON.stringify({
       jsonrpc: "2.0",
@@ -29,7 +41,7 @@ function jsonRpcError(code: number, message: string, status: number): Response {
     }),
     {
       status,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...headers },
     },
   );
 }
@@ -45,6 +57,11 @@ async function handle(req: NextRequest): Promise<Response> {
     }
     const msg = err instanceof Error ? err.message : "auth_failed";
     return jsonRpcError(-32603, msg, 500);
+  }
+
+  const rl = await checkRateLimit(`mcp:${auth.apiTokenId}`, MCP_RATE_LIMIT_PER_MIN, 60);
+  if (!rl.allowed) {
+    return jsonRpcError(-32000, "Too many requests.", 429, { "Retry-After": "60" });
   }
 
   const transport = new WebStandardStreamableHTTPServerTransport({});

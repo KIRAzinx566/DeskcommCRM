@@ -102,6 +102,7 @@ export {
   Flag,
   // misc
   DotsThree,
+  Broadcast,
   DotsSixVertical,
   CaretDown,
   CaretUp,
