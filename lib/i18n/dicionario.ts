@@ -3282,6 +3282,33 @@ export const DICIONARIO: Traducoes = {
   "Tratar o token como gerente (necessário p/ criar e atribuir)": {
     es: "Tratar el token como gerente (necesario para crear y asignar)",
   },
+  // ─── Configurações: Conectar MCP ───
+  "Conectar um assistente de IA (MCP)": { es: "Conectar un asistente de IA (MCP)" },
+  "O CRM inteiro fica disponível como ferramentas para Claude Desktop, Cursor, ou qualquer cliente MCP — a mesma conexão que os agentes internos já usam.": {
+    es: "Todo el CRM queda disponible como herramientas para Claude Desktop, Cursor, o cualquier cliente MCP — la misma conexión que los agentes internos ya usan.",
+  },
+  "Cliente MCP externo": { es: "Cliente MCP externo" },
+  "1. Endereço do servidor": { es: "1. Dirección del servidor" },
+  "Cole este endereço na configuração de servidor MCP do seu cliente.": {
+    es: "Pega esta dirección en la configuración de servidor MCP de tu cliente.",
+  },
+  "2. Token de acesso": { es: "2. Token de acceso" },
+  "O cliente MCP se autentica com um Bearer token — o mesmo mecanismo dos tokens de API server-to-server. Crie um específico para isto (não reaproveite um token de outro uso).": {
+    es: "El cliente MCP se autentica con un Bearer token — el mismo mecanismo de los tokens de API server-to-server. Crea uno específico para esto (no reutilices un token de otro uso).",
+  },
+  "Criar token para MCP": { es: "Crear token para MCP" },
+  "Ver todos os tokens": { es: "Ver todos los tokens" },
+  "3. Configure o cliente": { es: "3. Configura el cliente" },
+  "Claude Desktop, Cursor ou qualquer cliente MCP com suporte a Streamable HTTP: adicione um servidor remoto com o endereço acima e o header abaixo (troque SEU_TOKEN pelo token criado).": {
+    es: "Claude Desktop, Cursor o cualquier cliente MCP con soporte a Streamable HTTP: agrega un servidor remoto con la dirección de arriba y el header de abajo (cambia SEU_TOKEN por el token creado).",
+  },
+  "Cada chamada é limitada a 60 por minuto por token — passar disso devolve erro de limite (HTTP 429), não trava a conta.": {
+    es: "Cada llamada está limitada a 60 por minuto por token — pasar de eso devuelve error de límite (HTTP 429), no bloquea la cuenta.",
+  },
+  "Já nasce com os escopos certos (mcp:read, mcp:write, papel gerente). O plaintext aparece só uma vez, na próxima tela.": {
+    es: "Ya nace con los alcances correctos (mcp:read, mcp:write, rol gerente). El plaintext aparece solo una vez, en la siguiente pantalla.",
+  },
+  Token: { es: "Token" },
   "Ler contatos": { es: "Leer contactos" },
   "Criar e editar contatos": { es: "Crear y editar contactos" },
   "Ler leads": { es: "Leer leads" },
