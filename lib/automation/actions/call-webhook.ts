@@ -139,7 +139,35 @@ export async function executeCallWebhook(
   };
 }
 
+/**
+ * Simula sem NENHUM HTTP de saída — só valida a URL pelo mesmo guard
+ * anti-SSRF do `execute` (leitura/DNS, não fetch pro destino) e descreve o
+ * que seria enviado. Nunca chama `fetch` contra a URL do tenant: um teste
+ * não pode ter efeito colateral num sistema de terceiro.
+ */
+export async function simulateCallWebhook(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const url = typeof config.url === "string" ? config.url : null;
+  if (!url) return { type: "call_webhook", status: "failed", error: "missing_url", detail: { simulated: true } };
+  try {
+    assertSafeOutboundUrl(url);
+    await assertDestinoResolvidoSeguro(new URL(url).hostname);
+  } catch (err) {
+    return { type: "call_webhook", status: "failed", error: (err as Error).message, detail: { simulated: true } };
+  }
+  const assinado = Boolean(config.secret || config.secret_enc);
+  return {
+    type: "call_webhook",
+    status: "success",
+    detail: {
+      simulated: true,
+      explicacao: `Chamaria ${url} com POST${assinado ? " (assinado)" : ""} — nenhuma chamada real foi feita.`,
+      url,
+    },
+  };
+}
+
 registerAction({
   type: "call_webhook",
   execute: (ctx, config) => executeCallWebhook(ctx, config),
+  simulate: simulateCallWebhook,
 });

@@ -43,4 +43,28 @@ async function execute(ctx: ActionCtx, config: Record<string, unknown>): Promise
   return { type: "add_tag", status: "success", detail: { added } };
 }
 
-registerAction({ type: "add_tag", execute });
+export async function simulateAddTag(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const tags = Array.isArray(config.tags) ? config.tags.map(String) : [];
+  if (!tags.length) return { type: "add_tag", status: "skipped", detail: { reason: "no_tags", simulated: true } };
+
+  const lead = ctx.context.lead as { id: string; tags?: string[] } | undefined;
+  const contact = ctx.context.contact as { id: string; tags?: string[] } | undefined;
+  const target = lead ? { row: lead, alvo: "lead" } : contact ? { row: contact, alvo: "contato" } : null;
+  if (!target) return { type: "add_tag", status: "skipped", detail: { reason: "no_target", simulated: true } };
+
+  const prev = target.row.tags ?? [];
+  const added = tags.filter((t) => !prev.includes(t));
+  return {
+    type: "add_tag",
+    status: "success",
+    detail: {
+      simulated: true,
+      explicacao: added.length
+        ? `Adicionaria a(s) tag(s) "${added.join('", "')}" ao ${target.alvo}.`
+        : `Nenhuma tag nova — o ${target.alvo} já tem todas.`,
+      added,
+    },
+  };
+}
+
+registerAction({ type: "add_tag", execute, simulate: simulateAddTag });

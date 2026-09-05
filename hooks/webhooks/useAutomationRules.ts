@@ -68,6 +68,8 @@ export interface AutomationRuleRunActionResult {
   status: "success" | "failed" | "skipped" | "postponed";
   error?: string;
   detail?: Record<string, unknown>;
+  started_at?: string;
+  finished_at?: string;
 }
 
 /** Espelha o CHECK de `automation_rule_runs.status` (migrations 0038 e 0175). */
@@ -111,5 +113,42 @@ export function useResendAutomationRun() {
       ),
     onError: showApiError,
     onSuccess: () => qc.invalidateQueries({ queryKey: RUNS_KEY }),
+  });
+}
+
+export interface EventoCandidatoParaTeste {
+  id: string;
+  event_type: string;
+  entity_kind: string;
+  entity_id: string | null;
+  created_at: string;
+}
+
+/** Eventos recentes do MESMO gatilho da regra — universo contra o qual "Testar" faz sentido. */
+export function useEventosParaTestarRegra(ruleId: string | null) {
+  return useQuery({
+    queryKey: ["automation-rule-test-events", ruleId],
+    queryFn: async () =>
+      apiClient.get<{ data: { events: EventoCandidatoParaTeste[] } }>(
+        `/api/v1/automation-rules/${ruleId}/test`,
+      ),
+    enabled: Boolean(ruleId),
+    staleTime: 15_000,
+  });
+}
+
+export interface ResultadoDoTesteDaRegra {
+  wouldMatch: boolean;
+  results: AutomationRuleRunActionResult[];
+}
+
+/** Roda a regra em modo simulado contra um evento real — nunca grava run, nunca executa ação de verdade. */
+export function useTestarRegra(ruleId: string | null) {
+  return useMutation({
+    mutationFn: async (eventId: string) =>
+      apiClient.post<{ data: ResultadoDoTesteDaRegra }>(`/api/v1/automation-rules/${ruleId}/test`, {
+        event_id: eventId,
+      }),
+    onError: showApiError,
   });
 }

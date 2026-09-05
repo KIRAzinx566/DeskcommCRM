@@ -19,11 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash, CaretUp, CaretDown } from "@/lib/ui/icons";
+import { Plus, Trash, CaretUp, CaretDown, Play, Check, X, SkipForward } from "@/lib/ui/icons";
 import { createAutomationRuleSchema, TRIGGER_EVENTS } from "@/lib/schemas/webhooks";
 import {
   useCreateAutomationRule,
   useUpdateAutomationRule,
+  useEventosParaTestarRegra,
+  useTestarRegra,
   type AutomationRuleRow,
 } from "@/hooks/webhooks/useAutomationRules";
 import { usePipelines, usePipelineStages } from "@/hooks/webhooks/useWebhookSources";
@@ -100,10 +102,17 @@ export function RuleEditor({ open, onOpenChange, rule }: Props) {
   const [conditions, setConditions] = React.useState<ConditionRow[]>([]);
   const [advancedRows, setAdvancedRows] = React.useState<Record<number, boolean>>({});
   const [actions, setActions] = React.useState<ActionItem[]>([]);
+  const [testEventId, setTestEventId] = React.useState<string>("");
 
   const create = useCreateAutomationRule();
   const update = useUpdateAutomationRule();
   const saving = create.isPending || update.isPending;
+
+  // Testar só existe pra regra que já existe: precisa de um `id` real pra
+  // buscar eventos recentes do mesmo gatilho e rodar o dry-run contra eles.
+  const { data: eventsRes } = useEventosParaTestarRegra(rule?.id ?? null);
+  const candidateEvents = eventsRes?.data?.events ?? [];
+  const testRule = useTestarRegra(rule?.id ?? null);
 
   const { data: pipelinesRes } = usePipelines();
   const defaultPipeline =
@@ -120,6 +129,9 @@ export function RuleEditor({ open, onOpenChange, rule }: Props) {
     );
     setAdvancedRows({});
     setActions((rule?.actions as ActionItem[] | undefined) ?? []);
+    setTestEventId("");
+    testRule.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, rule]);
 
   const curatedFields = triggerEvent ? CURATED_FIELDS[triggerEvent] : [];
@@ -412,7 +424,82 @@ export function RuleEditor({ open, onOpenChange, rule }: Props) {
             <p className="rounded-sm border border-border bg-muted p-3 text-sm text-muted-foreground">
               {t("A automação nasce pausada. Revise e ligue quando estiver pronta.")}
             </p>
-          ) : null}
+          ) : (
+            <section className="space-y-3 rounded-sm border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-text">{t("Testar")}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "Escolha um evento recente do mesmo gatilho e veja o que a regra FARIA — nenhuma ação roda de verdade, nada é gravado.",
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={testEventId} onValueChange={setTestEventId}>
+                  <SelectTrigger className="flex-1 basis-56">
+                    <SelectValue placeholder={t("Escolha um evento recente")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {candidateEvents.length === 0 ? (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        {t("Nenhum evento recente deste gatilho ainda.")}
+                      </div>
+                    ) : (
+                      candidateEvents.map((ev) => (
+                        <SelectItem key={ev.id} value={ev.id}>
+                          {new Date(ev.created_at).toLocaleString()} — {ev.entity_kind}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!testEventId || testRule.isPending}
+                  onClick={() => testRule.mutate(testEventId)}
+                >
+                  <Play /> {testRule.isPending ? t("Testando…") : t("Testar")}
+                </Button>
+              </div>
+              {testRule.data ? (
+                <div className="space-y-2 rounded-sm bg-muted p-2">
+                  {!testRule.data.data.wouldMatch ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("As condições da regra NÃO bateriam contra este evento — nenhuma ação seria disparada.")}
+                    </p>
+                  ) : testRule.data.data.results.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("As condições bateriam, mas a regra não tem nenhuma ação configurada.")}
+                    </p>
+                  ) : (
+                    testRule.data.data.results.map((r, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm">
+                        {r.status === "success" ? (
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                        ) : r.status === "failed" ? (
+                          <X className="mt-0.5 h-4 w-4 shrink-0 text-error" />
+                        ) : (
+                          <SkipForward className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="text-xs">
+                          <span className="font-medium">{t(ACTION_LABELS[r.type as ActionType] ?? r.type)}:</span>{" "}
+                          {typeof r.detail?.explicacao === "string"
+                            ? r.detail.explicacao
+                            : (r.error ?? t("sem detalhe"))}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t("SIMULADO — nada disto aconteceu de verdade")}
+                  </p>
+                </div>
+              ) : null}
+            </section>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

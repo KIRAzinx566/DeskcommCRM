@@ -225,72 +225,51 @@ describe("o agregador do run também diz a verdade", () => {
     expect(statusDoRun(["success", "skipped"])).toBe("success");
   });
 
-  it("a regra do motor e a deste teste são a MESMA — senão a rede vigia outra coisa", async () => {
+  // ═══ Atualização: a duplicação virou função compartilhada ═══
+  //
+  // Os dois casos abaixo comparavam TEXTO-FONTE de `engine.ts` contra o texto
+  // do reenvio manual, porque a fórmula vivia duplicada nos dois arquivos — e
+  // o segundo caso só era seguro por COINCIDÊNCIA (o reenvio só executava
+  // `call_webhook`, que nunca adia). Essa duplicação foi extraída para
+  // `lib/automation/agregar-status.ts` (`agregarStatusDoRun`) no mesmo PR que
+  // generalizou o reenvio para QUALQUER tipo de ação — o que tornaria a
+  // coincidência falsa a partir de agora, se a fórmula ainda estivesse
+  // duplicada. A rede que valia por comparação de texto agora vale por
+  // IDENTIDADE: os dois consumidores importam a mesma função, então não têm
+  // como divergir.
+  it("engine.ts e o reenvio manual chamam a MESMA função de agregação — não duas cópias que podem divergir", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
-    const fonte = readFileSync(join(process.cwd(), "lib", "automation", "engine.ts"), "utf8");
-
-    // Não compara texto formatado (o prettier reescreveria e daria falso
-    // vermelho): compara os PEDAÇOS que carregam a decisão.
-    expect(fonte).toContain('results.filter((r) => r.status === "postponed")');
-    expect(fonte).toContain('adiados > 0');
-    // E o que NÃO pode voltar: o ternário antigo, que ignorava o adiamento.
-    expect(fonte).not.toContain('const status = failed === 0 ? "success"');
-  });
-
-  it("o SEGUNDO agregador — o do reenvio manual — só pode usar o ternário antigo enquanto nada que ele executa souber adiar", async () => {
-    // ═══ Por que este caso existe ═══
-    //
-    // `automation-rules/runs/[runId]/resend` tem um agregador PRÓPRIO, com o
-    // ternário que o motor abandonou:
-    //
-    //     const status = failed === 0 ? "success" : …
-    //
-    // Ele está correto HOJE, e por um motivo que não está escrito nele: a rota
-    // filtra `action.type === "call_webhook"`, e `call_webhook` só devolve
-    // `success` ou `failed` — não tem `postponeUntil`, não sabe adiar. Nenhum
-    // `postponed` alcança aquele ternário.
-    //
-    // É uma correção por COINCIDÊNCIA, não por desenho. No dia em que alguém
-    // permitir reenviar um envio de WhatsApp — a ação óbvia a querer reenviar —
-    // a rota grava "Sucesso" para uma mensagem parada em `queued`, que é
-    // exatamente o defeito que esta entrega veio matar, ressuscitado pela porta
-    // do lado. Este caso liga as duas condições para que uma não possa mudar
-    // sozinha.
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const rota = readFileSync(
+    const engineSrc = readFileSync(join(process.cwd(), "lib", "automation", "engine.ts"), "utf8");
+    const resendSrc = readFileSync(
       join(process.cwd(), "app", "api", "v1", "automation-rules", "runs", "[runId]", "resend", "route.ts"),
       "utf8",
     );
 
-    const usaTernarioAntigo = rota.includes('const status = failed === 0 ? "success"');
-    if (!usaTernarioAntigo) return; // já trata adiamento — nada a cobrar.
-
-    // Então TODO tipo de ação que a rota executa tem de ser incapaz de adiar.
-    const tipos = [...rota.matchAll(/action\.type === "([a-z_]+)"/g)]
-      .map((m) => m[1])
-      .filter((x): x is string => typeof x === "string");
-    expect(tipos.length).toBeGreaterThan(0); // o filtro sumiu = a premissa caiu
-
-    const ARQUIVO_DA_ACAO: Record<string, string> = {
-      call_webhook: "call-webhook.ts",
-      send_whatsapp_message: "send-whatsapp.ts",
-      send_ai_message: "send-ai-message.ts",
-    };
-    for (const tipo of tipos) {
-      const arquivo = ARQUIVO_DA_ACAO[tipo];
-      // `throw` e não `expect(...).toBeDefined()`: além de estreitar o tipo, um
-      // tipo de ação que este teste não conhece precisa PARAR a varredura — se
-      // ela seguisse, o caso passaria sem ter olhado a ação nova.
-      if (arquivo === undefined) {
-        throw new Error(`a rota executa "${tipo}", que este teste não mapeia — acrescente-o a ARQUIVO_DA_ACAO`);
-      }
-      const fonteDaAcao = readFileSync(join(process.cwd(), "lib", "automation", "actions", arquivo), "utf8");
-      expect(
-        fonteDaAcao.includes("postponeUntil"),
-        `"${tipo}" sabe adiar, e o reenvio ainda decide com \`failed === 0\` — ele vai gravar "Sucesso" para mensagem que não chegou`,
-      ).toBe(false);
+    for (const [nome, src] of [
+      ["engine.ts", engineSrc],
+      ["resend/route.ts", resendSrc],
+    ] as const) {
+      expect(src, `${nome} deveria importar agregarStatusDoRun de @/lib/automation/agregar-status`).toMatch(
+        /from ["']@\/lib\/automation\/agregar-status["']/,
+      );
+      expect(src, `${nome} deveria CHAMAR agregarStatusDoRun(...), não só importar`).toMatch(
+        /agregarStatusDoRun\(/,
+      );
+      // O ternário antigo, que ignorava adiamento, não pode voltar por cima
+      // da função compartilhada.
+      expect(src).not.toContain('const status = failed === 0 ? "success"');
     }
+  });
+
+  it("a fórmula em si continua honesta: postponed conta, e falha vence adiamento", async () => {
+    const { agregarStatusDoRun } = await import("@/lib/automation/agregar-status");
+    expect(agregarStatusDoRun([{ type: "x", status: "postponed" }])).toBe("adiado");
+    expect(
+      agregarStatusDoRun([
+        { type: "x", status: "failed" },
+        { type: "y", status: "postponed" },
+      ]),
+    ).toBe("partial");
   });
 });

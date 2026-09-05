@@ -103,6 +103,7 @@ export {
   // misc
   DotsThree,
   Broadcast,
+  DotsSixVertical,
   CaretDown,
   CaretUp,
   CaretDoubleLeft,
