@@ -127,6 +127,18 @@ export const ALVO_DE_FUNIL: Record<string, AlvoDeFunil> = {
   crm_create_webhook_source: "sem_funil",
   crm_set_webhook_source_active: "sem_funil",
   crm_set_automation_rule_active: "sem_funil",
+
+  // ---- cobrança: MESMO par agenda/cancelar, mesma razão ----
+  //
+  // `crm_gerar_cobranca` tem `contact_id` OBRIGATÓRIO e `lead_id` opcional —
+  // igual `crm_book_appointment` (DECISÃO 27): o alvo resolve de verdade pelo
+  // contato quando o modelo não informa o negócio explicitamente.
+  crm_gerar_cobranca: "funil_vem_do_contato",
+  // `crm_cancelar_cobranca` opera por `charge_id` e nunca recebe `lead_id` —
+  // mesmo argumento de `crm_cancel_appointment`/`crm_reschedule_appointment`:
+  // classificá-la `funil_vem_do_lead` seria teatro, o gate procuraria um
+  // argumento que não vem e liberaria sempre, com aparência de escopado.
+  crm_cancelar_cobranca: "sem_funil",
 };
 
 /**

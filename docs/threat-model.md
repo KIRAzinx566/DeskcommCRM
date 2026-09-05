@@ -223,6 +223,35 @@ Não avaliado por falta de execução/instância:
 - Escopo do service role key no Supabase e rotação de chaves.
 - Efetividade do `beforeSend` do Sentry contra PII real.
 
+### T9 — Superfície nova: webhook de cobrança (ASAAS) 🟢 MITIGADO por desenho
+
+`/api/v1/webhooks/asaas/[token]` (migration 0208) é rota pública, sem sessão
+— mesma classe de exposição do webhook de captação de leads (`webhooks/in/[token]`).
+Mitigações aplicadas desde o desenho, não adicionadas depois:
+
+- O token do PATH resolve a organização (nunca o body). Ele é a identidade
+  PÚBLICA da URL, não o segredo — mesmo papel que `webhook_sources.path_token`
+  já tem.
+- O segredo de verdade é o header `asaas-access-token`, comparado por HASH
+  (`crypto.timingSafeEqual`) contra o que o tenant configurou no painel da
+  ASAAS. Header ausente ou errado é recusado — **fail-closed**, diferente do
+  webhook WAHA (que tolera ausência de assinatura por compatibilidade com
+  instalação antiga; aqui não há esse legado a preservar, então não há
+  exceção).
+- Rate limit (`checkRateLimit`, 60/min por token) e idempotência
+  (`unique(organization_id, external_event_id)`) no mesmo molde dos demais
+  webhooks.
+- **PCI, doutrina nova**: DeskcommCRM nunca recebe nem armazena número de
+  cartão. Cobrança no cartão é sempre um link de checkout HOSPEDADO pela
+  própria ASAAS (`invoice_url`) — o banco só guarda status e artefatos
+  públicos de pagamento (URL, código de barras, QR), nunca um PAN. Não havia
+  doutrina de PCI escrita neste documento antes desta feature; este é o
+  primeiro registro dela.
+
+Não avaliado (mesma categoria do T8): efetividade real do webhook contra um
+payload de sandbox de verdade — só existe desenhado e tipado, ainda não
+testado contra o serviço ao vivo.
+
 ---
 
 ## 3. Sumário de prioridade
@@ -236,6 +265,7 @@ Não avaliado por falta de execução/instância:
 | T5 | 3 secrets fora do `.env.example` | 🟠 | trivial |
 | T7 | Sem scan de secret no CI + 116 PNGs de evidência sem revisão de PII | 🟡 | baixo |
 | T6 | Guard de SSRF existe; o E2E que o prova não roda no CI | 🟢 | baixo |
+| T9 | Webhook de cobrança (ASAAS) — mitigado por desenho, não testado ao vivo | 🟢 | baixo |
 
 **Conclusão honesta:** os *mecanismos* de segurança deste projeto são acima da média para
 um CRM open-source — HMAC em tempo constante em toda borda, fail-closed nos crons, hash de
