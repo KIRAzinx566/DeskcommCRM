@@ -12,6 +12,7 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { empresaExigeMfa, exigeCadastroDeMfa } from "@/lib/auth/politica-mfa";
+import { decidirConviteDoSignup } from "@/lib/auth/convite-no-signup";
 import { normalizarIdioma } from "@/lib/i18n/idiomas";
 import type { AuthUser, Role, UserOrgMembership, ActiveOrg } from "./types";
 
@@ -238,6 +239,13 @@ export async function loadAuthUser(): Promise<AuthUser | null> {
   const idioma = normalizarIdioma(locale ?? (await localeDaOrgAtiva(memberships)));
   const timezone = (user.user_metadata?.timezone as string | undefined) ?? null;
 
+  // Só calculado quando vale a pena: zero organização é o único caso em que
+  // `app/app/layout.tsx` precisa decidir algo. Custa uma verificação de HMAC
+  // pura — nada de I/O — mas não faz sentido pagar nem isso em toda navegação
+  // de quem já pertence a uma empresa.
+  const semOrganizacao =
+    memberships.length === 0 ? decidirConviteDoSignup(user) : null;
+
   return {
     id: user.id,
     email: user.email ?? "",
@@ -248,6 +256,13 @@ export async function loadAuthUser(): Promise<AuthUser | null> {
     idioma,
     timezone,
     organizations: memberships,
+    ...(semOrganizacao
+      ? {
+          sem_organizacao_decisao: semOrganizacao.tipo,
+          sem_organizacao_org_name:
+            (user.user_metadata?.org_name as string | undefined) ?? null,
+        }
+      : {}),
   };
 }
 
