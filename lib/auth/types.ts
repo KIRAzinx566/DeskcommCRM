@@ -131,6 +131,26 @@ export interface AuthUser {
    */
   timezone?: string | null;
   organizations: UserOrgMembership[];
+  /**
+   * Rede de segurança pra quem chega com ZERO organização — só populado
+   * quando `organizations` vem vazio, e só `loadAuthUser()` tem o
+   * `user.user_metadata` cru em mãos pra decidir (recalcular no layout
+   * duplicaria a leitura do usuário autenticado). `app/app/layout.tsx` usa
+   * isto pra provisionar (ou não) antes de mostrar "sem organização ativa".
+   *
+   * `"provisionar"` é quem realmente escapou pela rachadura (ex.: e-mail
+   * confirmado sem nunca passar por `/auth/confirm` — medido em produção,
+   * 2026-09-05: `signUp()` cria o usuário e a organização deveria nascer no
+   * clique do link, mas com confirmação de e-mail desligada no provedor a
+   * pessoa loga direto e fica presa, para sempre, sem organização nenhuma).
+   * `"convite"`/`"recusar"` NUNCA provisionam aqui — dar organização própria a
+   * quem foi convidado pra uma que já existe (ou cujo convite não vale mais)
+   * seria o mesmo erro que `decidirConviteDoSignup` já existe pra evitar em
+   * `/auth/confirm`, só que num segundo lugar. Ver `lib/auth/convite-no-signup.ts`.
+   */
+  sem_organizacao_decisao?: "provisionar" | "convite" | "recusar";
+  /** O nome que a pessoa digitou no cadastro — só relevante quando a decisão acima é `"provisionar"`. */
+  sem_organizacao_org_name?: string | null;
 }
 
 export interface ActiveOrg {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { isMfaEnrolled, loadAuthUser, requiresMfa, resolveActiveOrg } from "@/lib/auth/server";
+import { ensureTenantForUser } from "@/lib/auth/provision";
 import { DEFAULT_VISIBILITY_MODE, type VisibilityMode } from "@/lib/auth/types";
 import { AuthProvider } from "@/hooks/auth/AuthProvider";
 import { AppShell } from "./_components/AppShell";
@@ -24,10 +25,46 @@ import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
 import { listarConexoesCaidas, type ConexaoCaida } from "@/lib/channels/health";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await loadAuthUser();
+  let user = await loadAuthUser();
   if (!user) redirect("/login");
 
   let activeOrg = await resolveActiveOrg(user);
+
+  /**
+   * ⚠️ REDE DE SEGURANÇA — quem chegou aqui autenticado e SEM organização
+   * nenhuma normalmente ganharia a dela ao clicar o link de confirmação de
+   * e-mail (`ensureTenantForUser`, chamado em `/auth/confirm`). Medido em
+   * produção (2026-09-05, cliente real "Plata Iphones"): com "Confirm email"
+   * desligado no provedor de auth, `signUp()` deixa logar direto — a pessoa
+   * nunca passa por `/auth/confirm`, e ficaria presa PARA SEMPRE vendo "você
+   * não tem organização ativa, aceite um convite ou contate o admin", sem
+   * ação nenhuma que resolva isso pela própria tela.
+   *
+   * `sem_organizacao_decisao` já veio calculado de `loadAuthUser()` (só ela
+   * tem o `user_metadata` cru em mãos) — aqui só se decide o que FAZER com a
+   * decisão. `"convite"`/`"recusar"` NUNCA entram neste `if`: dar organização
+   * própria a quem foi convidado pra uma que já existe seria o mesmo erro que
+   * `decidirConviteDoSignup` existe pra evitar, agora um andar acima.
+   */
+  if (!activeOrg && user.sem_organizacao_decisao === "provisionar") {
+    try {
+      await ensureTenantForUser({
+        id: user.id,
+        email: user.email,
+        user_metadata: { org_name: user.sem_organizacao_org_name },
+      });
+    } catch {
+      // Falhou? Segue sem organização — a tela de baixo já sabe lidar com
+      // isso, e a próxima navegação tenta de novo (idempotente).
+    }
+    // `ensureTenantForUser` é idempotente e acabou de mudar o banco por baixo
+    // de `user` — reler é a única forma de `activeOrg` refletir a organização
+    // nova sem reconstruir, à mão, a mesma cadeia de decisão que `loadAuthUser`
+    // já encapsula (papel, locale da organização, nome).
+    user = await loadAuthUser();
+    if (!user) redirect("/login");
+    activeOrg = await resolveActiveOrg(user);
+  }
 
   /**
    * A cor desta organização, serializada, ou `null` quando ela não tem uma.
