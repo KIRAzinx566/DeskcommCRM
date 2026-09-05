@@ -19,6 +19,8 @@ import { mediaPersistHandler } from "@/workers/media-persist-worker.handler";
 import { mediaDeriveHandler } from "@/workers/media-derive-worker.handler";
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
+import { csatSurveyHandler } from "@/lib/csat/enviar-pesquisa";
+import { csatReplyHandler } from "@/lib/csat/capturar-resposta";
 import { registerHandler } from "@/lib/event-log/dispatcher";
 
 let _registered = false;
@@ -41,5 +43,7 @@ export function ensureHandlersRegistered(): void {
   registerHandler(mediaDeriveHandler);
   registerHandler(webPushInboundHandler);
   registerHandler(billingChargeStatusChangedHandler);
+  registerHandler(csatSurveyHandler);
+  registerHandler(csatReplyHandler);
   _registered = true;
 }

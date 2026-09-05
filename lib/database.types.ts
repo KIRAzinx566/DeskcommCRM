@@ -3751,6 +3751,80 @@ export type Database = {
           },
         ]
       }
+      csat_requests: {
+        Row: {
+          answered_at: string | null
+          channel_session_id: string
+          contact_id: string
+          conversation_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          organization_id: string
+          raw_reply: string | null
+          score: number | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          answered_at?: string | null
+          channel_session_id: string
+          contact_id: string
+          conversation_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          organization_id: string
+          raw_reply?: string | null
+          score?: number | null
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          answered_at?: string | null
+          channel_session_id?: string
+          contact_id?: string
+          conversation_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          organization_id?: string
+          raw_reply?: string | null
+          score?: number | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "csat_requests_channel_session_id_fkey"
+            columns: ["channel_session_id"]
+            isOneToOne: false
+            referencedRelation: "channel_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "csat_requests_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "csat_requests_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "csat_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demanda_conversas: {
         Row: {
           conversation_id: string

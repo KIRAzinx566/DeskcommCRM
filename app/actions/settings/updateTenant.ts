@@ -65,6 +65,10 @@ export async function updateTenant(input: TenantInput): Promise<UpdateTenantResu
   const nextSettings = {
     ...currentSettings,
     lost_reasons_extra: parsed.data.lost_reasons_extra,
+    csat: {
+      enabled: parsed.data.csat_enabled,
+      pergunta: parsed.data.csat_pergunta,
+    },
   };
 
   const { error } = await supabase
