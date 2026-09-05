@@ -17,6 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventRow, HandlerResult } from "@/lib/event-log/dispatcher";
 import { evaluateConditions, type RuleCondition } from "@/lib/automation/conditions";
 import { getAction } from "@/lib/automation/actions";
+import { agregarStatusDoRun } from "@/lib/automation/agregar-status";
 import type { ActionResultDetail } from "@/lib/automation/types";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
@@ -31,7 +32,7 @@ const EXPECTED_ENTITY_KIND: Record<string, string> = {
   "message.received": "message",
 };
 
-interface RuleRow {
+export interface RuleRow {
   id: string;
   name: string;
   conditions: RuleCondition[];
@@ -199,18 +200,23 @@ export async function runAutomationForEvent(
         results.push({ type: action.type, status: "failed", error: "unknown_action" });
         continue;
       }
+      // started_at/finished_at por passo: vira duração na Central de
+      // atividade e é o que `resend/route.ts` usa pra saber que um passo
+      // rodou de verdade (não é um passo herdado de um run anterior).
+      const started_at = new Date().toISOString();
       try {
-        results.push(
-          await executor.execute(
-            { admin, organizationId: row.organization_id, ruleId: rule.id, ruleName: rule.name, event: row, context, requestId: row.id },
-            action.config ?? {},
-          ),
+        const result = await executor.execute(
+          { admin, organizationId: row.organization_id, ruleId: rule.id, ruleName: rule.name, event: row, context, requestId: row.id },
+          action.config ?? {},
         );
+        results.push({ ...result, started_at, finished_at: new Date().toISOString() });
       } catch (err) {
         results.push({
           type: action.type,
           status: "failed",
           error: err instanceof Error ? err.message : String(err),
+          started_at,
+          finished_at: new Date().toISOString(),
         });
       }
     }
@@ -248,16 +254,7 @@ export async function runAutomationForEvent(
     // A ordem importa: falha (+ skip) vence adiamento. Uma regra em que uma
     // ação falhou/pulou e outra ficou esperando é `partial` — quem lê precisa
     // saber que algo quebrou, não que está tudo a caminho.
-    const naoEnviadas = results.filter((r) => r.status === "failed" || r.status === "skipped").length;
-    const adiados = results.filter((r) => r.status === "postponed").length;
-    const status =
-      naoEnviadas > 0
-        ? naoEnviadas === results.length
-          ? "failed"
-          : "partial"
-        : adiados > 0
-          ? "adiado"
-          : "success";
+    const status = agregarStatusDoRun(results);
     const { data: runRow, error: runErr } = await admin
       .from("automation_rule_runs")
       .insert({
@@ -292,4 +289,74 @@ export async function runAutomationForEvent(
   }
 
   return { consumer_key: AUTOMATION_CONSUMER_KEY, status: "ok" };
+}
+
+export interface ResultadoDoTeste {
+  /** Se as condições da regra bateriam contra este evento — antes de simular ação nenhuma. */
+  wouldMatch: boolean;
+  results: ActionResultDetail[];
+}
+
+/**
+ * "Testar" uma regra (Configurações › Automações → botão Testar), inspirado
+ * no dry-run do Frappe CRM. Roda o MESMO `buildContext` +
+ * `evaluateConditions` de produção contra um evento REAL já existente do
+ * tenant — fidelidade total, sem inventar dado sintético — mas troca
+ * `execute` por `simulate` em cada ação.
+ *
+ * ⚠️ NÃO grava `automation_rule_runs`, não mexe em `run_count`/`last_run_at`.
+ * Um teste não é uma execução: gravar sujaria o histórico real e o contador
+ * que a tela mostra pro operador, com corridas que nunca aconteceram.
+ *
+ * Executor sem `simulate()` cai no fallback abaixo — `skipped` com aviso
+ * explícito. NUNCA cai para `execute()`: rodar a ação de verdade num teste
+ * seria o oposto do que a pessoa pediu ao clicar em "Testar".
+ */
+export async function dryRunAutomationRule(
+  admin: SupabaseClient,
+  rule: RuleRow,
+  event: EventRow,
+): Promise<ResultadoDoTeste> {
+  const context = await buildContext(admin, event);
+  const wouldMatch = evaluateConditions(rule.conditions ?? [], context);
+  if (!wouldMatch) return { wouldMatch: false, results: [] };
+
+  const results: ActionResultDetail[] = [];
+  for (const action of rule.actions ?? []) {
+    const executor = getAction(action.type);
+    if (!executor) {
+      results.push({ type: action.type, status: "failed", error: "unknown_action", detail: { simulated: true } });
+      continue;
+    }
+    const ctx = {
+      admin,
+      organizationId: event.organization_id,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      event,
+      context,
+      requestId: event.id,
+    };
+    try {
+      const result = executor.simulate
+        ? await executor.simulate(ctx, action.config ?? {})
+        : ({
+            type: action.type,
+            status: "skipped",
+            detail: {
+              simulated: true,
+              explicacao: "Esta ação ainda não tem simulação — não foi testada nem executada.",
+            },
+          } as ActionResultDetail);
+      results.push(result);
+    } catch (err) {
+      results.push({
+        type: action.type,
+        status: "failed",
+        error: err instanceof Error ? err.message : String(err),
+        detail: { simulated: true },
+      });
+    }
+  }
+  return { wouldMatch: true, results };
 }

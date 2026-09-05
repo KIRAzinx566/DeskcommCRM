@@ -134,4 +134,32 @@ async function execute(ctx: ActionCtx, config: Record<string, unknown>): Promise
   }
 }
 
-registerAction({ type: TIPO, postponeUntil, execute });
+/**
+ * Simula sem chamar a IA de verdade. Gerar o texto de verdade custaria uma
+ * chamada real de modelo (dinheiro do orçamento da org) só para um teste —
+ * a mesma régua de "zero I/O real" que vale para as outras ações vale aqui
+ * também, mesmo que o preço do desvio seja "não mostra o texto que a IA
+ * escreveria". Só valida config + guarda de contato (leitura).
+ */
+async function simulate(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const sessionId = typeof config.channel_session_id === "string" ? config.channel_session_id : null;
+  const agentId = typeof config.agent_id === "string" ? config.agent_id : null;
+  const instrucao = typeof config.instruction === "string" ? config.instruction.trim() : "";
+  if (!sessionId || !agentId || !instrucao) {
+    return { type: TIPO, status: "failed", error: "missing_config", detail: { simulated: true } };
+  }
+  const guarda = checarGuardasDeContato(ctx);
+  if (!guarda.ok) {
+    return { type: TIPO, status: "skipped", detail: { reason: guarda.reason, simulated: true } };
+  }
+  return {
+    type: TIPO,
+    status: "success",
+    detail: {
+      simulated: true,
+      explicacao: `Pediria para o agente escrever e enviar uma mensagem para ${guarda.contact.id} — o texto exato não é gerado no teste, para não consumir orçamento de IA numa simulação.`,
+    },
+  };
+}
+
+registerAction({ type: TIPO, postponeUntil, execute, simulate });
