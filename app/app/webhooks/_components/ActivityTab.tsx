@@ -104,6 +104,14 @@ function horarioDeRetorno(action: AutomationRuleRunActionResult, idioma: string)
   return quando.toLocaleString(idioma, { dateStyle: "short", timeStyle: "short" });
 }
 
+/** "levou 1,2s" — só quando os dois timestamps vieram (execuções antes desta feature não têm). */
+function duracaoDoPasso(action: AutomationRuleRunActionResult): string | null {
+  if (!action.started_at || !action.finished_at) return null;
+  const ms = new Date(action.finished_at).getTime() - new Date(action.started_at).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
 function ActionLine({ action, run }: { action: AutomationRuleRunActionResult; run: AutomationRuleRunRow }) {
   const tagDoIdioma = useTagDeIdioma();
   const t = useT();
@@ -127,17 +135,19 @@ function ActionLine({ action, run }: { action: AutomationRuleRunActionResult; ru
   // ligá-las é o mesmo que não tê-las.
   const explicacao = explicacaoDe(action, t);
   const retorno = horarioDeRetorno(action, tagDoIdioma);
+  const duracao = duracaoDoPasso(action);
 
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 text-sm">
         {icon}
         <span>{actionLabel(action.type, t)}</span>
+        {duracao ? <span className="text-xs text-muted-foreground">· {duracao}</span> : null}
       </div>
-      {action.status === "failed" ? (
+      {action.status === "failed" || action.status === "skipped" ? (
         // `action.error` é texto de fora (resposta do webhook externo) — sem
         // tamanho garantido. `flex-wrap` + `break-words` impedem que um erro
-        // comprido empurre o botão "Reenviar" pra fora da tela.
+        // comprido empurre o botão "Retomar" pra fora da tela.
         <div className="ml-6 flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted px-2 py-1.5">
           <p className="min-w-0 break-words text-xs text-muted-foreground">
             {/* A frase ANTES do código cru. `action.error` já é texto de gente
@@ -147,22 +157,24 @@ function ActionLine({ action, run }: { action: AutomationRuleRunActionResult; ru
                 que não tem tradução possível e é a única pista real. */}
             {explicacao ?? action.error ?? t("Essa ação não funcionou.")}
           </p>
-          {action.type === "call_webhook" ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="shrink-0"
-              disabled={resend.isPending}
-              onClick={() =>
-                resend.mutate(run.id, {
-                  onSuccess: () => toast.success(t("Reenviado.")),
-                })
-              }
-            >
-              <PaperPlaneTilt /> {t("Reenviar")}
-            </Button>
-          ) : null}
+          {/* Qualquer tipo de ação pode ser retomado agora — antes só
+              `call_webhook`. O endpoint (`resend/route.ts`) decide sozinho
+              quais índices retentar (os `failed`/`skipped` deste run), então
+              o botão só precisa aparecer quando ESTE passo é um deles. */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            disabled={resend.isPending}
+            onClick={() =>
+              resend.mutate(run.id, {
+                onSuccess: () => toast.success(t("Retomado.")),
+              })
+            }
+          >
+            <PaperPlaneTilt /> {t("Retomar")}
+          </Button>
         </div>
       ) : explicacao ? (
         // Pular e adiar também precisam de razão visível: o ícone sozinho fazia

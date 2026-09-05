@@ -58,4 +58,42 @@ async function execute(ctx: ActionCtx, config: Record<string, unknown>): Promise
   }
 }
 
-registerAction({ type: "create_or_move_lead", execute });
+async function simulate(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const pipelineId = typeof config.pipeline_id === "string" ? config.pipeline_id : null;
+  const stageId = typeof config.stage_id === "string" ? config.stage_id : null;
+  if (!pipelineId || !stageId) {
+    return { type: "create_or_move_lead", status: "failed", error: "missing_config", detail: { simulated: true } };
+  }
+
+  const lead = ctx.context.lead as { id: string; pipeline_id: string } | undefined;
+  const contact = ctx.context.contact as { id: string } | undefined;
+
+  if (lead) {
+    if (lead.pipeline_id !== pipelineId) {
+      return {
+        type: "create_or_move_lead",
+        status: "failed",
+        error: "cross_pipeline_move_not_allowed",
+        detail: { simulated: true },
+      };
+    }
+    return {
+      type: "create_or_move_lead",
+      status: "success",
+      detail: { simulated: true, explicacao: `Moveria o lead ${lead.id} para a etapa ${stageId}.` },
+    };
+  }
+  if (contact) {
+    return {
+      type: "create_or_move_lead",
+      status: "success",
+      detail: {
+        simulated: true,
+        explicacao: `Criaria um lead novo no funil ${pipelineId}, etapa ${stageId}, vinculado ao contato ${contact.id}.`,
+      },
+    };
+  }
+  return { type: "create_or_move_lead", status: "skipped", detail: { reason: "no_lead_or_contact", simulated: true } };
+}
+
+registerAction({ type: "create_or_move_lead", execute, simulate });

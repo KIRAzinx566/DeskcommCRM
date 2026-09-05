@@ -62,4 +62,36 @@ async function execute(ctx: ActionCtx, config: Record<string, unknown>): Promise
   }
 }
 
-registerAction({ type: "send_whatsapp_message", postponeUntil, execute });
+/**
+ * Simula sem enviar: reusa a MESMA guarda de contato de `execute` (leitura,
+ * sem side effect) e o MESMO `renderTemplate` (função pura) pra mostrar o
+ * texto exato que sairia — mas nunca chama `ensureConversation` (pode criar
+ * linha) nem `sendMessageHandler` (envia de verdade).
+ */
+async function simulate(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const sessionId = typeof config.channel_session_id === "string" ? config.channel_session_id : null;
+  const template = typeof config.template === "string" ? config.template : null;
+  if (!sessionId || !template) {
+    return { type: "send_whatsapp_message", status: "failed", error: "missing_config", detail: { simulated: true } };
+  }
+  const guarda = checarGuardasDeContato(ctx);
+  if (!guarda.ok) {
+    return {
+      type: "send_whatsapp_message",
+      status: "skipped",
+      detail: { reason: guarda.reason, simulated: true },
+    };
+  }
+  const body = renderTemplate(template, ctx.context);
+  return {
+    type: "send_whatsapp_message",
+    status: "success",
+    detail: {
+      simulated: true,
+      explicacao: `Enviaria esta mensagem de WhatsApp para ${guarda.contact.id}: "${body}"`,
+      body,
+    },
+  };
+}
+
+registerAction({ type: "send_whatsapp_message", postponeUntil, execute, simulate });

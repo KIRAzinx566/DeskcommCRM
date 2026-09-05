@@ -1,8 +1,16 @@
 import { createHmac } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import { describe, it, expect, afterEach } from "vitest";
-import { executeCallWebhook } from "@/lib/automation/actions/call-webhook";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { executeCallWebhook, simulateCallWebhook } from "@/lib/automation/actions/call-webhook";
 import type { ActionCtx } from "@/lib/automation/types";
+
+// Só usado pelo describe de `simulateCallWebhook` abaixo, com um hostname
+// PÚBLICO (`example.com`) — não afeta os testes de `executeCallWebhook`
+// acima, que sempre passam `skipUrlCheck: true` e nunca chegam a chamar
+// esta função. Sem o mock, o teste de sucesso dependeria de DNS real.
+vi.mock("@/lib/automation/outbound-ip", () => ({
+  assertDestinoResolvidoSeguro: vi.fn(async () => {}),
+}));
 
 function baseCtx(overrides: Partial<ActionCtx["event"]> = {}): ActionCtx {
   return {
@@ -298,4 +306,44 @@ describe("executeCallWebhook", () => {
     await close();
     await closeTarget();
   }, 15_000);
+});
+
+describe("simulateCallWebhook — zero HTTP de saída", () => {
+  it("URL segura: descreve o POST que faria, sem chamar fetch nenhuma vez", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const result = await simulateCallWebhook(baseCtx(), { url: "https://example.com/hook" });
+      expect(result.status).toBe("success");
+      expect(result.detail?.simulated).toBe(true);
+      expect(String(result.detail?.explicacao)).toContain("https://example.com/hook");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("com secret: a explicação diz que seria assinado", async () => {
+    const result = await simulateCallWebhook(baseCtx(), { url: "https://example.com/hook", secret: "s3cr3t" });
+    expect(result.status).toBe("success");
+    expect(String(result.detail?.explicacao)).toContain("assinado");
+  });
+
+  it("URL insegura (host privado): failed, mesmo motivo do execute, sem chamada nenhuma", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const result = await simulateCallWebhook(baseCtx(), { url: "https://127.0.0.1:9/x" });
+      expect(result.status).toBe("failed");
+      expect(result.error).toMatch(/^unsafe_url/);
+      expect(result.detail?.simulated).toBe(true);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("sem URL: failed missing_url", async () => {
+    const result = await simulateCallWebhook(baseCtx(), {});
+    expect(result.status).toBe("failed");
+    expect(result.error).toBe("missing_url");
+  });
 });

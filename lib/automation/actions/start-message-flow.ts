@@ -64,4 +64,23 @@ export async function executeStartMessageFlow(
   };
 }
 
-registerAction({ type: TYPE, execute: executeStartMessageFlow });
+async function simulate(ctx: ActionCtx, config: Record<string, unknown>): Promise<ActionResultDetail> {
+  const pointerId = typeof config.flow_pointer_id === "string" ? config.flow_pointer_id : null;
+  if (!pointerId) {
+    return { type: TYPE, status: "failed", error: "missing_config", detail: { simulated: true } };
+  }
+  const contactId = contactIdFromCtx(ctx);
+  if (!contactId) {
+    return { type: TYPE, status: "skipped", detail: { reason: "no_contact", simulated: true } };
+  }
+  return {
+    type: TYPE,
+    status: "success",
+    detail: {
+      simulated: true,
+      explicacao: `Inscreveria o contato ${contactId} no fluxo de follow-up ${pointerId}.`,
+    },
+  };
+}
+
+registerAction({ type: TYPE, execute: executeStartMessageFlow, simulate });
