@@ -216,8 +216,8 @@ beforeAll(() => {
           insert into public.billing_gateway_credentials
             (organization_id, api_key_encrypted, api_key_iv, api_key_tag, api_key_last4,
              webhook_path_token, webhook_token_hash)
-            values (v_org, '\x00'::bytea, '\x00'::bytea, '\x00'::bytea, '0000',
-                    'rls-inv-' || v_org::text, '\x00'::bytea)
+            values (v_org, '\\x00'::bytea, '\\x00'::bytea, '\\x00'::bytea, '0000',
+                    'rls-inv-' || v_org::text, '\\x00'::bytea)
             returning id into v_billing_cred;
         end if;
 
