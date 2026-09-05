@@ -112,6 +112,26 @@ describe("loadAuthUser — decisão pra quem tem zero organização", () => {
     expect(u?.sem_organizacao_decisao).toBe("recusar");
   });
 
+  it("conta sem invite_token E sem org_name: NÃO provisiona — ausência de sinal não é sinal de self-signup", async () => {
+    // O caso achado ao vivo pelo e2e de convite: uma conta criada fora do
+    // formulário de signup (seed de teste, criação direta por admin API) não
+    // tem `invite_token` (decidirConviteDoSignup sozinha diria "provisionar")
+    // MAS também não tem `org_name` — o sinal que só o formulário de
+    // self-signup grava (`signupSchema`, campo obrigatório). Sem os dois,
+    // não há prova de que a pessoa pediu uma empresa própria; abrir uma
+    // fantasma seria pior do que não decidir nada.
+    usuarioAtual.user_metadata = {};
+    const u = await loadAuthUser();
+    expect(u?.sem_organizacao_decisao).toBeUndefined();
+    expect(u?.sem_organizacao_org_name).toBeUndefined();
+  });
+
+  it("org_name em branco/só espaço conta como ausente — mesma recusa de provisionar", async () => {
+    usuarioAtual.user_metadata = { org_name: "   " };
+    const u = await loadAuthUser();
+    expect(u?.sem_organizacao_decisao).toBeUndefined();
+  });
+
   it("quem já tem organização não calcula nada disso (custo zero pro caso comum)", async () => {
     consultas.memberships = {
       data: [{ organization_id: "o1", role: "admin", organizations: { display_name: "Acme" } }],

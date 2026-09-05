@@ -243,8 +243,34 @@ export async function loadAuthUser(): Promise<AuthUser | null> {
   // `app/app/layout.tsx` precisa decidir algo. Custa uma verificação de HMAC
   // pura — nada de I/O — mas não faz sentido pagar nem isso em toda navegação
   // de quem já pertence a uma empresa.
-  const semOrganizacao =
-    memberships.length === 0 ? decidirConviteDoSignup(user) : null;
+  //
+  // ⚠️ "provisionar" exige TAMBÉM `user_metadata.org_name` — não só a
+  // ausência de `invite_token`. `decidirConviteDoSignup` foi desenhada para
+  // decidir DENTRO do fluxo de signup (`/auth/confirm`), onde as únicas duas
+  // formas de chegar são o formulário próprio (grava `org_name`,
+  // `lib/auth/schemas.ts:signupSchema` — campo obrigatório) ou o de convite
+  // (grava `invite_token`, nunca `org_name` — `signupComConviteSchema` nem
+  // pergunta). Reusar a MESMA função aqui, em TODO carregamento de sessão
+  // sem organização, alarga o domínio: uma conta criada por qualquer via que
+  // não seja o formulário de signup (seed de teste, criação direta por
+  // admin API, uma futura importação em lote) não tem `invite_token` E
+  // TAMBÉM não tem `org_name` — `decidirConviteDoSignup` devolve
+  // "provisionar" do mesmo jeito, e o fallback abriria uma empresa fantasma
+  // para alguém que nunca pediu uma.
+  //
+  // Medido ao vivo: o e2e de convite (`invite-lifecycle.spec.ts`, caso 2)
+  // loga o convidado ANTES de ele aceitar — a conta existe (criada pelo seed,
+  // sem `org_name`), a organização ainda não. Sem esta guarda o fallback
+  // provisionava uma empresa e tornava a pessoa admin DELA, e a tela de
+  // billing (que deveria barrar `agent`) deixava passar `admin` — o teste
+  // travava esperando um 403 que nunca vinha.
+  const orgName = (user.user_metadata?.org_name as string | undefined)?.trim() || null;
+  const decisaoBruta = memberships.length === 0 ? decidirConviteDoSignup(user) : null;
+  // "provisionar" sem `org_name` não é self-signup comprovado — é ausência de
+  // sinal nos dois sentidos. Rebaixa pra `null` (o layout não age, não afirma
+  // nada) em vez de assumir a favor do provisionamento.
+  const provisionarSemProva = decisaoBruta?.tipo === "provisionar" && !orgName;
+  const semOrganizacao = provisionarSemProva ? null : decisaoBruta;
 
   return {
     id: user.id,
@@ -259,8 +285,7 @@ export async function loadAuthUser(): Promise<AuthUser | null> {
     ...(semOrganizacao
       ? {
           sem_organizacao_decisao: semOrganizacao.tipo,
-          sem_organizacao_org_name:
-            (user.user_metadata?.org_name as string | undefined) ?? null,
+          sem_organizacao_org_name: orgName,
         }
       : {}),
   };
