@@ -99,6 +99,7 @@ beforeAll(() => {
       v_conv uuid;
       v_pipe uuid;
       v_stage uuid;
+      v_billing_cred uuid;
     begin
       foreach v_org in array array['${ORG_A}'::uuid, '${ORG_B}'::uuid] loop
         select id into v_sess from public.channel_sessions where organization_id = v_org limit 1;
@@ -204,6 +205,32 @@ beforeAll(() => {
               'auth-rls'
             );
         end if;
+
+        -- migration 0208 — sistema de cobrança ASAAS. SELECT das três tabelas
+        -- é aberto a qualquer membro da org (fn_user_org_ids, sem gate de
+        -- papel) — a ESCRITA exige manager+, mas essa é uma pergunta
+        -- diferente da isolação entre tenants que este arquivo prova.
+        select id into v_billing_cred from public.billing_gateway_credentials
+          where organization_id = v_org limit 1;
+        if v_billing_cred is null then
+          insert into public.billing_gateway_credentials
+            (organization_id, api_key_encrypted, api_key_iv, api_key_tag, api_key_last4,
+             webhook_path_token, webhook_token_hash)
+            values (v_org, '\x00'::bytea, '\x00'::bytea, '\x00'::bytea, '0000',
+                    'rls-inv-' || v_org::text, '\x00'::bytea)
+            returning id into v_billing_cred;
+        end if;
+
+        if not exists (select 1 from public.billing_charges where organization_id = v_org) then
+          insert into public.billing_charges (organization_id, gateway_credential_id, method, amount_cents)
+            values (v_org, v_billing_cred, 'pix', 1000);
+        end if;
+
+        if not exists (select 1 from public.billing_webhook_events where organization_id = v_org) then
+          insert into public.billing_webhook_events
+            (organization_id, external_event_id, event_type, raw_payload)
+            values (v_org, 'rls-inv-' || v_org::text, 'PAYMENT_RECEIVED', '{}'::jsonb);
+        end if;
       end loop;
     end
     $seed$;
@@ -247,6 +274,12 @@ export const TABLES = [
   // exige `manager` — esse segundo eixo é medido em
   // `tests/invariants/catalogo-so-gestor-muda-preco.test.ts`, não aqui.
   "catalog_products",
+  // migration 0208 — sistema de cobrança ASAAS. Leitura aberta a qualquer
+  // membro da org nas três; a escrita (manager+) é eixo separado, não
+  // medido aqui.
+  "billing_gateway_credentials",
+  "billing_charges",
+  "billing_webhook_events",
   // ⚠️ `webhook_lead_captures` (migration 0174) NÃO entra nesta lista, e a
   // ausência é deliberada: a policy dela exige `manager`, e o usuário semeado
   // aqui é `agent` — o controle positivo falharia por ACERTO, e a "correção"
