@@ -15,11 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { updatePipelineConfig } from "@/app/actions/settings/updatePipelineConfig";
 import type { PipelineConfigPatch } from "@/lib/schemas/settings";
 import { camposDoFunil } from "@/lib/leads/campos-do-funil";
 import { customFieldSchema, type CustomFieldDef } from "@/lib/schemas/settings";
-import { Plus, Trash } from "@/lib/ui/icons";
+import { CustomFieldsEditor } from "@/components/contacts/CustomFieldsEditor";
+import { Plus, Trash, DotsSixVertical } from "@/lib/ui/icons";
+import { randomId } from "@/lib/random-id";
 import { AgentMappingSection, ancoraDoMapeamento } from "./_mapping";
 import { StagesSection, ancoraDasEtapas } from "./_stages";
 
@@ -92,6 +95,15 @@ function PipelineEditor({ pipeline }: { pipeline: PipelineRow }) {
   const [lost, setLost] = useState(v.lost ?? "Perdido");
   const [reasonsText, setReasonsText] = useState(readLostReasons(pipeline.settings).join(", "));
   const [fields, setFields] = useState<CustomFieldDef[]>(camposDoFunil(pipeline.settings));
+  /**
+   * Uma chave de arrasto ESTÁVEL por linha, independente da `key` do campo
+   * (que o usuário edita em texto livre e pode ficar momentaneamente
+   * duplicada/vazia enquanto digita) e do índice (que muda a cada reorder —
+   * `@hello-pangea/dnd` exige um `draggableId` que não se mexe sozinho).
+   * Anda em paralelo com `fields`, mesmo comprimento, mesma ordem.
+   */
+  const [dragIds, setDragIds] = useState<string[]>(() => camposDoFunil(pipeline.settings).map(() => randomId()));
+  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
   const [isPending, startTransition] = useTransition();
 
   function handleSave() {
@@ -131,7 +143,21 @@ function PipelineEditor({ pipeline }: { pipeline: PipelineRow }) {
     "phone",
     "url",
     "select",
+    "multiselect",
   ];
+
+  function handleDragEnd(result: DropResult) {
+    const { source, destination } = result;
+    if (!destination || source.index === destination.index) return;
+    const nextFields = [...fields];
+    const nextIds = [...dragIds];
+    const [movedField] = nextFields.splice(source.index, 1);
+    const [movedId] = nextIds.splice(source.index, 1);
+    nextFields.splice(destination.index, 0, movedField!);
+    nextIds.splice(destination.index, 0, movedId!);
+    setFields(nextFields);
+    setDragIds(nextIds);
+  }
 
   return (
     <div className="space-y-4 border-t border-border pt-6">
@@ -161,96 +187,150 @@ function PipelineEditor({ pipeline }: { pipeline: PipelineRow }) {
         <Input value={reasonsText} onChange={(e) => setReasonsText(e.target.value)} />
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-xs">{t("Campos do lead neste funil")}</Label>
-        <p className="text-xs text-muted-foreground">
-          {t("Aparecem no dossiê do negócio. No follow-up, você escolhe em qual campo gravar a resposta.")}
-        </p>
-        {fields.map((f, i) => (
-          <div key={`${f.key}-${i}`} className="grid gap-2 rounded-md border border-border p-2 md:grid-cols-[1fr_1fr_8rem_auto]">
-            <Input
-              aria-label={`${t("Chave do campo")} ${i + 1}`}
-              placeholder={t("chave (endereco)")}
-              value={f.key}
-              onChange={(e) => {
-                const next = [...fields];
-                next[i] = { ...f, key: e.target.value };
-                setFields(next);
-              }}
-            />
-            <Input
-              aria-label={`${t("Rótulo do campo")} ${i + 1}`}
-              placeholder={t("Rótulo (Endereço)")}
-              value={f.label}
-              onChange={(e) => {
-                const next = [...fields];
-                next[i] = { ...f, label: e.target.value };
-                setFields(next);
-              }}
-            />
-            <Select
-              value={f.type}
-              onValueChange={(type) => {
-                const next = [...fields];
-                next[i] = { ...f, type: type as CustomFieldDef["type"] };
-                setFields(next);
-              }}
-            >
-              <SelectTrigger aria-label={`${t("Tipo do campo")} ${i + 1}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TIPOS.map((tipo) => (
-                  <SelectItem key={tipo} value={tipo}>
-                    {tipo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-2">
+          <Label className="text-xs">{t("Campos do lead neste funil")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t("Aparecem no dossiê do negócio. No follow-up, você escolhe em qual campo gravar a resposta. Arraste pela alça para reordenar.")}
+          </p>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="pipeline-custom-fields">
+              {(droppableProvided) => (
+                <div
+                  ref={droppableProvided.innerRef}
+                  {...droppableProvided.droppableProps}
+                  className="space-y-2"
+                >
+                  {fields.map((f, i) => (
+                    <Draggable key={dragIds[i]} draggableId={dragIds[i]!} index={i}>
+                      {(draggableProvided) => (
+                        <div
+                          ref={draggableProvided.innerRef}
+                          {...draggableProvided.draggableProps}
+                          className="grid gap-2 rounded-md border border-border p-2 md:grid-cols-[auto_1fr_1fr_8rem_auto]"
+                        >
+                          <div
+                            {...draggableProvided.dragHandleProps}
+                            aria-label={`${t("Arrastar campo")} ${f.label || i + 1}`}
+                            className="flex cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+                          >
+                            <DotsSixVertical size={16} aria-hidden />
+                          </div>
+                          <Input
+                            aria-label={`${t("Chave do campo")} ${i + 1}`}
+                            placeholder={t("chave (endereco)")}
+                            value={f.key}
+                            onChange={(e) => {
+                              const next = [...fields];
+                              next[i] = { ...f, key: e.target.value };
+                              setFields(next);
+                            }}
+                          />
+                          <Input
+                            aria-label={`${t("Rótulo do campo")} ${i + 1}`}
+                            placeholder={t("Rótulo (Endereço)")}
+                            value={f.label}
+                            onChange={(e) => {
+                              const next = [...fields];
+                              next[i] = { ...f, label: e.target.value };
+                              setFields(next);
+                            }}
+                          />
+                          <Select
+                            value={f.type}
+                            onValueChange={(type) => {
+                              const next = [...fields];
+                              next[i] = { ...f, type: type as CustomFieldDef["type"] };
+                              setFields(next);
+                            }}
+                          >
+                            <SelectTrigger aria-label={`${t("Tipo do campo")} ${i + 1}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIPOS.map((tipo) => (
+                                <SelectItem key={tipo} value={tipo}>
+                                  {tipo}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`${t("Remover campo")} ${f.label || i + 1}`}
+                            onClick={() => {
+                              setFields(fields.filter((_, j) => j !== i));
+                              setDragIds(dragIds.filter((_, j) => j !== i));
+                            }}
+                          >
+                            <Trash size={14} aria-hidden />
+                          </Button>
+                          {(f.type === "select" || f.type === "multiselect") && (
+                            <Input
+                              className="md:col-span-5"
+                              aria-label={`${t("Opções do campo")} ${i + 1}`}
+                              placeholder={t("Opções, separadas por vírgula")}
+                              value={(f.options ?? []).map((o) => o.label).join(", ")}
+                              onChange={(e) => {
+                                const options = e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean)
+                                  .map((label) => ({ value: label, label }));
+                                const next = [...fields];
+                                next[i] = { ...f, options };
+                                setFields(next);
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {droppableProvided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+          {fields.length < 50 && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              aria-label={`${t("Remover campo")} ${f.label || i + 1}`}
-              onClick={() => setFields(fields.filter((_, j) => j !== i))}
+              onClick={() => {
+                setFields([
+                  ...fields,
+                  { key: `campo_${fields.length + 1}`, label: t("Novo campo"), type: "text" },
+                ]);
+                setDragIds([...dragIds, randomId()]);
+              }}
             >
-              <Trash size={14} aria-hidden />
+              <Plus size={14} aria-hidden className="mr-1" /> {t("Adicionar campo")}
             </Button>
-            {f.type === "select" && (
-              <Input
-                className="md:col-span-3"
-                aria-label={`${t("Opções do campo")} ${i + 1}`}
-                placeholder={t("Opções, separadas por vírgula")}
-                value={(f.options ?? []).map((o) => o.label).join(", ")}
-                onChange={(e) => {
-                  const options = e.target.value
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                    .map((label) => ({ value: label, label }));
-                  const next = [...fields];
-                  next[i] = { ...f, options };
-                  setFields(next);
-                }}
-              />
-            )}
-          </div>
-        ))}
-        {fields.length < 50 && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setFields([
-                ...fields,
-                { key: `campo_${fields.length + 1}`, label: t("Novo campo"), type: "text" },
-              ])
-            }
-          >
-            <Plus size={14} aria-hidden className="mr-1" /> {t("Adicionar campo")}
-          </Button>
-        )}
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">{t("Preview")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t("Assim é que o atendente vê estes campos no dossiê do negócio. Preencha à vontade — nada aqui é salvo.")}
+          </p>
+          {fields.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+              {t("Adicione um campo para ver o preview.")}
+            </p>
+          ) : (
+            <CustomFieldsEditor
+              fields={fields}
+              value={previewValues}
+              onChange={setPreviewValues}
+              mode="lead"
+              className="rounded-md border border-border p-3"
+            />
+          )}
+        </div>
       </div>
 
       <div className="flex sm:justify-end">
