@@ -16,7 +16,7 @@ import { ContactPickerDialog } from "@/components/inbox/composer/ContactPickerDi
 import { AudioRecorder } from "@/components/inbox/composer/AudioRecorder";
 import { DraftReplyButton } from "@/components/inbox/composer/DraftReplyButton";
 import { EmojiButton } from "@/components/inbox/composer/EmojiButton";
-import { resolveSlash, TemplateMenu } from "@/components/inbox/composer/TemplateMenu";
+import { findExactShortcut, resolveSlash, TemplateMenu } from "@/components/inbox/composer/TemplateMenu";
 import { useCreateNote } from "@/hooks/inbox/useCreateNote";
 import { useMessageTemplates, type MessageTemplate } from "@/hooks/inbox/useMessageTemplates";
 import { X } from "lucide-react";
@@ -194,7 +194,14 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (menuOpen) return; // deixa o Enter pro menu; não envia /query como mensagem
+      if (menuOpen) {
+        // Atalho digitado por inteiro + Enter expande sozinho — mesmo gesto
+        // de terminar de digitar e confirmar, sem exigir achar o template na
+        // lista e clicar. Atalho parcial continua só filtrando (nada muda).
+        const exato = findExactShortcut(slash.query, templates.data ?? []);
+        if (exato) applyTemplate(exato);
+        return; // não envia /query como mensagem
+      }
       handleSubmit();
     }
   }
@@ -312,8 +319,27 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             ref={taRef}
             value={text}
             onChange={(e) => {
-              setText(e.target.value);
-              if (!resolveSlash(e.target.value).open) setMenuDismissed(false);
+              const novo = e.target.value;
+              // Espaço digitado logo após um atalho que bate EXATO expande
+              // sozinho — mesmo gesto de escolher no menu, sem exigir o
+              // clique. Só dispara quando a mudança foi "digitar um caractere
+              // no fim" (não cola texto, não apaga): `novo` tem exatamente
+              // mais um caractere que o texto anterior, e esse caractere é o
+              // espaço que fecharia o slash-menu de qualquer forma.
+              if (
+                menuOpen &&
+                novo.length === text.length + 1 &&
+                novo.startsWith(text) &&
+                novo.endsWith(" ")
+              ) {
+                const exato = findExactShortcut(slash.query, templates.data ?? []);
+                if (exato) {
+                  applyTemplate(exato);
+                  return;
+                }
+              }
+              setText(novo);
+              if (!resolveSlash(novo).open) setMenuDismissed(false);
               autoresize();
             }}
             onKeyDown={onKeyDown}
