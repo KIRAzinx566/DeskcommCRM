@@ -22,6 +22,7 @@ import {
   type PropostaAmbigua,
 } from "@/lib/leads/next-action";
 import type { LeadCandidate } from "@/lib/leads/active-lead";
+import { escolherTarefaMaisProxima } from "@/lib/leads/lead-tasks";
 import { createClient } from "@/lib/supabase/server";
 import type { BoardData, Pipeline, Stage } from "@/lib/kanban/types";
 import type { Lead } from "@/lib/types/leads";
@@ -343,6 +344,51 @@ async function withNextActions(
   };
 }
 
+/**
+ * Anexa a tarefa PENDENTE de prazo mais próximo de cada lead (migration 0211)
+ * — nunca a lista inteira, a régua é a mesma do dossiê e do Radar
+ * (`escolherTarefaMaisProxima`, única fonte, testada em `lib/leads/
+ * lead-tasks.test.ts`).
+ */
+async function withNextTasks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  leads: Lead[],
+): Promise<{ leads: Lead[]; error: string | null }> {
+  const leadIds = leads.map((l) => l.id);
+  if (leadIds.length === 0) return { leads, error: null };
+
+  const { data, error } = await supabase
+    .from("crm_lead_tasks")
+    .select("id, lead_id, title, due_at, type, status")
+    .eq("organization_id", organizationId)
+    .eq("status", "pending")
+    .in("lead_id", leadIds);
+  if (error) return { leads, error: error.message };
+  if (!data || data.length === 0) return { leads, error: null };
+
+  const porLead = new Map<string, Array<{ id: string; title: string; due_at: string; type: string; status: string }>>();
+  for (const t of data as Array<{ id: string; lead_id: string; title: string; due_at: string; type: string; status: string }>) {
+    const lista = porLead.get(t.lead_id);
+    if (lista) lista.push(t);
+    else porLead.set(t.lead_id, [t]);
+  }
+
+  return {
+    leads: leads.map((lead) => {
+      const tarefas = porLead.get(lead.id);
+      if (!tarefas) return lead;
+      const proxima = escolherTarefaMaisProxima(tarefas);
+      if (!proxima) return lead;
+      return {
+        ...lead,
+        next_task: { id: proxima.id, title: proxima.title, due_at: proxima.due_at, type: proxima.type },
+      };
+    }),
+    error: null,
+  };
+}
+
 export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
   const requestId = randomUUID();
   const { id: pipelineId } = await ctx.params;
@@ -425,10 +471,19 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
     return fail("internal_error", leadsComConversa.error, 500, { requestId });
   }
 
+  const leadsComTarefa = await withNextTasks(
+    supabase,
+    (pipeline as Pipeline).organization_id,
+    leadsComConversa.leads,
+  );
+  if (leadsComTarefa.error) {
+    return fail("internal_error", leadsComTarefa.error, 500, { requestId });
+  }
+
   const board: BoardData = {
     pipeline: pipeline as Pipeline,
     stages: (stages ?? []) as Stage[],
-    leads: leadsComConversa.leads,
+    leads: leadsComTarefa.leads,
   };
 
   return ok(board, { requestId });

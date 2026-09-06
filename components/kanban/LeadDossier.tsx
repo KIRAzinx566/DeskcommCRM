@@ -9,6 +9,7 @@ import { useLeadTimeline } from "@/hooks/leads/useLeadTimeline";
 import type { Lead } from "@/lib/types/leads";
 import { ConversaNoDossie } from "./ConversaNoDossie";
 import { LeadFieldsForm } from "./LeadFieldsForm";
+import { LeadTasksSection } from "./LeadTasksSection";
 import { ScoreSlot } from "./ScoreSlot";
 import { LeadTimeline } from "./LeadTimeline";
 import { OwnerBadge } from "./OwnerBadge";
@@ -131,6 +132,8 @@ export function LeadDossier({
         )}
 
         <ConversaNoDossie conversa={lead.conversa} />
+
+        <LeadTasksSection leadId={lead.id} pipelineId={pipelineId} />
 
         {/* ② timeline */}
         <section className="flex-1 py-3">

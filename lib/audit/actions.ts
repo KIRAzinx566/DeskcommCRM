@@ -408,6 +408,10 @@ export const AUDIT_ACTIONS = [
   "billing.charge_created",
   "billing.charge_cancelled",
   "billing.webhook_invalid_signature",
+
+  // Tarefa leve com prazo por lead (migration 0211) — "lembra de ligar até sexta".
+  "crm_lead_task.created",
+  "crm_lead_task.updated",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

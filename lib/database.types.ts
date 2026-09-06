@@ -3413,6 +3413,69 @@ export type Database = {
           },
         ]
       }
+      crm_lead_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by_user_id: string | null
+          dismissed_at: string | null
+          due_at: string
+          id: string
+          lead_id: string
+          organization_id: string
+          owner_user_id: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          dismissed_at?: string | null
+          due_at: string
+          id?: string
+          lead_id: string
+          organization_id: string
+          owner_user_id?: string | null
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          dismissed_at?: string | null
+          due_at?: string
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          owner_user_id?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_lead_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_leads: {
         Row: {
           assigned_at: string | null
