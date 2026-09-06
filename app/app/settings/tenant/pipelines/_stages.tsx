@@ -210,10 +210,16 @@ export function StagesSection({
   const editar = useEditarEtapa(pipelineId);
   const arquivar = useArquivarEtapa(pipelineId);
 
-  const [erro, setErro] = useState<
-    { etapaId: string | null; texto: string; sobrePapel?: boolean } | null
-  >(null);
-  const [confirmacao, setConfirmacao] = useState<{ etapaId: string; papel: Papel; texto: string } | null>(null);
+  const [erro, setErro] = useState<{
+    etapaId: string | null;
+    texto: string;
+    sobrePapel?: boolean;
+  } | null>(null);
+  const [confirmacao, setConfirmacao] = useState<{
+    etapaId: string;
+    papel: Papel;
+    texto: string;
+  } | null>(null);
   const [arquivamento, setArquivamento] = useState<Arquivamento | null>(null);
   const [nova, setNova] = useState<string | null>(null);
 
@@ -317,7 +323,11 @@ export function StagesSection({
   }
 
   return (
-    <div className="space-y-4" id={ancoraDasEtapas(pipelineId)} data-testid={`etapas-${pipelineId}`}>
+    <div
+      className="space-y-4"
+      id={ancoraDasEtapas(pipelineId)}
+      data-testid={`etapas-${pipelineId}`}
+    >
       <div className="space-y-1">
         <h3 className="text-sm font-semibold">{t("Etapas deste funil")}</h3>
         <p className="max-w-3xl text-sm leading-relaxed text-text-muted">
@@ -370,9 +380,7 @@ export function StagesSection({
               data-testid={`etapa-${etapa.id}`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <span className="w-6 shrink-0 text-xs tabular-nums text-text-muted">
-                  {i + 1}.
-                </span>
+                <span className="w-6 shrink-0 text-xs tabular-nums text-text-muted">{i + 1}.</span>
 
                 {/* No empilhado, cada controle carrega o rótulo que no desktop
                     vive no cabeçalho — mesmas constantes, `sm:hidden`. */}
@@ -398,30 +406,30 @@ export function StagesSection({
                     {t(ROTULO.ordem)}
                   </span>
                   <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`${t("Mover")} «${etapa.name}» ${t("uma coluna para trás")}`}
-                    data-testid={`subir-${etapa.id}`}
-                    disabled={i === 0 || ocupado}
-                    onClick={() =>
-                      aplicar(etapa.id, { depois_de: vizinhoAoMover(etapas, i, "subir") })
-                    }
-                  >
-                    <CaretUp size={16} aria-hidden />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`${t("Mover")} «${etapa.name}» ${t("uma coluna para frente")}`}
-                    data-testid={`descer-${etapa.id}`}
-                    disabled={i === etapas.length - 1 || ocupado}
-                    onClick={() =>
-                      aplicar(etapa.id, { depois_de: vizinhoAoMover(etapas, i, "descer") })
-                    }
-                  >
-                    <CaretDown size={16} aria-hidden />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${t("Mover")} «${etapa.name}» ${t("uma coluna para trás")}`}
+                      data-testid={`subir-${etapa.id}`}
+                      disabled={i === 0 || ocupado}
+                      onClick={() =>
+                        aplicar(etapa.id, { depois_de: vizinhoAoMover(etapas, i, "subir") })
+                      }
+                    >
+                      <CaretUp size={16} aria-hidden />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${t("Mover")} «${etapa.name}» ${t("uma coluna para frente")}`}
+                      data-testid={`descer-${etapa.id}`}
+                      disabled={i === etapas.length - 1 || ocupado}
+                      onClick={() =>
+                        aplicar(etapa.id, { depois_de: vizinhoAoMover(etapas, i, "descer") })
+                      }
+                    >
+                      <CaretDown size={16} aria-hidden />
+                    </Button>
                   </div>
                 </div>
 
@@ -458,13 +466,30 @@ export function StagesSection({
                   disabled={ocupado}
                   onClick={() => {
                     setErro(null);
-                    setArquivamento({ etapaId: etapa.id, negocios: null, destino: null, erro: null });
+                    setArquivamento({
+                      etapaId: etapa.id,
+                      negocios: null,
+                      destino: null,
+                      erro: null,
+                    });
                   }}
                 >
                   <Archive size={16} className="mr-1" aria-hidden />
                   {t("Arquivar")}
                 </Button>
               </div>
+
+              {/* Só etapas abertas ganham o campo: ganho e perda já têm
+                  probabilidade fixa (100/0) no cálculo — `lib/kanban/previsao.ts`
+                  nem olha esta coluna para elas, então oferecer o campo aqui
+                  seria convidar a configurar algo que não é lido. */}
+              {papelDaEtapa(etapa) === "nenhum" && (
+                <ProbabilidadeDaEtapa
+                  etapa={etapa}
+                  desabilitado={ocupado}
+                  aoConfirmar={(valor) => aplicar(etapa.id, { win_probability: valor })}
+                />
+              )}
 
               {/* Uma coluna que apareceu no quadro sem o dono ter criado precisa
                   dizer de onde veio — senão o assistente muda o funil e a única
@@ -511,7 +536,10 @@ export function StagesSection({
                   data-testid={`arquivar-painel-${etapa.id}`}
                 >
                   {arquivandoAqui.erro ? (
-                    <p className="text-sm leading-relaxed" data-testid={`arquivar-erro-${etapa.id}`}>
+                    <p
+                      className="text-sm leading-relaxed"
+                      data-testid={`arquivar-erro-${etapa.id}`}
+                    >
                       {arquivandoAqui.erro}
                     </p>
                   ) : arquivandoAqui.negocios === null ? (
@@ -525,7 +553,10 @@ export function StagesSection({
                   ) : destinos.length === 0 ? (
                     // Sem destino possível não há pergunta a fazer — e mandar
                     // escolher entre nada seria um beco sem saída.
-                    <p className="text-sm leading-relaxed" data-testid={`arquivar-sem-destino-${etapa.id}`}>
+                    <p
+                      className="text-sm leading-relaxed"
+                      data-testid={`arquivar-sem-destino-${etapa.id}`}
+                    >
                       {contagemDeNegocios(arquivandoAqui.negocios, t)}{" "}
                       {arquivandoAqui.negocios === 1
                         ? t("está nesta etapa e não há outra coluna em aberto para recebê-lo.")
@@ -536,7 +567,10 @@ export function StagesSection({
                     </p>
                   ) : (
                     <>
-                      <p className="text-sm leading-relaxed" data-testid={`arquivar-pergunta-${etapa.id}`}>
+                      <p
+                        className="text-sm leading-relaxed"
+                        data-testid={`arquivar-pergunta-${etapa.id}`}
+                      >
                         {contagemDeNegocios(arquivandoAqui.negocios, t)}{" "}
                         {arquivandoAqui.negocios === 1
                           ? t("está nesta etapa. Para onde ele vai?")
@@ -545,9 +579,7 @@ export function StagesSection({
                       <div className="sm:w-72">
                         <Select
                           value={arquivandoAqui.destino ?? ""}
-                          onValueChange={(v) =>
-                            setArquivamento({ ...arquivandoAqui, destino: v })
-                          }
+                          onValueChange={(v) => setArquivamento({ ...arquivandoAqui, destino: v })}
                         >
                           <SelectTrigger
                             aria-label={`${t("Para onde vão os negócios de")} «${etapa.name}»`}
@@ -593,24 +625,24 @@ export function StagesSection({
                   )}
 
                   <div className="flex gap-2">
-                    {!arquivandoAqui.erro && !(arquivandoAqui.negocios !== null && destinos.length === 0) && (
-                      <Button
-                        size="sm"
-                        data-testid={`arquivar-confirmar-${etapa.id}`}
-                        // Com negócios na etapa, arquivar sem destino não é
-                        // oferecido: perder o rastro deles não pode ser um
-                        // clique de distância.
-                        disabled={
-                          ocupado ||
-                          (arquivandoAqui.negocios !== null && !arquivandoAqui.destino)
-                        }
-                        onClick={() => pedirArquivamento(etapa, arquivandoAqui.destino)}
-                      >
-                        {arquivandoAqui.negocios === null
-                          ? t("Arquivar")
-                          : t("Mover os negócios e arquivar")}
-                      </Button>
-                    )}
+                    {!arquivandoAqui.erro &&
+                      !(arquivandoAqui.negocios !== null && destinos.length === 0) && (
+                        <Button
+                          size="sm"
+                          data-testid={`arquivar-confirmar-${etapa.id}`}
+                          // Com negócios na etapa, arquivar sem destino não é
+                          // oferecido: perder o rastro deles não pode ser um
+                          // clique de distância.
+                          disabled={
+                            ocupado || (arquivandoAqui.negocios !== null && !arquivandoAqui.destino)
+                          }
+                          onClick={() => pedirArquivamento(etapa, arquivandoAqui.destino)}
+                        >
+                          {arquivandoAqui.negocios === null
+                            ? t("Arquivar")
+                            : t("Mover os negócios e arquivar")}
+                        </Button>
+                      )}
                     <Button size="sm" variant="ghost" onClick={() => setArquivamento(null)}>
                       {arquivandoAqui.erro ? t("Fechar") : t("Cancelar")}
                     </Button>
@@ -740,5 +772,71 @@ function NomeDaEtapa({
       }}
       className="min-w-0 flex-1"
     />
+  );
+}
+
+/**
+ * A probabilidade de fechar desta etapa (0-100%), editada no lugar.
+ *
+ * Mesmo padrão de `NomeDaEtapa`: salva ao confirmar (Enter ou sair do campo),
+ * nunca a cada tecla. Campo vazio grava `null` — a etapa sai do cálculo
+ * ponderado em vez de herdar um zero que ninguém escolheu (DIRC letra C, ver
+ * migration 0210).
+ */
+function ProbabilidadeDaEtapa({
+  etapa,
+  desabilitado,
+  aoConfirmar,
+}: {
+  etapa: EtapaDoFunil;
+  desabilitado: boolean;
+  aoConfirmar: (valor: number | null) => void;
+}) {
+  const t = useT();
+  const valorInicial = etapa.win_probability ?? null;
+  const [rascunho, setRascunho] = useState(valorInicial === null ? "" : String(valorInicial));
+
+  function confirmar() {
+    const texto = rascunho.trim();
+    if (texto === "") {
+      if (valorInicial !== null) aoConfirmar(null);
+      return;
+    }
+    const numero = Number(texto);
+    if (!Number.isFinite(numero) || numero < 0 || numero > 100) {
+      setRascunho(valorInicial === null ? "" : String(valorInicial));
+      return;
+    }
+    if (numero === valorInicial) return;
+    aoConfirmar(numero);
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        step={1}
+        value={rascunho}
+        disabled={desabilitado}
+        placeholder={t("Sem estimativa")}
+        aria-label={`${t("Probabilidade de fechar")} «${etapa.name}»`}
+        data-testid={`probabilidade-${etapa.id}`}
+        onChange={(e) => setRascunho(e.target.value)}
+        onBlur={confirmar}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            setRascunho(valorInicial === null ? "" : String(valorInicial));
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-24"
+      />
+      <span className="text-xs text-text-muted">
+        {t("% de probabilidade de fechar — entra na previsão ponderada do Kanban e das Métricas")}
+      </span>
+    </div>
   );
 }

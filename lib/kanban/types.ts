@@ -32,6 +32,8 @@ export interface Stage {
   is_lost: boolean;
   is_archived: boolean;
   expected_duration_hours: number | null;
+  /** Probabilidade de fechar (0-100), migration 0210. `null` = fora do cálculo ponderado. */
+  win_probability: number | null;
 }
 
 export interface BoardData {

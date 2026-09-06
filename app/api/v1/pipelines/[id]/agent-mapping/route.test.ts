@@ -260,6 +260,7 @@ describe("GET /api/v1/pipelines/[id]/agent-mapping", () => {
       name: "Novo",
       is_won: false,
       is_lost: false,
+      win_probability: null,
       last_change_actor_kind: null,
       last_change_at: null,
     });

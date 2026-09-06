@@ -37,6 +37,8 @@ export interface PatchDeEtapa {
   is_won?: boolean;
   is_lost?: boolean;
   depois_de?: string | null;
+  /** Probabilidade de fechar (0-100) ou `null` para tirar do cálculo ponderado. */
+  win_probability?: number | null;
 }
 
 function useReler(pipelineId: string) {

@@ -15,6 +15,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { isServiceRoleConfigured } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { carregarRosterDeAtendimento } from "@/lib/escalacao/atendentes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -83,11 +84,20 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const metrics = (data ?? { funnel: [], attendants: [] }) as unknown as MetricsPayload;
 
-  // Enriquece cada atendente com nome/email (mesmo padrão de /api/v1/team).
-  // Degrada com name=null quando o service role não está configurado (dev).
+  // Nome/email + carga atual/capacidade vêm do MESMO roster que `/api/v1/
+  // attendants/availability` (tela de Equipe) já usa — `carregarRosterDeAtendimento`
+  // (lib/escalacao/atendentes.ts) é a única função que junta disponibilidade
+  // a conversas abertas; reimplementar a contagem aqui seria uma terceira cópia
+  // da mesma query (a segunda já existe: o worker de roteamento). Degrada como a
+  // tela de Equipe já degrada: sem service role, sem nome e sem carga.
   const names = new Map<string, { name: string | null; email: string | null }>();
+  const cargaByUser = new Map<string, { current_load: number; capacity: number | null }>();
   if (isServiceRoleConfigured() && metrics.attendants.length > 0) {
     const admin = createAdminClient();
+    const roster = await carregarRosterDeAtendimento(admin, activeOrg.orgId);
+    for (const m of roster) {
+      cargaByUser.set(m.userId, { current_load: m.cargaAtual, capacity: m.capacidade });
+    }
     await Promise.all(
       metrics.attendants.map(async (a) => {
         const { data: userRes } = await admin.auth.admin.getUserById(a.user_id);
@@ -102,6 +112,8 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const attendants = metrics.attendants.map((a) => ({
     ...a,
+    current_load: cargaByUser.get(a.user_id)?.current_load ?? 0,
+    capacity: cargaByUser.get(a.user_id)?.capacity ?? null,
     name: names.get(a.user_id)?.name ?? null,
     email: names.get(a.user_id)?.email ?? null,
   }));
