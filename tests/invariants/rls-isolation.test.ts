@@ -231,6 +231,16 @@ beforeAll(() => {
             (organization_id, external_event_id, event_type, raw_payload)
             values (v_org, 'rls-inv-' || v_org::text, 'PAYMENT_RECEIVED', '{}'::jsonb);
         end if;
+
+        -- migration 0209 — CSAT via WhatsApp. Só os handlers do event_log
+        -- escrevem (nenhuma policy de escrita para authenticated), mas o
+        -- seed insere como postgres (bypassa RLS) — a mesma direção que
+        -- billing_webhook_events já prova nesta suíte.
+        if not exists (select 1 from public.csat_requests where organization_id = v_org) then
+          insert into public.csat_requests
+            (organization_id, conversation_id, contact_id, channel_session_id, status, expires_at)
+            values (v_org, v_conv, v_contact, v_sess, 'pending', now() + interval '2 days');
+        end if;
       end loop;
     end
     $seed$;
@@ -280,6 +290,10 @@ export const TABLES = [
   "billing_gateway_credentials",
   "billing_charges",
   "billing_webhook_events",
+  // migration 0209 — CSAT via WhatsApp. Leitura aberta a qualquer membro da
+  // org; escrita é só service_role (os dois handlers do event_log), eixo
+  // não medido aqui.
+  "csat_requests",
   // ⚠️ `webhook_lead_captures` (migration 0174) NÃO entra nesta lista, e a
   // ausência é deliberada: a policy dela exige `manager`, e o usuário semeado
   // aqui é `agent` — o controle positivo falharia por ACERTO, e a "correção"
