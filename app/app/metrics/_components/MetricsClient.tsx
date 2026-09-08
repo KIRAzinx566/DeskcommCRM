@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useAttendantMetrics, type AttendantMetric } from "@/hooks/metrics/useAttendantMetrics";
 import { AtritoPanel } from "./AtritoPanel";
 import { CsatPanel } from "./CsatPanel";
+import { ForecastPanel } from "./ForecastPanel";
 import { useTeamMembers } from "@/hooks/team/useTeamMembers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -40,6 +41,31 @@ function attendantLabel(a: AttendantMetric, t: (texto: string) => string): strin
   return a.name ?? a.email ?? `${t("Atendente")} ${a.user_id.slice(0, 8)}`;
 }
 
+/**
+ * "2 / 5" — a carga AGORA (não histórica) contra o teto que já era respeitado
+ * pelo roteamento automático sem aparecer em tela nenhuma (`lib/routing/
+ * eligibility.ts`). `capacity: null` = atendente nunca configurou
+ * disponibilidade — mostra só a carga, sem inventar um teto.
+ */
+function CargaAtual({
+  atendente,
+  t,
+}: {
+  atendente: AttendantMetric;
+  t: (texto: string) => string;
+}) {
+  if (atendente.capacity === null) {
+    return <span>{atendente.current_load}</span>;
+  }
+  const noTeto = atendente.current_load >= atendente.capacity;
+  return (
+    <span className={noTeto ? "font-medium text-warning-fg" : undefined}>
+      {atendente.current_load} / {atendente.capacity}
+      {noTeto ? ` (${t("no teto")})` : ""}
+    </span>
+  );
+}
+
 interface Props {
   canCompare: boolean;
   currentUserId: string;
@@ -66,6 +92,7 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
       <TabsList>
         <TabsTrigger value="desempenho">{t("Desempenho")}</TabsTrigger>
         <TabsTrigger value="csat">{t("CSAT")}</TabsTrigger>
+        {canCompare ? <TabsTrigger value="previsao">{t("Previsão")}</TabsTrigger> : null}
       </TabsList>
 
       <TabsContent value="desempenho" className="flex flex-col gap-6">
@@ -144,6 +171,7 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
                     <TableHead className="text-right">{t("Perdidos")}</TableHead>
                     <TableHead className="text-right">{t("Conversas")}</TableHead>
                     <TableHead className="text-right">{t("1ª resposta (média)")}</TableHead>
+                    <TableHead className="text-right">{t("Em atendimento agora")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -163,6 +191,9 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
                       <TableCell className="text-right tabular-nums">
                         {formatDuration(a.avg_first_response_seconds)}
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <CargaAtual atendente={a} t={t} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -175,6 +206,12 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
       <TabsContent value="csat">
         <CsatPanel />
       </TabsContent>
+
+      {canCompare ? (
+        <TabsContent value="previsao">
+          <ForecastPanel />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

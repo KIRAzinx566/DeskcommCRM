@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/types/leads";
 import type { Stage } from "@/lib/kanban/types";
 import { buildCardInput } from "@/lib/kanban/card-state";
+import { probabilidadeEfetiva } from "@/lib/kanban/previsao";
 import { KanbanCard } from "./KanbanCard";
 
 interface StageColumnProps {
@@ -55,32 +56,38 @@ export function StageColumn({
 }: StageColumnProps) {
   const t = useT();
   const totalCents = leads.reduce((sum, l) => sum + (l.value_cents ?? 0), 0);
+  const probabilidade = probabilidadeEfetiva(stage);
+  const previstoCents =
+    probabilidade === null ? null : Math.round(totalCents * (probabilidade / 100));
   const accentStyle: CSSProperties | undefined = stage.color
     ? { backgroundColor: stage.color }
     : undefined;
 
   return (
-    <div className="flex w-80 shrink-0 flex-col rounded-lg border border-border bg-surface-muted/40">
+    <div className="bg-surface-muted/40 flex w-80 shrink-0 flex-col rounded-lg border border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <span
-          className={cn(
-            "h-2 w-2 rounded-full",
-            !stage.color && "bg-text-muted/40",
-          )}
+          className={cn("h-2 w-2 rounded-full", !stage.color && "bg-text-muted/40")}
           style={accentStyle}
           aria-hidden
         />
-        <h2 className="flex-1 truncate text-sm font-semibold text-text">
-          {stage.name}
-        </h2>
+        <h2 className="flex-1 truncate text-sm font-semibold text-text">{stage.name}</h2>
         <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium tabular-nums text-text-muted">
           {leads.length}
         </span>
       </div>
 
       {totalCents > 0 && (
-        <div className="border-b border-border px-3 py-1.5 text-[11px] tabular-nums text-text-muted">
-          {formatBRL(totalCents)}
+        <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-[11px] tabular-nums text-text-muted">
+          <span>{formatBRL(totalCents)}</span>
+          {/* Só etapas ABERTAS com probabilidade configurada mostram a previsão —
+              ganho já É o valor bruto (100%) e perda já é zero: repetir os dois
+              aqui seria ruído, não informação nova. */}
+          {previstoCents !== null && !stage.is_won && !stage.is_lost && (
+            <span className="text-text-muted/70">
+              · {t("previsto")} {formatBRL(previstoCents)} ({probabilidade}%)
+            </span>
+          )}
         </div>
       )}
 
@@ -115,7 +122,7 @@ export function StageColumn({
             ))}
             {provided.placeholder}
             {leads.length === 0 && !snapshot.isDraggingOver && (
-              <div className="flex h-20 items-center justify-center text-[11px] text-text-muted/70">
+              <div className="text-text-muted/70 flex h-20 items-center justify-center text-[11px]">
                 {t("vazio")}
               </div>
             )}

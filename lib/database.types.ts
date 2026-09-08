@@ -3615,6 +3615,7 @@ export type Database = {
           requires_human: boolean
           slug: string
           updated_at: string
+          win_probability: number | null
         }
         Insert: {
           agent_stage_hint?: string | null
@@ -3635,6 +3636,7 @@ export type Database = {
           requires_human?: boolean
           slug: string
           updated_at?: string
+          win_probability?: number | null
         }
         Update: {
           agent_stage_hint?: string | null
@@ -3655,6 +3657,7 @@ export type Database = {
           requires_human?: boolean
           slug?: string
           updated_at?: string
+          win_probability?: number | null
         }
         Relationships: [
           {

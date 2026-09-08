@@ -17572,6 +17572,15 @@ comment on column public.csat_requests.score is
 comment on column public.csat_requests.expires_at is
   'Depois disso, a mensagem do cliente não é mais interpretada como resposta a ESTA pesquisa — ela pode estar respondendo outra coisa. Lido em consulta (status ainda mostra pending até alguém olhar), não é uma varredura própria.';
 
+-- ---- previsão de receita ponderada por etapa (migration 0210) ----
+
+alter table public.crm_stages
+  add column if not exists win_probability numeric(5,2)
+  check (win_probability is null or win_probability between 0 and 100);
+
+comment on column public.crm_stages.win_probability is
+  'Probabilidade de fechar (0-100), configurada pelo dono do funil para etapas abertas. NULL = etapa fora do cálculo ponderado (lib/kanban/previsao.ts). is_won/is_lost usam 100/0 fixo, ignorando esta coluna.';
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ ESTE BLOCO É, DE PROPÓSITO, O ÚLTIMO DO ARQUIVO. Apêndice novo entra ANTES
