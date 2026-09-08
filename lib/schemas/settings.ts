@@ -74,6 +74,10 @@ export const profileSchema = z.object({
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 
+/** Única fonte da frase padrão — `lib/csat/enviar-pesquisa.ts` importa daqui, nunca duplica. */
+export const CSAT_PERGUNTA_PADRAO =
+  "De 1 a 5, como foi o nosso atendimento hoje? Responda só com o número. 🙏";
+
 export const tenantSchema = z.object({
   display_name: z.string().min(1).max(120),
   legal_name: z.string().min(1).max(200),
@@ -101,6 +105,8 @@ export const tenantSchema = z.object({
     .optional()
     .or(z.literal("").transform(() => null)),
   lost_reasons_extra: z.array(z.string().min(1).max(80)).max(50).default([]),
+  csat_enabled: z.boolean().default(true),
+  csat_pergunta: z.string().min(5).max(300).default(CSAT_PERGUNTA_PADRAO),
 });
 export type TenantInput = z.infer<typeof tenantSchema>;
 

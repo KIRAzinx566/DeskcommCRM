@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -33,9 +35,7 @@ const TIMEZONES = [
 export function TenantForm({ initial }: Props) {
   const t = useT();
   const [form, setForm] = useState<TenantInput>(initial);
-  const [reasonsText, setReasonsText] = useState(
-    (initial.lost_reasons_extra ?? []).join(", "),
-  );
+  const [reasonsText, setReasonsText] = useState((initial.lost_reasons_extra ?? []).join(", "));
   const [isPending, startTransition] = useTransition();
 
   function set<K extends keyof TenantInput>(key: K, value: TenantInput[K]) {
@@ -117,10 +117,7 @@ export function TenantForm({ initial }: Props) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="locale">{t("Idioma")}</Label>
-            <Select
-              value={form.locale}
-              onValueChange={(v) => set("locale", v as Locale)}
-            >
+            <Select value={form.locale} onValueChange={(v) => set("locale", v as Locale)}>
               <SelectTrigger id="locale">
                 <SelectValue />
               </SelectTrigger>
@@ -153,7 +150,9 @@ export function TenantForm({ initial }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="lost_reasons">{t("Motivos de perda extras (separados por vírgula)")}</Label>
+          <Label htmlFor="lost_reasons">
+            {t("Motivos de perda extras (separados por vírgula)")}
+          </Label>
           <Input
             id="lost_reasons"
             value={reasonsText}
@@ -163,6 +162,38 @@ export function TenantForm({ initial }: Props) {
           <p className="text-xs text-muted-foreground">
             {t("Adicionados ao set padrão. Cada funil pode ter seus próprios motivos.")}
           </p>
+        </div>
+
+        <div className="space-y-3 border-t border-border pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="csat_enabled">
+                {t("Pesquisa de satisfação (CSAT) pelo WhatsApp")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "Ao fechar uma conversa, pergunta a nota de 1 a 5 na mesma conversa — sem link externo, sem e-mail.",
+                )}
+              </p>
+            </div>
+            <Switch
+              id="csat_enabled"
+              checked={form.csat_enabled}
+              onCheckedChange={(v) => set("csat_enabled", v)}
+            />
+          </div>
+          {form.csat_enabled ? (
+            <div className="space-y-2">
+              <Label htmlFor="csat_pergunta">{t("Pergunta enviada")}</Label>
+              <Textarea
+                id="csat_pergunta"
+                value={form.csat_pergunta}
+                onChange={(e) => set("csat_pergunta", e.target.value)}
+                maxLength={300}
+                rows={2}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex sm:justify-end">

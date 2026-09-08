@@ -17,6 +17,10 @@ export interface AttendantMetric {
   avg_first_response_seconds: number | null;
   name: string | null;
   email: string | null;
+  /** Conversas abertas atribuídas AGORA — a mesma conta que o roteamento automático usa. */
+  current_load: number;
+  /** Teto configurado em `attendant_availability`. `null` = nunca configurou disponibilidade. */
+  capacity: number | null;
 }
 
 export interface AttendantMetrics {

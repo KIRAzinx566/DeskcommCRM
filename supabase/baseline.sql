@@ -17526,6 +17526,61 @@ grant all on public.billing_webhook_events to service_role;
 comment on table public.billing_webhook_events is
   'Arquivo bruto de todo webhook recebido da ASAAS, uma linha por evento — molde de `webhook_events_log` da WAHA. Só o service role escreve; a tela só lê, para auditoria.';
 
+-- ---- CSAT pelo próprio WhatsApp, ao fechar a conversa (migration 0209) ----
+
+create table if not exists public.csat_requests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  contact_id uuid not null references public.contacts(id) on delete cascade,
+  channel_session_id uuid not null references public.channel_sessions(id) on delete cascade,
+
+  status text not null default 'pending' check (status in ('pending', 'answered', 'expired')),
+  score smallint check (score is null or score between 1 and 5),
+  raw_reply text,
+
+  sent_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  answered_at timestamptz,
+
+  created_at timestamptz not null default now()
+);
+
+create index if not exists csat_requests_org_contato_pendente_idx
+  on public.csat_requests (organization_id, contact_id)
+  where status = 'pending';
+
+create index if not exists csat_requests_org_enviada_idx
+  on public.csat_requests (organization_id, sent_at desc);
+
+alter table public.csat_requests enable row level security;
+
+drop policy if exists csat_requests_select on public.csat_requests;
+create policy csat_requests_select on public.csat_requests
+  for select using (
+    (organization_id in (select public.fn_user_org_ids())) or public.fn_is_platform_admin()
+  );
+
+revoke all on public.csat_requests from anon;
+grant select on public.csat_requests to authenticated;
+grant all on public.csat_requests to service_role;
+
+comment on table public.csat_requests is
+  'Uma linha por pesquisa de satisfação enviada ao fechar uma conversa de WhatsApp. Só os handlers do event_log escrevem (enviar-pesquisa.ts cria, captura-resposta.ts responde) — nenhuma tela.';
+comment on column public.csat_requests.score is
+  'Nota 1-5, extraída da resposta em texto livre por lib/csat/interpretar-nota.ts. Nula até responder, e continua nula se expirar sem resposta.';
+comment on column public.csat_requests.expires_at is
+  'Depois disso, a mensagem do cliente não é mais interpretada como resposta a ESTA pesquisa — ela pode estar respondendo outra coisa. Lido em consulta (status ainda mostra pending até alguém olhar), não é uma varredura própria.';
+
+-- ---- previsão de receita ponderada por etapa (migration 0210) ----
+
+alter table public.crm_stages
+  add column if not exists win_probability numeric(5,2)
+  check (win_probability is null or win_probability between 0 and 100);
+
+comment on column public.crm_stages.win_probability is
+  'Probabilidade de fechar (0-100), configurada pelo dono do funil para etapas abertas. NULL = etapa fora do cálculo ponderado (lib/kanban/previsao.ts). is_won/is_lost usam 100/0 fixo, ignorando esta coluna.';
+
 -- ---- tarefa leve por lead, com prazo (migration 0211) ----
 
 create table if not exists public.crm_lead_tasks (

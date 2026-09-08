@@ -24,6 +24,8 @@ export interface EtapaDoFunil {
   name: string;
   is_won: boolean;
   is_lost: boolean;
+  /** Probabilidade de fechar (0-100), migration 0210. `null` = fora do cálculo ponderado. */
+  win_probability?: number | null;
   /** Quem mexeu nesta etapa por último (migration 0101). `null` antes dela. */
   last_change_actor_kind?: string | null;
   last_change_at?: string | null;
