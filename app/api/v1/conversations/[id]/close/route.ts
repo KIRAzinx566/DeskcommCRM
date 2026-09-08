@@ -105,5 +105,30 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
     requestId,
   });
 
+  // event_log, não só audit: o CSAT (e qualquer outro consumidor futuro de
+  // "conversa fechou") reage a EVENTO, não a linha de auditoria — audit é pra
+  // gente ler depois, event_log é pra sistema agir agora.
+  void supabase
+    .rpc("emit_event", {
+      p_event_type: "conversation.closed",
+      p_entity_kind: "conversation",
+      p_entity_id: conv.id,
+      p_payload: {
+        contact_id: conv.contact_id,
+        channel_session_id: conv.channel_session_id,
+        had_inbound: conv.last_inbound_at !== null,
+      },
+      p_metadata: { request_id: requestId },
+      p_organization_id: conv.organization_id,
+    })
+    .then(({ error: emitErr }) => {
+      if (emitErr) {
+        logger.error("[conversation.close] emit_event falhou", {
+          conversation_id: conv.id,
+          error: emitErr.message,
+        });
+      }
+    });
+
   return ok(conv, { requestId });
 }

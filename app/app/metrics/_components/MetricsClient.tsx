@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { useAttendantMetrics, type AttendantMetric } from "@/hooks/metrics/useAttendantMetrics";
 import { AtritoPanel } from "./AtritoPanel";
+import { CsatPanel } from "./CsatPanel";
 import { ForecastPanel } from "./ForecastPanel";
 import { useTeamMembers } from "@/hooks/team/useTeamMembers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +91,7 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
     <Tabs defaultValue="desempenho" className="flex flex-col gap-4">
       <TabsList>
         <TabsTrigger value="desempenho">{t("Desempenho")}</TabsTrigger>
+        <TabsTrigger value="csat">{t("CSAT")}</TabsTrigger>
         {canCompare ? <TabsTrigger value="previsao">{t("Previsão")}</TabsTrigger> : null}
       </TabsList>
 
@@ -199,6 +201,10 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="csat">
+        <CsatPanel />
       </TabsContent>
 
       {canCompare ? (

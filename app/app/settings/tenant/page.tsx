@@ -4,6 +4,7 @@ import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { createClient } from "@/lib/supabase/server";
+import { CSAT_PERGUNTA_PADRAO } from "@/lib/schemas/settings";
 import { TenantForm } from "./_form";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export default async function TenantSettingsPage() {
     (row?.settings && Array.isArray((row.settings as { lost_reasons_extra?: unknown }).lost_reasons_extra)
       ? ((row.settings as { lost_reasons_extra?: string[] }).lost_reasons_extra ?? [])
       : []) as string[];
+  const csatSettings = (row?.settings as { csat?: { enabled?: boolean; pergunta?: string } } | null)?.csat;
   const idioma = user.idioma;
 
   return (
@@ -66,6 +68,8 @@ export default async function TenantSettingsPage() {
             dpo_email: row.dpo_email,
             privacy_policy_url: row.privacy_policy_url,
             lost_reasons_extra: lostReasonsExtra,
+            csat_enabled: csatSettings?.enabled ?? true,
+            csat_pergunta: csatSettings?.pergunta ?? CSAT_PERGUNTA_PADRAO,
           }}
         />
       )}
