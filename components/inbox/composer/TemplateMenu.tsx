@@ -10,6 +10,23 @@ export function resolveSlash(text: string): { open: boolean; query: string } {
   return { open: true, query: rest };
 }
 
+/**
+ * O template cujo atalho bate EXATO (case-insensitive) com o que foi
+ * digitado depois da `/` — nunca substring, senão `/oi` expandiria em cima
+ * de um atalho `/oi-cliente-vip` que só COMEÇA igual.
+ *
+ * `null` para query vazia: `/` sozinho não é atalho de ninguém, é o convite
+ * pra abrir o menu de busca.
+ */
+export function findExactShortcut(
+  query: string,
+  templates: MessageTemplate[],
+): MessageTemplate | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  return templates.find((tpl) => (tpl.shortcut ?? "").toLowerCase() === q) ?? null;
+}
+
 interface Props {
   open: boolean;
   query: string;
