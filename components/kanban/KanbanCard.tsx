@@ -13,6 +13,9 @@ import { ConversaSlot } from "./ConversaSlot";
 import { ScoreSlot } from "./ScoreSlot";
 import { OwnerBadge } from "./OwnerBadge";
 
+/** Os dois gestos de seleção que o card sabe relatar. */
+export type GestoDeSelecao = "alterna" | "intervalo";
+
 interface KanbanCardProps {
   /** O que o card mostra — explicitamente NÃO é a linha do banco. */
   card: CardInput;
@@ -22,12 +25,23 @@ interface KanbanCardProps {
   pipelineId: string;
   isSelected?: boolean;
   /**
+   * Há seleção viva no quadro. Só muda a VISIBILIDADE da caixa (que fora disso
+   * aparece no hover/foco): quando o usuário já está selecionando, esconder as
+   * caixas dos outros cards transforma "clicar em mais um" numa caça ao pixel.
+   */
+  isSelecting?: boolean;
+  /**
    * Contador de pulsos deste card (evento REMOTO). Muda a cada evento novo — é
    * a MUDANÇA que remonta o overlay e reinicia a animação; um booleano deixaria
    * o segundo evento dentro da janela passar despercebido.
    */
   pulseCount?: number;
-  onSelect?: (leadId: string, additive: boolean) => void;
+  /**
+   * `alterna` = um card entra/sai da seleção. `intervalo` = daqui até a âncora
+   * (shift). Quem resolve o intervalo é a COLUNA, que é a única que conhece a
+   * ordem visível dos cards — o card só relata o gesto.
+   */
+  onSelect?: (leadId: string, gesto: GestoDeSelecao) => void;
   /** Abrir o dossiê. Separado de `onSelect`: são gestos e intenções diferentes. */
   onOpen?: (leadId: string) => void;
 }
@@ -63,6 +77,7 @@ export function KanbanCard({
   index,
   pipelineId,
   isSelected,
+  isSelecting = false,
   pulseCount = 0,
   onSelect,
   onOpen,
@@ -72,17 +87,43 @@ export function KanbanCard({
   const state = resolveCardState(card, t);
   const age = stageAgeLabel(card.hoursInStage, t);
 
-  // Clique ABRE o dossiê; ctrl/cmd+clique SELECIONA. "Clicar abre" é a
-  // convenção mais forte, e seleção múltipla é recurso de poder, que tolera
-  // modificador. O arrasto continua funcionando porque o dnd distingue clique
-  // de arrasto por movimento, não por handler.
-  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+  // Clique ABRE o dossiê; ctrl/cmd+clique SELECIONA; shift+clique estende até a
+  // âncora. "Clicar abre" é a convenção mais forte, e seleção múltipla é recurso
+  // de poder, que tolera modificador. O arrasto continua funcionando porque o
+  // dnd distingue clique de arrasto por movimento, não por handler.
+  //
+  // A CAIXA abaixo existe porque modificador não se descobre: até ela, a única
+  // porta para o lote era saber que ctrl+clique fazia algo — e um recurso que
+  // só quem já sabe encontra não é recurso, é folclore.
+  //
+  // ⚠️ UMA função, dois pontos de entrada — e a duplicação que existia aqui
+  // custou o recurso inteiro no alvo mais óbvio. O TÍTULO é um `<button>` com
+  // `stopPropagation()` (ver abaixo), então o clique nele NUNCA chega a este
+  // handler; e o `onClick` do título ignorava os modificadores e abria o dossiê
+  // sempre. Medido pela tela em 2026-09-04, com 6 cards e a âncora no 2º:
+  //
+  //   shift+clique no TÍTULO do 5º  → 1 marcado, 1 diálogo aberto (o dossiê)
+  //   shift+clique no CORPO  do 5º  → 4 marcados, 0 diálogos
+  //
+  // O título é o maior e mais natural alvo do card. Quem lê "Segurando Shift,
+  // um clique seleciona tudo entre o card anterior e o que você clicou" e clica
+  // no card clica no nome dele — e recebia o dossiê.
+  const decidirClique = (e: {
+    shiftKey: boolean;
+    metaKey: boolean;
+    ctrlKey: boolean;
+  }): void => {
+    if (e.shiftKey) {
+      onSelect?.(card.id, "intervalo");
+      return;
+    }
     if (e.metaKey || e.ctrlKey) {
-      onSelect?.(card.id, true);
+      onSelect?.(card.id, "alterna");
       return;
     }
     onOpen?.(card.id);
   };
+  const handleClick = (e: MouseEvent<HTMLDivElement>) => decidirClique(e);
 
   return (
     <Draggable draggableId={card.id} index={index}>
@@ -136,6 +177,34 @@ export function KanbanCard({
           {/* ① identidade — altura FIXA de 2 linhas, com ou sem texto longo. */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-start gap-1.5">
+              {/* A largura é SEMPRE reservada (`h-4 w-4` num wrapper que não
+                  some), só a tinta é condicional: o card tem orçamento fixo de
+                  altura e largura, e uma caixa que aparece no hover EMPURRANDO
+                  o título faria o quadro inteiro tremer com o mouse. Some por
+                  opacidade, nunca por `hidden`. `focus:opacity-100` no próprio
+                  input: uma caixa invisível e tabulável seria armadilha de
+                  teclado. */}
+              <input
+                type="checkbox"
+                checked={Boolean(isSelected)}
+                aria-label={`${t("Selecionar")}: ${card.title}`}
+                onClick={(e) => {
+                  // O card inteiro tem onClick (abre o dossiê): sem parar a
+                  // propagação, marcar a caixa abriria o dossiê por cima.
+                  e.stopPropagation();
+                  onSelect?.(card.id, e.shiftKey ? "intervalo" : "alterna");
+                }}
+                onChange={() => {
+                  /* estado vem de `isSelected`; quem decide é o onClick acima */
+                }}
+                className={cn(
+                  "mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent transition-opacity",
+                  "focus:opacity-100 focus-visible:outline-2 focus-visible:outline-accent",
+                  isSelected || isSelecting
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100",
+                )}
+              />
               {card.canonicalTag && (
                 <span
                   className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
@@ -157,8 +226,12 @@ export function KanbanCard({
                 <button
                   type="button"
                   onClick={(e) => {
+                    // `stopPropagation` continua: sem ele o handler do card
+                    // rodaria de novo e o gesto seria contado duas vezes (um
+                    // ctrl+clique marcaria e desmarcaria no mesmo instante).
+                    // Por isso a DECISÃO tem de ser tomada aqui também.
                     e.stopPropagation();
-                    onOpen?.(card.id);
+                    decidirClique(e);
                   }}
                   className="text-left hover:underline"
                 >
@@ -231,7 +304,7 @@ export function KanbanCard({
               agentVersion={card.owner.agentVersion}
             />
             <span className="flex min-w-0 items-center justify-end gap-1.5">
-              {/* A tarefa pendente de prazo mais próximo (migration 0211)
+              {/* A tarefa aberta de prazo mais próximo (migration 0236, `crm_tasks`)
                   SUBSTITUI o "tempo no estágio", nunca disputa a mesma linha
                   com ele: o card tem largura fixa (`w-80`) e o rodapé já
                   reparte espaço com o dono — três textos ali colapsam a

@@ -37,6 +37,10 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: {
       getUser: async () => ({ data: { user: usuarioAtual }, error: null }),
     },
+    // `loadAuthUser` agora resolve `support` via `readSupportContext`, que chama
+    // esta RPC direto (não passa por `.from()`). Ninguém neste arquivo testa
+    // acompanhamento administrativo — o padrão é "não está sendo acompanhado".
+    rpc: async () => ({ data: null, error: null }),
     from: (tabela: string) => {
       const alvo = tabela === "platform_admins" ? "platformAdmins" : "memberships";
       const resultado = () => consultas[alvo as keyof typeof consultas];
@@ -75,9 +79,9 @@ describe("loadAuthUser — decisão pra quem tem zero organização", () => {
 
   it("convite válido pro MESMO e-mail: decide 'convite', nunca provisiona sozinho", async () => {
     const token = signInviteToken({
-      invite_id: "i1",
+      invite_id: "00000000-0000-4000-8000-000000000001",
       email: usuarioAtual.email,
-      organization_id: "org-de-quem-convidou",
+      organization_id: "00000000-0000-4000-8000-000000000002",
       role: "agent",
       exp: Math.floor(Date.now() / 1000) + 3600,
     });
@@ -88,9 +92,9 @@ describe("loadAuthUser — decisão pra quem tem zero organização", () => {
 
   it("convite pra e-mail DIFERENTE (token de outra pessoa): recusa, nunca provisiona", async () => {
     const token = signInviteToken({
-      invite_id: "i1",
+      invite_id: "00000000-0000-4000-8000-000000000001",
       email: "outra-pessoa@example.com",
-      organization_id: "org-de-quem-convidou",
+      organization_id: "00000000-0000-4000-8000-000000000002",
       role: "agent",
       exp: Math.floor(Date.now() / 1000) + 3600,
     });
@@ -101,9 +105,9 @@ describe("loadAuthUser — decisão pra quem tem zero organização", () => {
 
   it("convite expirado: recusa, nunca provisiona", async () => {
     const token = signInviteToken({
-      invite_id: "i1",
+      invite_id: "00000000-0000-4000-8000-000000000001",
       email: usuarioAtual.email,
-      organization_id: "org-de-quem-convidou",
+      organization_id: "00000000-0000-4000-8000-000000000002",
       role: "agent",
       exp: Math.floor(Date.now() / 1000) - 3600,
     });

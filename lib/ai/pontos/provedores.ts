@@ -38,6 +38,8 @@ export interface ProvedorSuportado {
   catalogoSincronizavel: boolean;
   /** Onde o operador pega a chave — a tela mostra o link. */
   ondePegarAChave: string;
+  /** Como a chave começa — vira placeholder do campo, para a pessoa reconhecer que copiou a coisa certa. */
+  prefixoDaChave: string;
 }
 
 export const PROVEDORES = [
@@ -49,6 +51,7 @@ export const PROVEDORES = [
     aceitaEndpointProprio: false,
     catalogoSincronizavel: false,
     ondePegarAChave: "https://console.anthropic.com/settings/keys",
+    prefixoDaChave: "sk-ant-…",
   },
   {
     id: "openai",
@@ -58,6 +61,7 @@ export const PROVEDORES = [
     aceitaEndpointProprio: true,
     catalogoSincronizavel: false,
     ondePegarAChave: "https://platform.openai.com/api-keys",
+    prefixoDaChave: "sk-…",
   },
   {
     id: "google",
@@ -67,6 +71,7 @@ export const PROVEDORES = [
     aceitaEndpointProprio: false,
     catalogoSincronizavel: false,
     ondePegarAChave: "https://aistudio.google.com/apikey",
+    prefixoDaChave: "AIza…",
   },
   {
     id: "openrouter",
@@ -76,6 +81,7 @@ export const PROVEDORES = [
     aceitaEndpointProprio: true,
     catalogoSincronizavel: true,
     ondePegarAChave: "https://openrouter.ai/keys",
+    prefixoDaChave: "sk-or-…",
   },
   {
     id: "nvidia",
@@ -85,6 +91,7 @@ export const PROVEDORES = [
     aceitaEndpointProprio: true,
     catalogoSincronizavel: true,
     ondePegarAChave: "https://build.nvidia.com",
+    prefixoDaChave: "nvapi-…",
   },
   {
     id: "custom",
@@ -97,6 +104,10 @@ export const PROVEDORES = [
     // serviço que ele escolheu. O link explica o CONTRATO (API da OpenAI) que
     // o endpoint precisa falar, não onde pegar uma chave específica.
     ondePegarAChave: "https://platform.openai.com/docs/api-reference",
+    // Idem: sem prefixo único, porque o serviço por trás varia (Groq, Together,
+    // gateway próprio…). O placeholder descreve o campo em vez de inventar um
+    // formato que só valeria para um dos serviços possíveis.
+    prefixoDaChave: "a chave do serviço escolhido",
   },
 ] as const satisfies readonly ProvedorSuportado[];
 // `as const satisfies` e não anotação de tipo: a anotação apagaria os literais

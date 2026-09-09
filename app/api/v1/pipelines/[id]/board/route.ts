@@ -16,13 +16,15 @@ import { randomUUID } from "node:crypto";
 import { type NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/wrappers";
+import { loadAuthUser } from "@/lib/auth/server";
+import { traduzir } from "@/lib/i18n/dicionario";
 import {
   roteiaProximasAcoes,
   type EstadoDoContato,
   type PropostaAmbigua,
 } from "@/lib/leads/next-action";
 import type { LeadCandidate } from "@/lib/leads/active-lead";
-import { escolherTarefaMaisProxima } from "@/lib/leads/lead-tasks";
+import { tarefaMaisProxima, type SituacaoDaTarefa } from "@/lib/tarefas/tipos";
 import { createClient } from "@/lib/supabase/server";
 import type { BoardData, Pipeline, Stage } from "@/lib/kanban/types";
 import type { Lead } from "@/lib/types/leads";
@@ -345,10 +347,10 @@ async function withNextActions(
 }
 
 /**
- * Anexa a tarefa PENDENTE de prazo mais próximo de cada lead (migration 0211)
- * — nunca a lista inteira, a régua é a mesma do dossiê e do Radar
- * (`escolherTarefaMaisProxima`, única fonte, testada em `lib/leads/
- * lead-tasks.test.ts`).
+ * Anexa a tarefa ABERTA de prazo mais próximo de cada lead (migration 0236,
+ * `crm_tasks`) — nunca a lista inteira, a régua é a mesma do dossiê e do
+ * Radar (`tarefaMaisProxima`, única fonte, testada em `lib/tarefas/
+ * tipos.test.ts`).
  */
 async function withNextTasks(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -359,16 +361,23 @@ async function withNextTasks(
   if (leadIds.length === 0) return { leads, error: null };
 
   const { data, error } = await supabase
-    .from("crm_lead_tasks")
-    .select("id, lead_id, title, due_at, type, status")
+    .from("crm_tasks")
+    .select("id, lead_id, title, due_date, status")
     .eq("organization_id", organizationId)
-    .eq("status", "pending")
+    .in("status", ["pending", "in_progress"])
+    .not("due_date", "is", null)
     .in("lead_id", leadIds);
   if (error) return { leads, error: error.message };
   if (!data || data.length === 0) return { leads, error: null };
 
-  const porLead = new Map<string, Array<{ id: string; title: string; due_at: string; type: string; status: string }>>();
-  for (const t of data as Array<{ id: string; lead_id: string; title: string; due_at: string; type: string; status: string }>) {
+  interface TarefaDoQuadro {
+    id: string;
+    title: string;
+    due_date: string;
+    status: SituacaoDaTarefa;
+  }
+  const porLead = new Map<string, TarefaDoQuadro[]>();
+  for (const t of data as Array<{ id: string; lead_id: string; title: string; due_date: string; status: SituacaoDaTarefa }>) {
     const lista = porLead.get(t.lead_id);
     if (lista) lista.push(t);
     else porLead.set(t.lead_id, [t]);
@@ -378,11 +387,11 @@ async function withNextTasks(
     leads: leads.map((lead) => {
       const tarefas = porLead.get(lead.id);
       if (!tarefas) return lead;
-      const proxima = escolherTarefaMaisProxima(tarefas);
+      const proxima = tarefaMaisProxima(tarefas);
       if (!proxima) return lead;
       return {
         ...lead,
-        next_task: { id: proxima.id, title: proxima.title, due_at: proxima.due_at, type: proxima.type },
+        next_task: { id: proxima.id, title: proxima.title, due_date: proxima.due_date },
       };
     }),
     error: null,
@@ -401,6 +410,8 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
   if (authErr || !user) {
     return fail("unauthenticated", "Auth required.", 401, { requestId });
   }
+  const authUser = await loadAuthUser();
+  const t = (texto: string) => traduzir(texto, authUser?.idioma ?? "pt-BR");
 
   const [
     { data: pipeline, error: pipelineErr },
@@ -425,7 +436,7 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
   if (pipelineErr) return fail("internal_error", pipelineErr.message, 500, { requestId });
   if (stagesErr) return fail("internal_error", stagesErr.message, 500, { requestId });
   if (leadsErr) return fail("internal_error", leadsErr.message, 500, { requestId });
-  if (!pipeline) return fail("resource_not_found", "Pipeline não encontrado.", 404, { requestId });
+  if (!pipeline) return fail("resource_not_found", t("Pipeline não encontrado."), 404, { requestId });
 
   const leadsWithOwner = await withOwnerAgents(
     supabase,

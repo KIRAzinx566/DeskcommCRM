@@ -1,3 +1,4 @@
+import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * POST /api/v1/automation-rules/runs/[runId]/resend — RETOMA as ações que
  * falharam ou pularam neste run (qualquer tipo, não só `call_webhook`),
@@ -31,6 +32,7 @@ import { decidirRetomada } from "@/lib/automation/retomar";
 import { agregarStatusDoRun } from "@/lib/automation/agregar-status";
 import type { ActionCtx, ActionResultDetail } from "@/lib/automation/types";
 import type { EventRow } from "@/lib/event-log/dispatcher";
+import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +46,14 @@ interface RuleAction {
 }
 
 export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = randomUUID();
   const { runId } = await ctx.params;
   const authz = await requireRole("manager", { requestId, resource: "automation_rules" });
   if (!authz.ok) return authz.response;
+  const t = (texto: string) => traduzir(texto, authz.user.idioma);
   const { user, org: activeOrg } = authz;
 
   const supabase = await createClient();
@@ -59,10 +65,10 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
     .eq("organization_id", activeOrg.orgId)
     .maybeSingle();
   if (runErr) return fail("internal_error", runErr.message, 500, { requestId });
-  if (!run) return fail("not_found", "Run não encontrado.", 404, { requestId });
+  if (!run) return fail("not_found", t("Run não encontrado."), 404, { requestId });
 
   if (!run.event_id) {
-    return fail("event_gone", "O evento original deste run foi removido.", 409, { requestId });
+    return fail("event_gone", t("O evento original deste run foi removido."), 409, { requestId });
   }
 
   const { data: rule, error: ruleErr } = await supabase
@@ -72,7 +78,7 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
     .eq("organization_id", activeOrg.orgId)
     .maybeSingle();
   if (ruleErr) return fail("internal_error", ruleErr.message, 500, { requestId });
-  if (!rule) return fail("not_found", "Regra do run não encontrada.", 404, { requestId });
+  if (!rule) return fail("not_found", t("Regra do run não encontrada."), 404, { requestId });
 
   const ruleActions = (rule.actions ?? []) as RuleAction[];
   const originalResults = (run.actions_result ?? []) as ActionResultDetail[];
@@ -104,15 +110,23 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
     .maybeSingle();
   if (eventErr) return fail("internal_error", eventErr.message, 500, { requestId });
   if (!eventRow) {
-    return fail("event_gone", "O evento original deste run foi removido.", 409, { requestId });
+    return fail("event_gone", t("O evento original deste run foi removido."), 409, { requestId });
   }
 
   const typedEvent = eventRow as unknown as EventRow;
   const context = await buildContext(supabase, typedEvent);
 
   // Admin real no ctx: mesmo motivo de sempre — algum executor decifra
-  // segredo via RPC restrita a service_role (ex.: call_webhook), e o client
-  // de sessão falharia ali sem avisar que o outbound saiu sem assinatura.
+  // segredo via RPC restrita a service_role (ex.: call_webhook usa
+  // fn_decrypt_oauth), e o client de sessão falharia ali sem avisar que o
+  // outbound saiu sem assinatura.
+  //
+  // Sem guarda separada de "nada a reenviar" aqui: `decidirRetomada` (acima)
+  // já cobre isso de forma genérica (`no_actions_to_resend`) — a versão
+  // anterior desta rota só sabia reenviar `call_webhook` e tinha uma guarda
+  // duplicada checando só esse tipo; a generalização por índice a tornou
+  // redundante e desatualizada (uma regra sem NENHUMA ação de nenhum tipo
+  // também precisa cair em "não há o que retomar", não só sem webhook).
   const adminForActions = createAdminClient();
   const merged = [...originalResults];
   for (const i of indicesParaRetomar) {

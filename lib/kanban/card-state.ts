@@ -1,4 +1,4 @@
-import { estaAtrasada } from "@/lib/leads/lead-tasks";
+import { estaAtrasada } from "@/lib/tarefas/tipos";
 import type { ScoreBand } from "@/lib/kanban/score-band";
 import { resolveLeadOwner, type OwnerDisplay } from "@/lib/kanban/owner";
 import type { Lead } from "@/lib/types/leads";
@@ -61,10 +61,10 @@ export interface CardInput {
   /** Todas as tags — fora do card, acessíveis no hover. */
   tags: string[];
   /**
-   * A tarefa PENDENTE de prazo mais próximo (migration 0211) — nunca a lista
-   * inteira. `overdue` já vem calculado (`estaAtrasada`), não recalculado no
-   * componente: um segundo relógio no card divergiria do rodapé no minuto em
-   * que o prazo vira.
+   * A tarefa ABERTA de prazo mais próximo (migration 0236, `crm_tasks`) —
+   * nunca a lista inteira. `overdue` já vem calculado (`estaAtrasada`), não
+   * recalculado no componente: um segundo relógio no card divergiria do
+   * rodapé no minuto em que o prazo vira.
    */
   nextTask?: { title: string; dueAt: string; overdue: boolean } | null;
 }
@@ -140,8 +140,8 @@ export function buildCardInput(
     nextTask: lead.next_task
       ? {
           title: lead.next_task.title,
-          dueAt: lead.next_task.due_at,
-          overdue: estaAtrasada({ status: "pending", due_at: lead.next_task.due_at }, now),
+          dueAt: lead.next_task.due_date,
+          overdue: estaAtrasada({ status: "pending", due_date: lead.next_task.due_date }, now),
         }
       : null,
   };

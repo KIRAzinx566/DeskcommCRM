@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
-import { useOverdueTasks } from "@/hooks/leads/useOverdueTasks";
+import { useOverdueTasks } from "@/hooks/tasks/useOverdueTasks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClockCountdown } from "@/lib/ui/icons";
 
@@ -50,7 +50,7 @@ export function OverdueTasksSection() {
                   <p className="truncate text-xs text-text-muted">{tarefa.lead_title}</p>
                 </div>
                 <span className="shrink-0 text-xs font-medium text-warning-fg">
-                  {new Date(tarefa.due_at).toLocaleDateString(tagDoIdioma)}
+                  {new Date(tarefa.due_date).toLocaleDateString(tagDoIdioma)}
                 </span>
               </Link>
             </li>
