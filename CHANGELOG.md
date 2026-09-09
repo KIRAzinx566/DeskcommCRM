@@ -8,6 +8,113 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.13.0] — 2026-09-09
+
+### Adicionado
+
+- **Atalho de resposta pronta expande sozinho ao digitar** No Composer do Inbox, digitar o atalho de uma resposta pronta por inteiro
+  (ex.: `/oi`) e apertar espaço ou Enter substitui o texto pelo conteúdo do
+  template automaticamente — sem precisar abrir a lista e clicar. Atalho
+  digitado pela metade continua só filtrando a lista, como antes.
+
+- **Automações ganharam "Testar antes de ligar" e "Retomar do que falhou** Em Configurações › Webhooks › Automações, o editor de regra agora tem um
+  botão "Testar": escolha um evento recente do mesmo gatilho e veja o que a
+  regra FARIA — nenhuma ação roda de verdade, nada é gravado. Serve para
+  revisar uma regra antes de ligá-la.
+
+  Na aba Atividade, o botão que reenviava uma automação com falha agora se
+  chama "Retomar" e funciona pra qualquer tipo de ação (antes só funcionava
+  para "Avisar outro sistema"), e retoma só o que realmente falhou ou foi
+  pulado — o que já tinha dado certo continua valendo, em vez de rodar tudo
+  de novo.
+
+- **Pesquisa de satisfação (CSAT) pelo próprio WhatsApp** Ao fechar uma conversa que teve pelo menos uma mensagem do cliente, o CRM
+  pergunta a satisfação na MESMA conversa de WhatsApp — sem link externo, sem
+  e-mail. O cliente responde com uma nota de 1 a 5 (ou uma palavra como
+  "ótimo"/"ruim") e a resposta é reconhecida automaticamente; qualquer outra
+  mensagem segue seu caminho normal no inbox, sem interferência.
+
+  - Liga/desliga e personaliza a pergunta em **Configurações › Organização**.
+  - Resultados em **Métricas › CSAT**: nota média dos últimos 30 dias, quantas
+    pesquisas foram enviadas e respondidas, e a lista das respostas recentes.
+
+- **Campos do lead agora reordenam por arrastar e mostram preview ao vivo** Em Configurações › Funis, os campos customizados do lead ganharam uma alça
+  de arrastar para reordenar (a ordem em que aparecem no dossiê do negócio) e
+  um preview ao lado que mostra exatamente como o atendente vai ver cada campo,
+  atualizado a cada tecla — sem precisar salvar para conferir. O tipo
+  `multiselect` também passou a aparecer na lista de tipos (já era aceito pelo
+  banco, mas não dava para escolher pela tela).
+
+- **MCP agora pode ser conectado por clientes externos, com limite de uso próprio** Em Configurações › Conectar MCP, qualquer administrador encontra o endereço
+  do servidor MCP e um botão para criar um token já com os escopos certos —
+  para conectar Claude Desktop, Cursor ou qualquer outro cliente MCP direto ao
+  CRM. O mecanismo já existia (o mesmo usado pelos agentes de IA internos);
+  faltava só a tela.
+
+  De quebra, a rota `/api/mcp` ganhou limite de 60 chamadas por minuto por
+  token — antes não tinha proteção nenhuma contra abuso.
+
+- **Previsão de receita ponderada e carga atual do atendente** Duas visões novas em **Métricas** (manager+):
+
+  - **Previsão**: cada etapa aberta do funil pode ganhar uma probabilidade de
+    fechar (%), configurada em **Configurações › Funis › Etapas**. Com isso, o
+    Kanban mostra — ao lado do total bruto de cada coluna — o valor previsto
+    ponderado por essa probabilidade, e a nova aba "Previsão" no dashboard soma
+    tudo por funil e por etapa. Etapa sem probabilidade configurada continua
+    entrando no total bruto, só fica de fora do ponderado.
+  - **Em atendimento agora**: a tabela de performance por atendente ganhou uma
+    coluna mostrando quantas conversas cada um tem abertas neste momento contra
+    o teto configurado (`capacidade`) — o mesmo limite que o roteamento
+    automático já respeitava por baixo dos panos, agora visível.
+
+- **Sistema de cobrança — boleto, Pix e cartão via ASAAS** O CRM agora gera cobranças de verdade. Cada organização conecta a própria
+  conta ASAAS (sandbox ou produção) em **Configurações › Credenciais de pagamento**
+  — o dinheiro cai direto na conta dela, nunca passa pela DeskcommCRM. A partir
+  daí:
+
+  - Pela tela, em **Cobranças**: gerar boleto/Pix/cartão manualmente, ver o
+    status de cada cobrança e o link/código para o cliente pagar.
+  - Pelo agente de IA (quando as ferramentas de cobrança forem habilitadas no
+    pacote "Vender"): `crm_gerar_cobranca`, `crm_consultar_cobranca`,
+    `crm_listar_cobrancas` e `crm_cancelar_cobranca` — a IA pode gerar e
+    acompanhar cobrança durante o atendimento, sempre com o CPF/CNPJ confirmado
+    com o cliente antes.
+  - Confirmação de pagamento chega por webhook da ASAAS e atualiza o status
+    automaticamente, com uma linha na timeline do negócio ("Pagamento
+    confirmado").
+
+  Nenhum dado de cartão passa pela DeskcommCRM — cartão é sempre um link de
+  checkout hospedado pela própria ASAAS.
+
+- **Tarefa leve com prazo por lead ("próxima ação")** Cada negócio ganha uma seção **"Próxima ação"** no dossiê, para lembretes
+  simples com prazo — "ligar até sexta", "mandar mensagem amanhã de manhã" —
+  sem precisar marcar hora nem envolver a Agenda completa. Pode haver várias
+  tarefas pendentes ao mesmo tempo; a mais próxima do prazo aparece:
+
+  - Como um badge no card do Kanban (destacado em vermelho quando o prazo já
+    passou).
+  - Numa seção nova **"Tarefas atrasadas"** no Radar, juntando as pendências
+    vencidas da organização inteira.
+
+  Concluir ou descartar uma tarefa fica registrado na linha do tempo do
+  negócio.
+
+### Corrigido
+
+- **Cadastro sem clicar no e-mail de confirmação deixava a pessoa presa sem organização** Quem criava conta e, por qualquer motivo, nunca chegava a clicar no link de
+  confirmação de e-mail — provedor de auth configurado sem exigir confirmação,
+  ou o próprio e-mail de confirmação mal configurado — conseguia logar
+  normalmente, mas ficava para sempre numa tela dizendo "você não tem nenhuma
+  organização ativa, aceite um convite ou contate o admin". Não havia nada que
+  essa pessoa pudesse fazer sozinha: a organização só nascia no momento exato
+  do clique naquele link, e sem ele, nunca nascia.
+
+  Agora, ao entrar pela primeira vez sem organização nenhuma, o sistema tenta
+  provisionar ali mesmo — com o mesmo nome de empresa que a pessoa digitou no
+  cadastro. Quem foi convidado para uma organização que já existe continua
+  sendo direcionado para o convite, normalmente: essa rede de segurança nunca
+  cria uma organização nova para quem tinha, na verdade, um convite esperando.
+
 ## [1.12.2] — 2026-09-03
 
 ### Corrigido
@@ -2039,7 +2146,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.2...HEAD
+[Não lançado]: https://github.com/melgarafael/DeskcommCRM/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.2...v1.13.0
 [1.12.2]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.11.1...v1.12.0
