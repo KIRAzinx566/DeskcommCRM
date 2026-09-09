@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { OverdueTasksSection } from "./_components/OverdueTasksSection";
 import { RiskRadarList } from "./_components/RiskRadarList";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function RadarPage() {
           )}
         </p>
       </header>
+      <OverdueTasksSection />
       <RiskRadarList />
     </div>
   );

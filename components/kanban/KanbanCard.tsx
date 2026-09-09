@@ -5,6 +5,7 @@ import { useT } from "@/hooks/i18n/useT";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/types/leads";
 import { resolveCardState, stageAgeLabel, type CardInput } from "@/lib/kanban/card-state";
+import { ClockCountdown } from "@/lib/ui/icons";
 import { KanbanCardActions } from "./KanbanCardActions";
 import { NextActionSlot } from "./NextActionSlot";
 import { ReactivationSlot } from "./ReactivationSlot";
@@ -229,10 +230,31 @@ export function KanbanCard({
               ownerName={card.owner.name}
               agentVersion={card.owner.agentVersion}
             />
-            <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-text-muted">
-              {state.showStageAge && age
-                ? `${age} ${t("em")} ${card.stageName}`
-                : `${t("em")} ${card.stageName}`}
+            <span className="flex min-w-0 items-center justify-end gap-1.5">
+              {/* A tarefa pendente de prazo mais próximo (migration 0211)
+                  SUBSTITUI o "tempo no estágio", nunca disputa a mesma linha
+                  com ele: o card tem largura fixa (`w-80`) e o rodapé já
+                  reparte espaço com o dono — três textos ali colapsam a
+                  zero. Mesma régua que `showStageAge` já aplica às outras
+                  faixas (§5: um dado por vez, nunca dois pelo mesmo motivo). */}
+              {card.nextTask ? (
+                <span
+                  className={cn(
+                    "flex min-w-0 items-center gap-0.5 truncate text-[11px] font-medium",
+                    card.nextTask.overdue ? "text-warning-fg" : "text-text-muted",
+                  )}
+                  title={card.nextTask.title}
+                >
+                  <ClockCountdown size={12} className="shrink-0" aria-hidden />
+                  <span className="min-w-0 truncate">{card.nextTask.title}</span>
+                </span>
+              ) : (
+                <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-text-muted">
+                  {state.showStageAge && age
+                    ? `${age} ${t("em")} ${card.stageName}`
+                    : `${t("em")} ${card.stageName}`}
+                </span>
+              )}
             </span>
           </div>
         </div>

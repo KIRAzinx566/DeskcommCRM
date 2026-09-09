@@ -58,6 +58,13 @@ export interface Lead {
    */
   next_action?: { label: string; seq: number; proposed_at: string } | null;
   /**
+   * Derivado (não é coluna): a tarefa leve PENDENTE de prazo mais próximo
+   * (`crm_lead_tasks`, migration 0211) — nunca a lista inteira, sempre a mais
+   * urgente. `undefined` = ainda não carregou; `null` seria "carregou e não
+   * tem" — como este campo só é anexado quando existe, fica opcional mesmo.
+   */
+  next_task?: { id: string; title: string; due_at: string; type: string } | null;
+  /**
    * Derivado (não é coluna): o score vem de `crm_lead_scores` por LEFT JOIN.
    *
    * Ausente é estado LEGÍTIMO (sinal insuficiente, cenário 17) — por isso LEFT

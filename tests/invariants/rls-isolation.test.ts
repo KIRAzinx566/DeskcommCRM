@@ -99,6 +99,7 @@ beforeAll(() => {
       v_conv uuid;
       v_pipe uuid;
       v_stage uuid;
+      v_lead uuid;
       v_billing_cred uuid;
     begin
       foreach v_org in array array['${ORG_A}'::uuid, '${ORG_B}'::uuid] loop
@@ -137,9 +138,19 @@ beforeAll(() => {
             values (v_org, v_pipe, 'Novo', 'novo', 1000) returning id into v_stage;
         end if;
 
-        if not exists (select 1 from public.crm_leads where organization_id = v_org) then
+        select id into v_lead from public.crm_leads
+          where organization_id = v_org and pipeline_id = v_pipe and title = 'RLS invariant lead';
+        if v_lead is null then
           insert into public.crm_leads (organization_id, pipeline_id, stage_id, title)
-            values (v_org, v_pipe, v_stage, 'RLS invariant lead');
+            values (v_org, v_pipe, v_stage, 'RLS invariant lead') returning id into v_lead;
+        end if;
+
+        -- migration 0211 — tarefa leve com prazo por lead. SELECT herda a
+        -- visibilidade do lead-pai (fn_can_view_lead), não tem policy própria
+        -- de organização — por isso entra na mesma lista de tabelas provadas.
+        if not exists (select 1 from public.crm_lead_tasks where organization_id = v_org) then
+          insert into public.crm_lead_tasks (organization_id, lead_id, title, due_at)
+            values (v_org, v_lead, 'RLS invariant task', now() + interval '1 day');
         end if;
 
         if not exists (select 1 from public.org_guardrail_layers where organization_id = v_org) then
@@ -294,6 +305,11 @@ export const TABLES = [
   // org; escrita é só service_role (os dois handlers do event_log), eixo
   // não medido aqui.
   "csat_requests",
+  // migration 0211 — tarefa leve com prazo por lead. SELECT herda a
+  // visibilidade do lead-pai via fn_can_view_lead (EXISTS, não scalar de
+  // owner — lição G4-01); a query abaixo filtra por organization_id, que a
+  // tabela tem como coluna direta mesmo a policy sendo via join.
+  "crm_lead_tasks",
   // ⚠️ `webhook_lead_captures` (migration 0174) NÃO entra nesta lista, e a
   // ausência é deliberada: a policy dela exige `manager`, e o usuário semeado
   // aqui é `agent` — o controle positivo falharia por ACERTO, e a "correção"

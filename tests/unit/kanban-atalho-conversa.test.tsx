@@ -123,8 +123,17 @@ describe("o elo que some sem barulho", () => {
     // Chamar e não USAR o resultado é o defeito de verdade: a função roda, o
     // custo se paga, e a resposta sai sem a conversa. A primeira versão deste
     // caso só olhava a chamada e o sabote passou.
-    expect(fonte, "o resultado de withConversas não chegou à resposta").toMatch(
-      /leads:\s*leadsComConversa\.leads/,
+    //
+    // migration 0211 acrescentou mais um elo na cadeia (withNextTasks, depois
+    // de withConversas) — a resposta final passou a ser `leadsComTarefa.leads`,
+    // mas só prova algo se ESSE elo tiver sido alimentado pelo resultado da
+    // conversa, e não por `leads` cru. As duas asserções, juntas, fecham a
+    // mesma classe de defeito para a cadeia inteira.
+    expect(fonte, "withNextTasks não recebeu o resultado de withConversas").toMatch(
+      /withNextTasks\(\s*supabase,\s*[^,]+,\s*leadsComConversa\.leads/,
+    );
+    expect(fonte, "o resultado da cadeia não chegou à resposta").toMatch(
+      /leads:\s*leadsComTarefa\.leads/,
     );
   });
 

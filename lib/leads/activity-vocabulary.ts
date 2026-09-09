@@ -109,7 +109,15 @@ export type ActivityType =
    */
   | "billing_charge_created"
   | "billing_charge_paid"
-  | "billing_charge_cancelled";
+  | "billing_charge_cancelled"
+  /**
+   * O par de decisões sobre uma tarefa leve com prazo (`crm_lead_tasks`,
+   * migration 0211) — mesmo critério de `next_action_approved`/`_dismissed`:
+   * as duas mudam o que alguém faria a seguir, e "descartada" é sinal (alguém
+   * decidiu que aquilo não precisa mais acontecer), não silêncio.
+   */
+  | "task_completed"
+  | "task_dismissed";
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   lead_created: "Entrou pelo WhatsApp",
@@ -202,6 +210,8 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   billing_charge_created: "Cobrança gerada",
   billing_charge_paid: "Pagamento recebido",
   billing_charge_cancelled: "Cobrança cancelada",
+  task_completed: "Tarefa concluída",
+  task_dismissed: "Tarefa descartada",
 };
 
 /** Quando o tipo é legado/desconhecido, a linha ainda é honesta — sem jargão. */
