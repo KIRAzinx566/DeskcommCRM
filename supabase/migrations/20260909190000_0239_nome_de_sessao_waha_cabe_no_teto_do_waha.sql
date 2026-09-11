@@ -1,5 +1,8 @@
 -- ============================================================================
--- 0232 — O NOME DA SESSÃO WAHA ESTOURA O TETO QUE O WAHA IMPÕE
+-- 0239 — O NOME DA SESSÃO WAHA ESTOURA O TETO QUE O WAHA IMPÕE
+--
+-- Renumerada de 0232 para 0239 na sincronização com o upstream: colidia com a
+-- 0232 já existente neste fork (`contact_ai_authorization`, sem relação).
 --
 -- `fn_reserve_channel_connection` (nasceu na 0228, forward-fix na 0230) gera o
 -- `waha_session_name` de canal novo como:

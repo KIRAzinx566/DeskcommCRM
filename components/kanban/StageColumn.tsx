@@ -142,7 +142,7 @@ export function StageColumn({
               ganho já É o valor bruto (100%) e perda já é zero: repetir os dois
               aqui seria ruído, não informação nova. */}
           {previstoCents !== null && !stage.is_won && !stage.is_lost && (
-            <span className="text-text-muted/70">
+            <span className="text-text-muted">
               · {t("previsto")} {formatBRL(previstoCents)} ({probabilidade}%)
             </span>
           )}

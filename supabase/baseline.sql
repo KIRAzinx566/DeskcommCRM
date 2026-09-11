@@ -23568,7 +23568,7 @@ grant execute on function public.fn_reserve_channel_connection(uuid,uuid,text,te
 
 notify pgrst,'reload schema';
 
--- ---- nome de sessão WAHA cabe no teto do WAHA (migration 0232) ----
+-- ---- nome de sessão WAHA cabe no teto do WAHA (migration 0239) ----
 -- O `devlikeapro/waha:latest-2026.7.2` valida `name` de sessão com @MaxLength(54);
 -- `org_<32>_<32>` = 69 e todo `POST /api/sessions` de canal novo tomava 400. O
 -- prefixo da org encurta para 8 (`org_<8>_<32>` = 45), alinhado com a busca de
