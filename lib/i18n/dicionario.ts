@@ -5466,7 +5466,28 @@ export const DICIONARIO: Traducoes = {
   },
   "503 — Em manutenção": { es: "503 — En mantenimiento" },
   "Voltamos em alguns minutos.": { es: "Volvemos en unos minutos." },
+  // A recusa por modelo padrão passou a nomear as DUAS topologias: na nuvem o
+  // conserto é o script; num Supabase próprio ele não tem Management API para
+  // usar, e o caminho são as rotas do app.
+  "Este link veio do modelo de e-mail padrão do Supabase, que não fecha o acesso nesta instalação — pedir outro link não resolve. Quem administra o sistema precisa configurar os modelos de e-mail: na nuvem do Supabase, com ":
+    {
+      es: "Este enlace vino de la plantilla de correo predeterminada de Supabase, que no cierra el acceso en esta instalación — pedir otro enlace no lo resuelve. Quien administra el sistema necesita configurar las plantillas de correo: en la nube de Supabase, con ",
+    },
+  "; num Supabase próprio, apontando GOTRUE_MAILER_TEMPLATES_* para as rotas /email-templates/ do app.":
+    {
+      es: "; en un Supabase propio, apuntando GOTRUE_MAILER_TEMPLATES_* a las rutas /email-templates/ de la app.",
+    },
   "Conta suspensa": { es: "Cuenta suspendida" },
+  // Tela irmã de `/account-suspended`: quem TINHA acesso e não tem mais.
+  "Acesso revogado": { es: "Acceso revocado" },
+  "Seu acesso a esta organização foi retirado. Se você acredita que isso é um engano, fale com quem administra a empresa — só ela pode devolvê-lo.":
+    {
+      es: "Tu acceso a esta organización fue retirado. Si crees que es un error, habla con quien administra la empresa — solo ella puede devolvértelo.",
+    },
+  "Seu acesso a esta organização foi retirado. Fale com quem administra a empresa — criar uma organização nova não devolve o acesso.":
+    {
+      es: "Tu acceso a esta organización fue retirado. Habla con quien administra la empresa — crear una organización nueva no devuelve el acceso.",
+    },
   "Sua conta está suspensa. Entre em contato com": {
     es: "Tu cuenta está suspendida. Contacta a",
   },
@@ -5943,9 +5964,6 @@ export const DICIONARIO: Traducoes = {
   "Sua conta foi confirmada, mas o convite não vale mais — ele expirou ou foi emitido para outro e-mail. Peça um novo a quem te convidou. Não criamos uma empresa nova para você, porque não era isso que você estava fazendo.": {
     es: "Tu cuenta fue confirmada, pero la invitación ya no vale — venció o fue emitida para otro correo. Pide una nueva a quien te invitó. No creamos una empresa nueva para ti, porque no era eso lo que estabas haciendo.",
   },
-  "Este link veio do modelo de e-mail padrão do Supabase, que não fecha o acesso nesta instalação — pedir outro link não resolve. Quem administra o sistema precisa configurar os e-mails de acesso (": {
-    es: "Este enlace vino de la plantilla de correo predeterminada de Supabase, que no cierra el acceso en esta instalación — pedir otro enlace no resuelve. Quien administra el sistema necesita configurar los correos de acceso (",
-  },
   ", no kit de instalação).": { es: ", en el kit de instalación)." },
   "Sua conta foi confirmada, mas houve um erro ao preparar seu ambiente. Tente entrar novamente em instantes.": {
     es: "Tu cuenta fue confirmada, pero hubo un error al preparar tu ambiente. Intenta entrar de nuevo en unos instantes.",
@@ -5965,6 +5983,23 @@ export const DICIONARIO: Traducoes = {
   "em minutos": { es: "en minutos" },
   "Esse convite expirou ou não é mais válido. Peça um novo a quem te convidou — criar uma conta agora abriria uma empresa nova, e não é isso que você quer.": {
     es: "Esa invitación venció o ya no es válida. Pide una nueva a quien te invitó — crear una cuenta ahora abriría una empresa nueva, y no es eso lo que quieres.",
+  },
+  // ── Revogação reversível (2026-09-10) ─────────────────────────────────────
+  // ("Revogado" já existe mais acima — a chave é o texto, então repetir é erro
+  //  de compilação, e é assim que o dicionário evita duas traduções da mesma
+  //  frase divergirem.)
+  "Devolver acesso": { es: "Devolver el acceso" },
+  // ("Seu nome" já existe mais acima — a chave é o próprio texto.)
+  "Informe seu nome": { es: "Escribe tu nombre" },
+  "Você já tem uma conta com este e-mail": {
+    es: "Ya tienes una cuenta con este correo",
+  },
+  "Entre com ela para aceitar o convite — não é preciso criar outra.": {
+    es: "Entra con ella para aceptar la invitación — no hace falta crear otra.",
+  },
+  "Entrar e aceitar o convite": { es: "Entrar y aceptar la invitación" },
+  "Recebeu um convite novo? Abra o link que chegou no seu e-mail — ele funciona mesmo com esta tela aberta, e devolve o seu acesso.": {
+    es: "¿Recibiste una invitación nueva? Abre el enlace que llegó a tu correo — funciona incluso con esta pantalla abierta, y te devuelve el acceso.",
   },
   "Já tem conta?": { es: "¿Ya tienes cuenta?" },
   "Email ou senha incorretos.": { es: "Correo o contraseña incorrectos." },
@@ -6121,6 +6156,12 @@ export const DICIONARIO: Traducoes = {
   "Duração": { es: "Duración" },
   "Quem atende": { es: "Quién atiende" },
   "O que se pode marcar, quanto dura e quem atende. É isto que a tela de marcar e o agente de IA oferecem ao cliente.": { es: "Qué se puede agendar, cuánto dura y quién atiende. Esto es lo que la pantalla de agendar y el agente de IA le ofrecen al cliente." },
+  "Avisar o cliente antes do compromisso, pelo WhatsApp": { es: "Avisar al cliente antes de la cita, por WhatsApp" },
+  "Quantos minutos antes": { es: "Cuántos minutos antes" },
+  "avisa o cliente": { es: "avisa al cliente" },
+  "antes": { es: "antes" },
+  "O lembrete precisa sair pelo menos 15 minutos antes do compromisso.": { es: "El recordatorio debe salir al menos 15 minutos antes de la cita." },
+  "O lembrete não pode sair mais de 7 dias (10080 minutos) antes.": { es: "El recordatorio no puede salir más de 7 días (10080 minutos) antes." },
   "Ação contém": { es: "La acción contiene" },
   "Ator": { es: "Actor" },
   "Nenhum log no período.": { es: "Ningún registro en el período." },
@@ -8296,6 +8337,17 @@ export const DICIONARIO: Traducoes = {
   "Sua reunião está marcada para": { es: "Tu reunión está programada para" },
   "Link do Google Meet:": { es: "Enlace de Google Meet:" },
 
+
+  // ─── app/api/v1/cron/agenda-reminder (o lembrete que sai no WhatsApp) ───
+  //
+  // Não é tela: é mensagem que sai para o telefone de um cliente. Sem estas
+  // entradas, uma instalação em espanhol mandaria a frase em português com a
+  // data em espanhol — a mesma metade-traduzida que o guarda de data proíbe,
+  // só que irreversível, porque a mensagem já saiu. `às` já existia acima.
+  "Oi,": { es: "¡Hola," },
+  "Oi!": { es: "¡Hola!" },
+  "Passando pra lembrar do seu compromisso:": { es: "Te recuerdo tu cita:" },
+  "Endereço": { es: "Dirección" },
 
   // ─── lib/ai/pontos/resolver.ts (avisos do painel de Provedores de IA) ───
   "Este ponto usa o modelo definido na versão publicada do agente; a escolha do painel não se aplica.": {
