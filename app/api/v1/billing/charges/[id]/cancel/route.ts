@@ -12,6 +12,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { ApiError } from "@/lib/api/types";
 import { requireRole } from "@/lib/auth/require-role";
+import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createClient } from "@/lib/supabase/server";
 
 import { cancelarCobrancaHandler } from "../../_handler";
@@ -24,6 +25,9 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = randomUUID();
   const { id } = await ctx.params;
 

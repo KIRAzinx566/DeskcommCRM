@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import { expect, it } from "vitest";
-function files(dir:string):string[]{return readdirSync(dir,{withFileTypes:true}).flatMap(item=>item.isDirectory()?files(join(dir,item.name)):[join(dir,item.name)]);}
+function files(dir:string):string[]{return readdirSync(dir,{withFileTypes:true}).flatMap(item=>item.isDirectory()?files(join(dir,item.name)):[join(dir,item.name).replace(/\\/g,"/")]);}
 it("todo handler mutante do app declara guarda de suporte ou é infraestrutura identificada",()=>{
  const uncovered:string[]=[];
  for(const path of files("app/api/v1").filter(p=>p.endsWith("/route.ts"))){

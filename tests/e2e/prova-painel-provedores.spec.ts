@@ -108,7 +108,7 @@ test("F1 — ponto fixo mostra a RAZÃO, não um cadeado mudo", async ({ page })
     "text-embedding-3-small",
   );
   await expect(page.locator('[data-testid="origem-embedding_indexar"]')).toContainText(
-    /fixo no código/i,
+    /o produto resolve este ponto sozinho/i,
   );
   await page.screenshot({ path: "evidence/provedores/03-ponto-fixo-com-razao.png", fullPage: true });
 });
