@@ -45,23 +45,41 @@ function item(f: Fragmento): string {
 
 export interface SecaoMontada {
   versao: string;
+  /** O que aparece no heading e na chave do link de referência. Ver `montarSecao`. */
+  rotulo: string;
   texto: string;
 }
 
 /**
  * @param data no formato `YYYY-MM-DD` — vem de fora porque o módulo é puro e
  *   porque um teste que chama `new Date()` mede o relógio, não a montagem.
+ * @param rotulo o que aparece no heading (`## [rotulo]`) e na chave do link
+ *   de referência (`[rotulo]: ...`). Default: o próprio `versao`.
+ *
+ *   ⚠️ USE COM CUIDADO quando `rotulo !== versao`: `lib/system/changelog.ts`
+ *   (o que a TELA de atualização da VPS lê) casa a seção pelo número EXATO
+ *   dentro dos colchetes — um heading `## [1.14.0-algo]` nunca é achado por
+ *   quem procura `"1.14.0"`. Um rótulo diferente do `versao` SOME da tela de
+ *   "o que há de novo" de quem instalou. Por isso a seção nova entra sempre
+ *   com o número limpo, mesmo quando ele coincide com uma release HISTÓRICA
+ *   do upstream intercalada mais abaixo no arquivo (comentário logo abaixo de
+ *   `## [Não lançado]`): a seção deste fork nasce ACIMA na inserção
+ *   (`aplicarNoChangelog`/`ANCORA`), é a primeira ocorrência do número no
+ *   arquivo, e é por isso a que `extractChangelogSection` sempre encontra —
+ *   sem precisar de rótulo nenhum. O parâmetro existe só para o caso raro em
+ *   que alguém decida, cientemente, aceitar esse custo.
  */
 export function montarSecao(
   fragmentos: readonly Fragmento[],
   versao: string,
   data: string,
+  rotulo: string = versao,
 ): SecaoMontada {
   if (fragmentos.length === 0) {
     throw new Error("montarSecao sem fragmento: não há seção a escrever");
   }
 
-  const partes: string[] = [`## [${versao}] — ${data}`, ""];
+  const partes: string[] = [`## [${rotulo}] — ${data}`, ""];
 
   // TODOS os avisos sob UM heading só. Dois headings de atenção fariam
   // `findAttentionRange` pegar o primeiro e deixar o segundo vazando para
@@ -86,7 +104,7 @@ export function montarSecao(
     }
   }
 
-  return { versao, texto: partes.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() };
+  return { versao, rotulo, texto: partes.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() };
 }
 
 /** `## [Não lançado]` — a âncora que a seção nova nasce logo abaixo. */
@@ -117,7 +135,7 @@ export function aplicarNoChangelog(
   // é prosa escrita à mão que neste repo rotineiramente carrega shell e regex.
   let saida = raw.replace(ANCORA, (ancora) => `${ancora}\n\n${secao.texto}`);
 
-  const refNova = `[${secao.versao}]: ${compararUrl(`v${anterior}`, `v${secao.versao}`)}`;
+  const refNova = `[${secao.rotulo}]: ${compararUrl(`v${anterior}`, `v${secao.versao}`)}`;
   const refNaoLancado = `[Não lançado]: ${compararUrl(`v${secao.versao}`, "HEAD")}`;
 
   if (/^\[Não lançado\]:\s+\S+$/m.test(saida)) {
