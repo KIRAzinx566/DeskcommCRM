@@ -101,6 +101,9 @@ beforeAll(() => {
       v_stage uuid;
       v_lead uuid;
       v_billing_cred uuid;
+      v_agent uuid;
+      v_version uuid;
+      v_boundary jsonb;
     begin
       foreach v_org in array array['${ORG_A}'::uuid, '${ORG_B}'::uuid] loop
         select id into v_sess from public.channel_sessions where organization_id = v_org limit 1;
@@ -124,6 +127,31 @@ beforeAll(() => {
             values (v_org, v_conv, v_sess, v_contact, 'text', 'inbound', 'rls invariant probe');
         end if;
 
+        -- 0227: sugestões contêm texto privado da conversa. Os dois tenants
+        -- recebem uma linha real, com todos os FKs e a fronteira canônica.
+        -- A prova abaixo usa JWT authenticated; não é só inspeção de policy.
+        if not exists (select 1 from public.ai_reply_drafts where organization_id = v_org) then
+          v_boundary := public.fn_service_begin(v_org, v_contact);
+          v_conv := (v_boundary->>'conversation_id')::uuid;
+          insert into public.ai_agents (organization_id, name, system_prompt, operation_mode)
+            values (v_org, 'RLS Invariant Assistant', 'RLS invariant private prompt', 'assisted')
+            returning id into v_agent;
+          insert into public.ai_agent_versions
+            (organization_id, agent_id, version_number, system_prompt, provider, model, channel_session_id, status)
+            values (v_org, v_agent, 1, 'RLS invariant private prompt', 'anthropic', 'rls-test-model', v_sess, 'published')
+            returning id into v_version;
+          update public.ai_agents set published_version_id = v_version
+            where organization_id = v_org and id = v_agent;
+          insert into public.ai_reply_drafts
+            (organization_id, conversation_id, contact_id, agent_id, agent_version_id,
+             channel_session_id, service_boundary, context_revision, operation_revision,
+             status, original_body)
+            values (v_org, v_conv, v_contact, v_agent, v_version, v_sess, v_boundary,
+              (select reply_context_revision from public.conversations where organization_id = v_org and id = v_conv),
+              (select operation_revision from public.ai_agents where organization_id = v_org and id = v_agent),
+              'pending', 'RLS invariant private reply');
+        end if;
+
         select id into v_pipe from public.crm_pipelines
           where organization_id = v_org and slug = 'rls-inv';
         if v_pipe is null then
@@ -143,14 +171,6 @@ beforeAll(() => {
         if v_lead is null then
           insert into public.crm_leads (organization_id, pipeline_id, stage_id, title)
             values (v_org, v_pipe, v_stage, 'RLS invariant lead') returning id into v_lead;
-        end if;
-
-        -- migration 0211 — tarefa leve com prazo por lead. SELECT herda a
-        -- visibilidade do lead-pai (fn_can_view_lead), não tem policy própria
-        -- de organização — por isso entra na mesma lista de tabelas provadas.
-        if not exists (select 1 from public.crm_lead_tasks where organization_id = v_org) then
-          insert into public.crm_lead_tasks (organization_id, lead_id, title, due_at)
-            values (v_org, v_lead, 'RLS invariant task', now() + interval '1 day');
         end if;
 
         if not exists (select 1 from public.org_guardrail_layers where organization_id = v_org) then
@@ -203,6 +223,17 @@ beforeAll(() => {
           insert into public.catalog_products
             (organization_id, codigo, nome, preco_cents)
             values (v_org, 'RLS-' || v_org::text, 'Produto de invariante', 100);
+        end if;
+
+        -- crm_tasks (migration 0236): o que o time combinou fazer, com prazo.
+        -- Entra COM o vínculo de lead porque a tarefa presa a um negócio é o
+        -- caso que cruza duas tabelas tenant-aware — se a policy vazasse, o
+        -- vizinho leria o combinado E o ponteiro para o funil dele.
+        -- (sem crase nesta prosa: o bloco inteiro é um template literal de JS.)
+        if not exists (select 1 from public.crm_tasks where organization_id = v_org) then
+          insert into public.crm_tasks (organization_id, title, lead_id)
+            values (v_org, 'RLS invariant task',
+                    (select id from public.crm_leads where organization_id = v_org limit 1));
         end if;
 
         if not exists (select 1 from public.push_subscriptions where organization_id = v_org) then
@@ -305,11 +336,14 @@ export const TABLES = [
   // org; escrita é só service_role (os dois handlers do event_log), eixo
   // não medido aqui.
   "csat_requests",
-  // migration 0211 — tarefa leve com prazo por lead. SELECT herda a
-  // visibilidade do lead-pai via fn_can_view_lead (EXISTS, não scalar de
-  // owner — lição G4-01); a query abaixo filtra por organization_id, que a
-  // tabela tem como coluna direta mesmo a policy sendo via join.
-  "crm_lead_tasks",
+  // migration 0236 — as tarefas do CRM. A leitura é org-scoped sem
+  // gate de papel (o `viewer` precisa ver o que o time combinou); a ESCRITA
+  // exige `agent`, e esse segundo eixo NÃO é medido aqui — o usuário semeado é
+  // `agent`, então o controle positivo passaria por acerto. Quem mede a
+  // escrita é a rota, em `tests/unit/tarefas-rota-nao-tem-porta-dos-fundos.test.ts`.
+  "crm_tasks",
+  // 0227 — texto de sugestões: org + visibilidade da conversa por authenticated.
+  "ai_reply_drafts",
   // ⚠️ `webhook_lead_captures` (migration 0174) NÃO entra nesta lista, e a
   // ausência é deliberada: a policy dela exige `manager`, e o usuário semeado
   // aqui é `agent` — o controle positivo falharia por ACERTO, e a "correção"
@@ -336,6 +370,21 @@ describe("RLS tenant isolation (fn_user_org_ids pattern)", () => {
       expect(ownRows).toBeGreaterThanOrEqual(1);
     });
   }
+
+  it("ai_reply_drafts: org B lê sua sugestão e não lê a de A (direção inversa)", () => {
+    expect(countAs(USER_B,
+      `select count(*) from public.ai_reply_drafts where organization_id = '${ORG_B}';`,
+    )).toBeGreaterThanOrEqual(1);
+    expect(countAs(USER_B,
+      `select count(*) from public.ai_reply_drafts where organization_id = '${ORG_A}';`,
+    )).toBe(0);
+  });
+
+  it("ai_reply_drafts: os dois tenants têm linhas antes de testar as cercas", () => {
+    expect(Number(sql(
+      `select count(distinct organization_id) from public.ai_reply_drafts where organization_id in ('${ORG_A}','${ORG_B}');`,
+    ))).toBe(2);
+  });
 
   it("superuser sees both orgs (seed sanity: cross-tenant rows really exist)", () => {
     const total = Number(

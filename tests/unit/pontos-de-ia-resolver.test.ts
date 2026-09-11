@@ -226,14 +226,25 @@ describe("a decisão explica a si mesma", () => {
 });
 
 describe("aviso de capacidade que não precisa de catálogo", () => {
-  it("aponta modelo que não é de embedding num ponto de embedding", () => {
+  // ⚠️ `embedding_indexar`/`embedding_consultar` são os DOIS únicos pontos com
+  // `exige.embeddingDims`, e os dois são `fixo` (degrau 0 do resolver, ver
+  // `resolver.ts`). Um binding esporádico para eles nunca chega ao degrau 2 (o
+  // único que chama `avisosDeCapacidade`) — o degrau 0 responde primeiro e
+  // IGNORA o binding por completo, valor e tudo, não só o aviso dele. Sem
+  // nenhum ponto CONFIGURÁVEL (`pontosConfiguraveis()`) com `embeddingDims`
+  // hoje, o caso de "aponta modelo que não é de embedding" que este describe
+  // tinha vira, na prática, este daqui: a prova de que o degrau 0 vence antes
+  // de o aviso ter chance de existir.
+  it("o degrau 0 (ponto fixo) ignora o binding por completo — nem o valor, nem o aviso dele valem", () => {
     const d = decidirBinding(
       entrada({
         pontoId: "embedding_consultar",
         binding: binding({ purpose: "embedding_consultar", model_id: "claude-sonnet-5" }),
       }),
     );
-    expect(d.avisos.join(" ")).toContain("modelo de embedding");
+    expect(d.origem).toBe("fixo_do_produto");
+    expect(d.modelId).not.toBe("claude-sonnet-5");
+    expect(d.avisos).toEqual([]);
   });
 
   it("aceita modelo de embedding sem reclamar", () => {
@@ -258,20 +269,41 @@ describe("aviso de capacidade que não precisa de catálogo", () => {
 });
 
 describe("o conjunto de pontos do agente publicado", () => {
-  it("contém exatamente os dois pontos que conversam com o cliente", () => {
-    // Crescer este conjunto tira pontos do painel sem ninguém perceber — quem
-    // adicionar um terceiro tem que passar por aqui e justificar.
+  it("contém os dois turnos do agente e o preview que usa a mesma versão", () => {
+    // Preview precisa reproduzir provider/modelo/credencial da versão testada,
+    // sem permitir que o binding do painel troque o agente durante a revisão.
+    // O conjunto continua exato: outros pontos permanecem sob o painel.
     expect([...PONTOS_DO_AGENTE_PUBLICADO].sort()).toEqual([
+      "agent_preview",
       "agent_turn",
       "operator_turn",
     ]);
   });
 
-  it("sem agente publicado, esses pontos caem para as origens seguintes", () => {
+  it("preview conserva modelo, provider e credencial da versão apesar do binding e do ambiente", () => {
+    const d = decidirBinding(entrada({
+      pontoId: "agent_preview",
+      binding: binding({ purpose: "agent_preview" }),
+      agentePublicado: agente(),
+      modeloDeAmbiente: "claude-haiku-4-5",
+    }));
+    expect(d).toMatchObject({
+      origem: "agente_publicado",
+      provider: "openai",
+      modelId: "gpt-5-mini",
+      credentialId: "cred-openai",
+      baseUrl: null,
+    });
+    expect(d.provider).not.toBe(PADRAO.provider);
+    expect(d.provider).not.toBe("openrouter");
+    expect(d.credentialId).not.toBe("cred-openrouter");
+  });
+
+  it.each(["agent_turn", "operator_turn", "agent_preview"])("sem agente publicado, %s cai para as origens seguintes", (pontoId) => {
     // Organização que ainda não publicou agente nenhum não pode ficar sem
     // resolução — seria o agente mudo do dia da instalação.
     const d = decidirBinding(
-      entrada({ pontoId: "agent_turn", binding: binding({ purpose: "agent_turn" }) }),
+      entrada({ pontoId, binding: binding({ purpose: pontoId }) }),
     );
     expect(d.origem).toBe("binding");
   });

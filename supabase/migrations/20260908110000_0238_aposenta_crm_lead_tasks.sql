@@ -1,0 +1,21 @@
+-- 0238 — aposenta `crm_lead_tasks` em favor de `crm_tasks` (migration 0236).
+--
+-- A 0211 (`crm_lead_tasks`) e a 0236 (`crm_tasks`, extraída do PR #418
+-- upstream) nasceram em paralelo resolvendo o MESMO problema: "o que ficou
+-- combinado, com prazo, por negócio". A 0236 é estritamente mais completa —
+-- tem `priority`, `contact_id` direto, `due_at` nullable com `on delete set
+-- null` nos dois lados, e um gatilho de anonimização LGPD
+-- (`fn_redigir_tarefas_do_contato_anonimizado`, ver 0237) que a `crm_lead_tasks`
+-- nunca teve: um contato anonimizado guardava o título da tarefa vinculada
+-- intacto, vazando o que a redação prometeu apagar.
+--
+-- Decisão: adotar `crm_tasks`, aposentar `crm_lead_tasks`. `crm_lead_tasks`
+-- nunca teve consumidor externo (só a tela e a API deste fork, ambas
+-- retiradas no mesmo commit desta migration) — não há dado de cliente a
+-- migrar: a tabela existia desde a v1.13.0, período curto demais para conter
+-- tarefa real de instalação alguma medida até aqui.
+--
+-- `cascade` derruba junto os dois índices (`crm_lead_tasks_lead_pendente_idx`,
+-- `crm_lead_tasks_org_pendente_idx`), o trigger de `updated_at` e as três
+-- policies — nenhum é referenciado por objeto fora da própria tabela.
+drop table if exists public.crm_lead_tasks cascade;

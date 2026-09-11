@@ -124,7 +124,7 @@ describe("o elo que some sem barulho", () => {
     // custo se paga, e a resposta sai sem a conversa. A primeira versão deste
     // caso só olhava a chamada e o sabote passou.
     //
-    // migration 0211 acrescentou mais um elo na cadeia (withNextTasks, depois
+    // migration 0236 acrescentou mais um elo na cadeia (withNextTasks, depois
     // de withConversas) — a resposta final passou a ser `leadsComTarefa.leads`,
     // mas só prova algo se ESSE elo tiver sido alimentado pelo resultado da
     // conversa, e não por `leads` cru. As duas asserções, juntas, fecham a

@@ -87,7 +87,11 @@ describe.each(TRADUCOES)("$traducao ($idioma)", (par) => {
   });
 
   it("tem um selo na linha 1", () => {
-    const primeira = readFileSync(raiz(par.traducao), "utf8").split("\n", 1)[0] ?? "";
+    // `\r\n` → `\n` antes do split: num checkout Windows com `core.autocrlf=true`
+    // o arquivo chega em CRLF, e um `\r` residual no fim da primeira linha faz o
+    // `$` do SELO nunca casar — falso vermelho que não fala da tradução.
+    const primeira =
+      readFileSync(raiz(par.traducao), "utf8").replace(/\r\n/g, "\n").split("\n", 1)[0] ?? "";
     expect(
       primeira,
       `${par.traducao} não começa com o selo. Rode: ${COMANDO_DE_RESELO}`,
