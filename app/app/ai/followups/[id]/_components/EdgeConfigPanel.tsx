@@ -52,24 +52,7 @@ export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange, o
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto" data-testid="edge-config-panel">
       <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-text">{t("Condição da aresta")}</h2>
-          {/* No cabeçalho, não num bloco novo embaixo — mesma razão do
-              NodeConfigPanel: um bloco extra empurra a altura do painel além da
-              viewport e a rolagem de página passa a cobrir o canvas com o
-              cabeçalho fixo do app. */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onDelete}
-            aria-label={t("Apagar aresta")}
-            title={t("Apagar aresta (ou selecione-a no canvas e pressione Delete)")}
-            data-testid="edge-delete-button"
-          >
-            <Trash size={16} aria-hidden />
-          </Button>
-        </div>
+        <h2 className="text-base font-semibold text-text">{t("Condição da aresta")}</h2>
         <p className="flex items-center gap-1.5 text-sm text-text-muted">
           <span className="truncate">{sourceNode?.label ?? "?"}</span>
           <ArrowRight size={12} aria-hidden className="shrink-0" />
@@ -102,6 +85,20 @@ export function EdgeConfigPanel({ sourceNode, targetNode, condition, onChange, o
             {t("São as saídas do nó")} &quot;{sourceNode.label}&quot; — {t("as mesmas que aparecem no card.")}
           </p>
         )}
+      </div>
+
+      <div className="mt-auto border-t border-border pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full text-destructive"
+          data-testid="delete-edge"
+          onClick={onDelete}
+        >
+          <Trash size={14} aria-hidden className="mr-1" />
+          {t("Excluir aresta")}
+        </Button>
       </div>
     </div>
   );

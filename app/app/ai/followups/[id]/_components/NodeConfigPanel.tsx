@@ -23,9 +23,9 @@ import { NODE_VISUALS } from "./nodes/nodeVisuals";
 interface Props {
   node: RFNode;
   onChange: (patch: Partial<RFNodeData>) => void;
+  onDelete: () => void;
   /** Ramos deste nó que já têm aresta — quem sabe isso é o canvas, que é dono do grafo. */
   ramosLigados?: string[];
-  onDelete: () => void;
 }
 
 /**
@@ -37,7 +37,7 @@ interface Props {
  * quando o candidato passa no schema — senão mostra erro inline e o canvas
  * mantém a última config válida (nunca um valor pela metade rio acima).
  */
-export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Props) {
+export function NodeConfigPanel({ node, onChange, onDelete, ramosLigados }: Props) {
   const t = useT();
   const type = node.type as FlowNode["type"];
   const visual = NODE_VISUALS[type];
@@ -58,33 +58,12 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto" data-testid="node-config-panel">
       <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-text">
-            <span className={`flex h-6 w-6 items-center justify-center rounded-full ${visual.chipClassName}`}>
-              <Icon size={14} aria-hidden />
-            </span>
-            {t(visual.paletteLabel)}
-          </h2>
-          {/* No cabeçalho, não num bloco novo embaixo: um bloco extra empurra a
-              altura do painel além da viewport em nós com formulário longo (ex.:
-              condição com várias regras) — a página passa a rolar, e o cabeçalho
-              fixo do app cobre o canvas. O gatilho é o único ponto de entrada do
-              fluxo — sem botão aqui; a tecla Delete/Backspace também recusa
-              (guarda no FlowCanvas). */}
-          {type !== "trigger" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              aria-label={t("Apagar nó")}
-              title={t("Apagar nó (ou selecione-o no canvas e pressione Delete)")}
-              data-testid="node-delete-button"
-            >
-              <Trash size={16} aria-hidden />
-            </Button>
-          )}
-        </div>
+        <h2 className="flex items-center gap-2 text-base font-semibold text-text">
+          <span className={`flex h-6 w-6 items-center justify-center rounded-full ${visual.chipClassName}`}>
+            <Icon size={14} aria-hidden />
+          </span>
+          {t(visual.paletteLabel)}
+        </h2>
         <p className="text-sm text-text-muted">
           {t("Alterações aplicam no rascunho ao digitar — salve na barra de publicação.")}
         </p>
@@ -143,6 +122,24 @@ export function NodeConfigPanel({ node, onChange, ramosLigados, onDelete }: Prop
         {type === "end" && (
           <EndForm config={node.data.config as ConfigOf<"end">} onChange={(config) => onChange({ config })} />
         )}
+      </div>
+
+      {/* Botão sempre oferecido, para os 8 tipos — inclusive trigger. A
+          proteção do gatilho é do `deleteNode` (FlowCanvas), não daqui: um
+          botão que some ensina errado ("por que não dá pra apagar este?");
+          o toast explica, o botão nunca falta. */}
+      <div className="mt-auto border-t border-border pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full text-destructive"
+          data-testid="delete-node"
+          onClick={onDelete}
+        >
+          <Trash size={14} aria-hidden className="mr-1" />
+          {t("Excluir nó")}
+        </Button>
       </div>
     </div>
   );

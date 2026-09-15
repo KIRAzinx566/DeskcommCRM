@@ -7,6 +7,7 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
+  ConnectionLineType,
   addEdge,
   useNodesState,
   useEdgesState,
@@ -21,6 +22,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { estimateNodeSize, layoutFlowGraph, LAYOUT_NODE_WIDTH } from "@/lib/followup/auto-layout";
+import { semAresta, semArestasDoNo, semNo } from "@/lib/followup/excluir-do-grafo";
 import {
   toReactFlow,
   fromReactFlow,
@@ -95,7 +98,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   const [savedGraph, setSavedGraph] = useState<FlowGraph>(initialData.draft_graph ?? EMPTY_GRAPH);
   const nextId = useRef(1);
   const nextEdgeId = useRef(1);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -156,29 +159,6 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
     [selectedEdgeId],
   );
 
-  // Caminho do botão "Apagar" nos painéis — mesma proteção do trigger que o
-  // atalho de teclado tem, pra quem nunca ia adivinhar a tecla.
-  const deleteNode = useCallback(
-    (id: string) => {
-      const node = nodes.find((n) => n.id === id);
-      if (node?.type === "trigger") {
-        toast.error("O nó de Início não pode ser apagado — é o disparo do fluxo.");
-        return;
-      }
-      setNodes((nds) => nds.filter((n) => n.id !== id));
-      setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-      setSelectedNodeId(null);
-    },
-    [nodes, setNodes, setEdges],
-  );
-  const deleteEdge = useCallback(
-    (id: string) => {
-      setEdges((eds) => eds.filter((e) => e.id !== id));
-      setSelectedEdgeId(null);
-    },
-    [setEdges],
-  );
-
   const updateNodeData = useCallback(
     (id: string, patch: Partial<RFNodeData>) => {
       setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)));
@@ -216,6 +196,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           : undefined;
         return {
           ...e,
+          type: "smoothstep" as const,
           label: branch ? t(rotuloDoRamo(branch)) : t(conditionLabel(condition)),
           selected: e.id === selectedEdgeId,
         };
@@ -282,6 +263,60 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
     [nodes.length, addNodeAt],
   );
 
+  // O nó de gatilho é o único ponto de entrada do fluxo — apagá-lo deixaria o
+  // grafo sem disparo, e não há como o publish detectar isso depois (o schema
+  // não exige exatamente um trigger, só que ele exista quando presente).
+  // Mesma proteção que `onBeforeDelete` dá ao atalho de teclado; este é o
+  // caminho do botão nos painéis e da barra de publicação.
+  const deleteNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (node?.type === "trigger") {
+        toast.error("O nó de Início não pode ser apagado — é o disparo do fluxo.");
+        return;
+      }
+      setNodes((nds) => semNo(nds, id));
+      setEdges((eds) => semArestasDoNo(eds, id));
+      setSelectedNodeId((cur) => (cur === id ? null : cur));
+    },
+    [nodes, setNodes, setEdges],
+  );
+
+  const deleteEdge = useCallback(
+    (id: string) => {
+      setEdges((eds) => semAresta(eds, id));
+      setSelectedEdgeId((cur) => (cur === id ? null : cur));
+    },
+    [setEdges],
+  );
+
+  const onDeleteSelection = useCallback(() => {
+    if (selectedNodeId) deleteNode(selectedNodeId);
+    else if (selectedEdgeId) deleteEdge(selectedEdgeId);
+  }, [selectedNodeId, selectedEdgeId, deleteNode, deleteEdge]);
+
+  const onAutoFit = useCallback(() => {
+    if (nodes.length === 0) return;
+    const sizes = new Map<string, { width: number; height: number }>();
+    for (const n of nodes) {
+      sizes.set(n.id, {
+        width: n.measured?.width ?? LAYOUT_NODE_WIDTH,
+        height: n.measured?.height ?? estimateNodeSize(toFlowNode(n)).height,
+      });
+    }
+    const laid = layoutFlowGraph(liveGraph, sizes);
+    const pos = new Map(laid.nodes.map((n) => [n.id, n.position]));
+    setNodes((nds) =>
+      nds.map((n) => {
+        const p = pos.get(n.id);
+        return p ? { ...n, position: p } : n;
+      }),
+    );
+    window.setTimeout(() => {
+      void fitView({ padding: 0.2, duration: 200 });
+    }, 0);
+  }, [nodes, liveGraph, setNodes, fitView]);
+
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -306,9 +341,13 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           flow={flow}
           graph={liveGraph}
           dirty={dirty}
+          selection={selectedNode ? "node" : selectedEdge ? "edge" : null}
+          onDeleteSelection={onDeleteSelection}
           onSaved={setSavedGraph}
           onPublishErrors={markNodeErrors}
           onPublishSuccess={clearNodeErrors}
+          onAutoFit={onAutoFit}
+          canAutoFit={nodes.length > 0}
         />
       )}
       <div className="flex flex-1 overflow-hidden">
@@ -343,6 +382,8 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             onNodesDelete={onNodesDelete}
             onEdgesDelete={onEdgesDelete}
             deleteKeyCode={["Backspace", "Delete"]}
+            defaultEdgeOptions={{ type: "smoothstep" }}
+            connectionLineType={ConnectionLineType.SmoothStep}
             fitView
           >
             <Background />
@@ -392,8 +433,8 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
                 key={selectedNode.id}
                 node={selectedNode}
                 onChange={(patch) => updateNodeData(selectedNode.id, patch)}
-                ramosLigados={ramosLigadosDoSelecionado}
                 onDelete={() => deleteNode(selectedNode.id)}
+                ramosLigados={ramosLigadosDoSelecionado}
               />
             </div>
           </aside>

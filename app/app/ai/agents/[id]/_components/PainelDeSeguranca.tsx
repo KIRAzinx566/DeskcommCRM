@@ -65,7 +65,8 @@ function Conferencia({
   estado: CamadaDeSeguranca | undefined;
   podeEditar: boolean;
   salvando: boolean;
-  onToggle: (layer: string, v: boolean) => void;
+  /** Só o valor: QUAL camada gravar é decisão de quem monta o item, não do item. */
+  onToggle: (v: boolean) => void;
 }) {
   const t = useT();
   // Prefixo próprio para o ITEM: os controles dentro dele têm testid começando em
@@ -95,14 +96,7 @@ function Conferencia({
                 data-testid={`conferencia-${c.nome}-liga`}
                 checked={estado?.efetivo ?? false}
                 disabled={!podeEditar || salvando}
-                // `c.nome` é a chave do gate na CADEIA (`semantic_promise`), não a
-                // camada que `/api/v1/ai/guardrail-layers` aceita (`promessa_
-                // semantica`) — são dois vocabulários por design (ver o comentário
-                // de `camada` em lista-de-conferencia.ts). Mandar `c.nome` aqui
-                // fazia todo PUT voltar 422 "Invalid option", e o interruptor
-                // nunca movia. Este ramo só renderiza quando `c.escolha` não é
-                // nulo, e nesta lista as duas coisas andam juntas por convenção.
-                onCheckedChange={(v) => c.camada && onToggle(c.camada, v)}
+                onCheckedChange={(v) => onToggle(v)}
                 aria-label={t(c.rotulo)}
               />
               <span className="text-xs text-muted-foreground">
@@ -137,12 +131,18 @@ export function PainelDeSeguranca() {
 
   const porNome = new Map((camadas.data?.camadas ?? []).map((c) => [c.layer as string, c]));
   const podeEditar = camadas.data?.podeEditar ?? false;
-  const props = (camada: string | null) => ({
+  // `camada` — a chave de `org_guardrail_layers` — e NÃO `nome`, que é o
+  // identificador de tela. O interruptor mandava `c.nome` ("jailbreak_detect"),
+  // a rota valida contra o enum de camadas ("jailbreak"), e ligar qualquer uma
+  // das duas devolvia 422 em toda instalação. O `as` de antes escondia isso do
+  // typecheck; sem ele, trocar de campo vira erro de compilação.
+  const props = (camada: ConferenciaDeSaida["camada"]) => ({
     estado: camada === null ? undefined : porNome.get(camada),
     podeEditar,
     salvando: gravar.isPending,
-    onToggle: (layer: string, v: boolean) =>
-      gravar.mutate({ layer: layer as CamadaDeSeguranca["layer"], enabled: v }),
+    onToggle: (v: boolean) => {
+      if (camada !== null) gravar.mutate({ layer: camada, enabled: v });
+    },
   });
 
   return (
