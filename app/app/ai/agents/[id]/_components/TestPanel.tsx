@@ -178,14 +178,16 @@ export function TestPanel({ agent, draft, published, readOnly }: Props) {
       const res = await apiClient.post<TestResponse>(
         `/api/v1/ai/agents/${agent.id}/versions/${target.id}/test`,
         body,
-        // Default do cliente é 10s (bom pra CRUD comum) — curto demais pra um
-        // turno de agente de verdade: chama o provedor de IA, pode rodar
-        // ferramentas, e um modelo "esquentando" na primeira chamada passa
-        // disso fácil. `/api/internal/agents/run*` já ganha timeout de proxy
-        // estendido a 320s pelo mesmo motivo (Caddyfile); aqui é o cliente que
-        // desistia sozinho — a requisição nunca chegava a errar de verdade, o
-        // navegador só cancelava aos 10s e a tela mostrava "Erro inesperado"
-        // sem nada a ver com o provedor.
+        // ⚠️ O padrão do cliente é 10s, e um turno de agente NÃO cabe nele: o
+        // teste roda o motor inteiro (classificador de etapa, jailbreak, o
+        // agente com as ferramentas, checkpoint, verificação de promessa).
+        // Medido numa instalação real: 14,5s só na chamada ao modelo. Com 10s,
+        // o resultado nunca chegava — o painel ficava em "Nenhum teste
+        // executado ainda" enquanto o servidor terminava e devolvia para
+        // ninguém (issue #783).
+        //
+        // 120s é o teto do orçamento de passos do agente, não um chute
+        // confortável: acima disso o problema é o agente, não a espera.
         { timeoutMs: 120_000 },
       );
       setResult(res.data);

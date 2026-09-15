@@ -111,6 +111,26 @@ export type ActivityType =
   | "billing_charge_paid"
   | "billing_charge_cancelled"
   /**
+   * Chamada de voz WhatsApp (WaCalls, spec 18) encerrada — gravada na timeline
+   * junto com mensagens/notas. Emitida pela ponte de eventos do worker
+   * (`lib/wacalls/events-bridge.ts`) ao receber `call-ended`, via
+   * `emitAgentActivityForContact` (mesmo roteador contato→lead que o resto do
+   * sistema usa, `sourceModule: 'voice_calls'`).
+   */
+  | "voice_call"
+  /**
+   * Chamada de voz que TOCOU e ninguém atendeu.
+   *
+   * Tipo próprio, e não um campo dentro de `voice_call`, porque quem decide o
+   * que fazer com esta linha é um TRIGGER que só enxerga `new.type`:
+   * `fn_update_last_activity_at` (migration 0079) carimba `last_activity_at`
+   * pela lista positiva de tipos. Uma ligação atendida quebra o silêncio do
+   * negócio; um telefone que tocou sem resposta é constatação de silêncio, e
+   * carimbar ali esfriaria o Radar de Risco por um contato com quem ninguém
+   * falou. Os dois desfechos precisam ser distinguíveis lá dentro.
+   */
+  | "voice_call_missed"
+  /**
    * A TAREFA COMBINADA, na linha do tempo do negócio (migration 0236).
    *
    * "Ligar de volta na terça" só existe por causa de um negócio. Sem estas duas
@@ -231,6 +251,8 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   billing_charge_created: "Cobrança gerada",
   billing_charge_paid: "Pagamento recebido",
   billing_charge_cancelled: "Cobrança cancelada",
+  voice_call: "Chamada de voz",
+  voice_call_missed: "Chamada de voz perdida",
   task_created: "Tarefa combinada",
   task_completed: "Tarefa concluída",
   // Rótulo com OBJETO e sem jargão de banco: "Mesclado" sozinho é palavra de
