@@ -220,7 +220,7 @@ describe("append-only: por onde o expurgo pode passar, e por onde não pode", ()
     // ⚠️ E ESTE CASO NÃO MEDE O SUPABASE REAL. O prelude do `test-db.sh`
     // reproduz o default ACL do Supabase para funções, não para tabelas: aqui
     // `api_audit_log` nasce só com o que o dump concede, e o caso fica verde
-    // com ou sem o revoke de UPDATE/DELETE da migration 0258. No Supabase o
+    // com ou sem o revoke de UPDATE/DELETE da migration 0267. No Supabase o
     // default ACL de tabelas dá UPDATE e DELETE aos três papéis; quem mede esse
     // mundo é `audit-log-sob-o-default-acl-do-supabase.test.ts`.
     const linhas = sql(`

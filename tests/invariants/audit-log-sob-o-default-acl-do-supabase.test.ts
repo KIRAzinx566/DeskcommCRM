@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { motivoDoErro, sql } from "./psql-transporte";
 
 /**
- * O AUDIT LOG É APPEND-ONLY NO BANCO QUE O CLIENTE TEM, NÃO SÓ NO DO GATE — migration 0258.
+ * O AUDIT LOG É APPEND-ONLY NO BANCO QUE O CLIENTE TEM, NÃO SÓ NO DO GATE — migration 0267.
  *
  * ─── O defeito ──────────────────────────────────────────────────────────────
  *
@@ -33,7 +33,7 @@ import { motivoDoErro, sql } from "./psql-transporte";
  *
  * 1. `grant all on table public.api_audit_log to anon, authenticated,
  *    service_role` — o que o default ACL do Supabase dá na criação;
- * 2. o bloco da 0258, LIDO do `supabase/baseline.sql` pelo rótulo — o texto que
+ * 2. o bloco da 0267, LIDO do `supabase/baseline.sql` pelo rótulo — o texto que
  *    o self-host aplica, não uma cópia;
  * 3. só então a sonda.
  *
@@ -43,16 +43,16 @@ import { motivoDoErro, sql } from "./psql-transporte";
 
 const BASELINE = readFileSync(join(process.cwd(), "supabase", "baseline.sql"), "utf8");
 
-const ROTULO_0258 =
-  "-- ---- o audit log perde UPDATE, DELETE e TRUNCATE nos papéis do PostgREST (migration 0258) ----";
+const ROTULO_0267 =
+  "-- ---- o audit log perde UPDATE, DELETE e TRUNCATE nos papéis do PostgREST (migration 0267) ----";
 
-/** O bloco rotulado da 0258, do rótulo até o próximo rótulo de apêndice. */
-function blocoDa0258(): string {
-  const inicio = BASELINE.indexOf(ROTULO_0258);
-  if (inicio === -1) throw new Error("rótulo da 0258 não encontrado no baseline");
-  if (BASELINE.indexOf(ROTULO_0258, inicio + 1) !== -1) throw new Error("rótulo da 0258 repetido no baseline");
-  const fim = BASELINE.indexOf("\n-- ---- ", inicio + ROTULO_0258.length);
-  if (fim === -1) throw new Error("fim do bloco da 0258 não encontrado");
+/** O bloco rotulado da 0267, do rótulo até o próximo rótulo de apêndice. */
+function blocoDa0267(): string {
+  const inicio = BASELINE.indexOf(ROTULO_0267);
+  if (inicio === -1) throw new Error("rótulo da 0267 não encontrado no baseline");
+  if (BASELINE.indexOf(ROTULO_0267, inicio + 1) !== -1) throw new Error("rótulo da 0267 repetido no baseline");
+  const fim = BASELINE.indexOf("\n-- ---- ", inicio + ROTULO_0267.length);
+  if (fim === -1) throw new Error("fim do bloco da 0267 não encontrado");
   return BASELINE.slice(inicio, fim);
 }
 
@@ -107,13 +107,13 @@ function erroDo(script: string): string | null {
   }
 }
 
-describe("migration 0258 sob o default ACL de tabelas do Supabase", () => {
-  it("controle: SEM o bloco da 0258, a simulação reproduz o defeito (grants e DELETE 1)", () => {
+describe("migration 0267 sob o default ACL de tabelas do Supabase", () => {
+  it("controle: SEM o bloco da 0267, a simulação reproduz o defeito (grants e DELETE 1)", () => {
     const [grants, efetiva, apagadas] = sondasDesfeitas(`
       ${DEFAULT_ACL_DO_SUPABASE}
       ${SONDA_GRANTS}
       ${SONDA_EFETIVA}
-      insert into public.api_audit_log (id, action) values ('${LINHA}', 'inv.0258.controle');
+      insert into public.api_audit_log (id, action) values ('${LINHA}', 'inv.0267.controle');
       set local role service_role;
       with d as (delete from public.api_audit_log where id = '${LINHA}' returning 1)
       select '${MARCA}' || count(*) from d;
@@ -127,15 +127,15 @@ describe("migration 0258 sob o default ACL de tabelas do Supabase", () => {
     expect(apagadas, "service_role não apagou a linha — a simulação não reproduz o Supabase").toBe("1");
   });
 
-  it("COM o bloco da 0258, nenhum dos três papéis tem UPDATE/DELETE/TRUNCATE — nem direto, nem herdado", () => {
+  it("COM o bloco da 0267, nenhum dos três papéis tem UPDATE/DELETE/TRUNCATE — nem direto, nem herdado", () => {
     const [grants, efetiva] = sondasDesfeitas(`
       ${DEFAULT_ACL_DO_SUPABASE}
-      ${blocoDa0258()}
+      ${blocoDa0267()}
       ${SONDA_GRANTS}
       ${SONDA_EFETIVA}
     `);
-    expect(grants, "grant concedido sobreviveu ao bloco da 0258").toBe("");
-    expect(efetiva, "privilégio efetivo sobreviveu ao bloco da 0258").toBe("");
+    expect(grants, "grant concedido sobreviveu ao bloco da 0267").toBe("");
+    expect(efetiva, "privilégio efetivo sobreviveu ao bloco da 0267").toBe("");
   });
 
   for (const [comando, dml] of [
@@ -149,8 +149,8 @@ describe("migration 0258 sob o default ACL de tabelas do Supabase", () => {
       const erro = erroDo(`
         begin;
         ${DEFAULT_ACL_DO_SUPABASE}
-        ${blocoDa0258()}
-        insert into public.api_audit_log (id, action) values ('${LINHA}', 'inv.0258.alvo');
+        ${blocoDa0267()}
+        insert into public.api_audit_log (id, action) values ('${LINHA}', 'inv.0267.alvo');
         set local role service_role;
         ${dml};
         rollback;
@@ -165,14 +165,14 @@ describe("migration 0258 sob o default ACL de tabelas do Supabase", () => {
     // ninguém mais gravaria linha.
     const [efetiva, inseridas] = sondasDesfeitas(`
       ${DEFAULT_ACL_DO_SUPABASE}
-      ${blocoDa0258()}
+      ${blocoDa0267()}
       select '${MARCA}' || string_agg(p.papel || ':' || p.priv, ',' order by p.papel, p.priv)
         from (select papel, priv
                 from unnest(array['anon', 'authenticated', 'service_role']) papel,
                      unnest(array['INSERT', 'SELECT']) priv) p
        where has_table_privilege(p.papel, 'public.api_audit_log', p.priv);
       set local role service_role;
-      insert into public.api_audit_log (id, action) values ('${LINHA}', 'inv.0258.insert');
+      insert into public.api_audit_log (id, action) values ('${LINHA}', 'inv.0267.insert');
       select '${MARCA}' || count(*) from public.api_audit_log where id = '${LINHA}';
     `);
     expect(efetiva).toBe(
@@ -183,12 +183,12 @@ describe("migration 0258 sob o default ACL de tabelas do Supabase", () => {
 
   it("o expurgo legítimo continua apagando quando chamado por service_role", () => {
     // `fn_expurgar_auditoria_vencida` é security definer de dono `postgres`:
-    // o DELETE de dentro dela não depende do grant que a 0258 tirou.
+    // o DELETE de dentro dela não depende do grant que a 0267 tirou.
     const [apagadas, sobrou] = sondasDesfeitas(`
       ${DEFAULT_ACL_DO_SUPABASE}
-      ${blocoDa0258()}
+      ${blocoDa0267()}
       insert into public.api_audit_log (id, action, created_at)
-        values ('${LINHA}', 'inv.0258.vencida', now() - interval '400 days');
+        values ('${LINHA}', 'inv.0267.vencida', now() - interval '400 days');
       set local role service_role;
       select '${MARCA}' || public.fn_expurgar_auditoria_vencida(90, 10000);
       select '${MARCA}' || count(*) from public.api_audit_log where id = '${LINHA}';
@@ -200,19 +200,19 @@ describe("migration 0258 sob o default ACL de tabelas do Supabase", () => {
   it("as FKs `on delete set null` seguem funcionando quando service_role apaga org, usuário e token", () => {
     // A ação referencial roda como o DONO de api_audit_log, não como quem apagou
     // a linha referenciada. Se rodasse como quem chamou, apagar uma organização
-    // passaria a falhar com permission denied depois da 0258.
+    // passaria a falhar com permission denied depois da 0267.
     const [depois] = sondasDesfeitas(`
       ${DEFAULT_ACL_DO_SUPABASE}
-      ${blocoDa0258()}
-      insert into auth.users (id, email) values ('25800000-0000-4000-8000-000000000001', 'fk-0258@invariant.test');
+      ${blocoDa0267()}
+      insert into auth.users (id, email) values ('25800000-0000-4000-8000-000000000001', 'fk-0267@invariant.test');
       insert into public.organizations (id, slug, legal_name, display_name)
-        values ('25800000-0000-4000-8000-0000000000a1', 'inv-0258-fk', 'Inv 0258', 'Inv 0258');
+        values ('25800000-0000-4000-8000-0000000000a1', 'inv-0267-fk', 'Inv 0267', 'Inv 0267');
       insert into public.api_tokens (id, organization_id, created_by, name, prefix, token_hash)
         values ('25800000-0000-4000-8000-0000000000b1', '25800000-0000-4000-8000-0000000000a1',
-                '25800000-0000-4000-8000-000000000001', 'inv', 'tok_inv0258', '\\x00');
+                '25800000-0000-4000-8000-000000000001', 'inv', 'tok_inv0267', '\\x00');
       insert into public.api_audit_log (id, organization_id, actor_user_id, actor_api_token_id, action)
         values ('${LINHA}', '25800000-0000-4000-8000-0000000000a1', '25800000-0000-4000-8000-000000000001',
-                '25800000-0000-4000-8000-0000000000b1', 'inv.0258.fk');
+                '25800000-0000-4000-8000-0000000000b1', 'inv.0267.fk');
       -- no Supabase quem apaga auth.users é o GoTrue, que também não é dono do audit
       grant delete on auth.users to service_role;
       grant delete on public.api_tokens, public.organizations to service_role;

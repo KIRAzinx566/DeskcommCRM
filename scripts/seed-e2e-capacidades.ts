@@ -211,7 +211,7 @@ async function main(): Promise<void> {
     .eq("agent_id", agentId);
   const idsAntigos = (runsAntigos ?? []).map((r) => r.id as string);
   // Só os runs saem. `api_audit_log` não aceita DELETE de service_role (migration
-  // 0258), e não precisa: `fn_agent_tool_usage` conta a auditoria pelo JOIN com
+  // 0267), e não precisa: `fn_agent_tool_usage` conta a auditoria pelo JOIN com
   // `ai_agent_runs`, então a linha cujo run foi apagado deixa de contar na tela.
   if (idsAntigos.length > 0) {
     await admin.from("ai_agent_runs").delete().in("id", idsAntigos);
