@@ -147,8 +147,9 @@ const versionShapeSchema = z
     // `.nullable()` e não opcional: null é o valor que SIGNIFICA "herda o modelo
     // do Conversador". Omitir seria indistinguível de "ainda não decidi".
     operator_model: z.string().trim().min(1).max(120).nullable().default(null),
-    // Teto PRÓPRIO, não compartilhado com `tool_ids`: o Operador tem as 25 vagas
-    // dele, o Conversador as dele, e nenhum come a lista do outro.
+    // Teto PRÓPRIO, não compartilhado com `tool_ids`: o Operador tem as vagas
+    // dele (`TETO_TOOLS_POR_AGENTE`), o Conversador as dele, e nenhum come a
+    // lista do outro.
     //
     // ⚠️ A FRASE ANTERIOR VENCEU e está reescrita: ela dizia que separar os
     // papéis resolve o estouro "por divisão em vez de aumentar o número", e o

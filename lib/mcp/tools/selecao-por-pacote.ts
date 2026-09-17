@@ -43,17 +43,31 @@ import { entraPorPacote, type ToolBundle, type ToolRisk } from "./pacotes";
  *    default de hoje NENHUM segundo pacote cabia: evoluir exigia 21, reter 22,
  *    escalar 28, atender 30, organizar 32.
  *
- * 25 é o MENOR passo que resolve: dá a um agente cheio as 5 vagas da família de
- * agenda e mantém `vender` inteiro com folga real. Não é número redondo
- * escolhido no olho — subir mais seria apostar contra um argumento que continua
- * de pé só porque ninguém o mediu.
+ * 25 era o MENOR passo que resolvia naquele momento: dava a um agente cheio as
+ * 5 vagas da família de agenda e mantinha `vender` inteiro com folga real. Não
+ * era número redondo escolhido no olho — subir mais teria apostado contra um
+ * argumento que só se sustenta enquanto ninguém o mede.
+ *
+ * ═══ Por que 26, e não mais os 25 de antes ══════════════════════════════════
+ *
+ * A sincronização com o upstream de 2026-09-17 trouxe capacidade nova ao
+ * catálogo (v1.29.0/v1.30.0), e `tests/unit/pacote-reserva-vaga-da-critica.test.ts`
+ * voltou a medir o mesmo defeito D3: a partir do agente que nasce hoje (21
+ * capacidades do onboarding), evoluir passou a exigir 26, reter 27, escalar 33,
+ * atender 37, organizar 37 — de novo NENHUM segundo pacote cabia em 25.
+ *
+ * 26 é de novo o MENOR passo que resolve: só destrava `evoluir`, e é
+ * exatamente por isso que continua sendo o número certo — não um redondo
+ * escolhido para "dar folga". Quem acrescentar capacidade ao catálogo e
+ * quebrar este teto de novo mede antes de escolher o próximo número, pela
+ * mesma regra.
  *
  * ⚠️ O QUE FALTA, e é honesto dizer: não há instrumento para observar a
  * degradação que a heurística prevê. O lugar de observá-la é
  * `app/api/v1/ai/agents/[id]/tool-usage` e o log de invocação do run, com
  * "ferramenta errada escolhida" como sinal. Quem for subir de novo mede antes.
  */
-export const TETO_TOOLS_POR_AGENTE = 25;
+export const TETO_TOOLS_POR_AGENTE = 26;
 
 /** O mínimo que a regra precisa saber de uma capacidade. */
 export interface CapacidadeSelecionavel {

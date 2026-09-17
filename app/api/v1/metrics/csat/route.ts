@@ -9,6 +9,7 @@ import { type NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
+import { nomeDoContato as nomeDeGente } from "@/lib/contacts/rotulo-do-contato";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ interface CsatRow {
 
 function nomeDoContato(row: CsatRow): string {
   const c = Array.isArray(row.contacts) ? row.contacts[0] : row.contacts;
-  return c?.display_name ?? c?.name ?? "—";
+  return nomeDeGente(c) ?? "—";
 }
 
 export async function GET(_req: NextRequest): Promise<Response> {

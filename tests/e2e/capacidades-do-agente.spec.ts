@@ -69,24 +69,32 @@ const TOOLS_DO_SEED = [
   "crm_get_lead",
   "crm_move_lead_stage",
   "crm_list_leads",
-  // ⚠️ AS TRÊS ABAIXO ENTRARAM COM O TETO INDO DE 20 PARA 25, e não são enfeite.
+  // ⚠️ AS QUATRO ABAIXO ENTRARAM COM O TETO INDO DE 20 PARA 25 E DEPOIS PARA
+  // 26, e não são enfeite.
   //
   // A jornada do teto (issue #162) só existe se o cenário ESTOURAR: eram 3 do
   // seed + 18 de "Atender" = 21 contra teto 20, e a tela recusava dizendo
   // "faltam 1 vaga". Com teto 25 essas mesmas 21 passam, a recusa nunca acontece
   // e o caso vira um clique que sempre dá certo — verde sem medir nada.
   //
-  // Seis reproduzem a MESMA aritmética no teto novo: 6 + 20 = 26 > 25, recusa
-  // por 1 vaga; desligar uma deixa 5 + 20 = 25, que é o teto exato e passa.
-  // ("Atender" foi de 18 para 20 vagas na migration 0208 — as tools de
-  // CONSULTAR/LISTAR cobrança entraram nesse pacote; GERAR/CANCELAR foram
-  // para "Vender", que este cenário não liga.)
+  // Sete reproduzem a MESMA propriedade no teto de 26 (sincronização com o
+  // upstream de 2026-09-17, quando o catálogo cresceu de novo e o teto foi
+  // de 25 para 26 — `TETO_TOOLS_POR_AGENTE`): medido com
+  // `vagasExigidasPeloPacote`, os sete ligados MAIS "Atender" exigem 27 —
+  // 1 além do teto —, e a tela recusa dizendo "faltam 1 vaga". Desligar um
+  // (`TOOLS_DO_SEED[2]`) deixa seis, que MAIS "Atender" exigem exatamente 26
+  // — o teto exato — e passa. Não reproduza a conta em prosa: quem mudar o
+  // catálogo mede de novo com a função, porque `vagasExigidasPeloPacote`
+  // soma também as capacidades CRÍTICAS do pacote (é o que este arquivo de
+  // teste guarda), e a aritmética simples de "automáticas + selecionadas"
+  // não bate sozinha.
   //
   // As escolhidas ficam FORA do pacote "Atender" de propósito — se alguma
   // estivesse dentro, a união seria menor que a soma e a conta acima não valeria.
   "crm_find_free_slots",
   "crm_list_appointments",
   "crm_book_appointment",
+  "crm_reschedule_appointment",
 ];
 
 /** A capacidade que não pode entrar por pacote. */
@@ -215,13 +223,17 @@ test.describe("Configurar o que o agente pode fazer", () => {
     //
     // "Atender" exige 20 vagas (19 automáticas + a crítica que o pacote
     // deliberadamente NÃO liga — migration 0208 acrescentou duas tools de
-    // consulta de cobrança a este pacote). Com as 6 do seed dá 26, acima do teto.
+    // consulta de cobrança a este pacote). Com as 7 do seed dá 27, acima do
+    // teto de 26 (sincronização com o upstream de 2026-09-17).
     //
-    // ⚠️ AS 6 SÃO O QUE MANTÊM ESTE CASO VIVO. Eram 3, e 3 + 18 = 21 estourava o
-    // teto de 20. Quando o teto foi para 25 essas mesmas 21 passaram a caber: a
-    // recusa nunca aconteceria e o caso viraria um clique que sempre dá certo —
-    // verde sem medir nada, que é o pior desfecho para um teste de recusa.
-    // As 3 novas estão FORA de "Atender", senão a união seria menor que a soma.
+    // ⚠️ AS 7 SÃO O QUE MANTÊM ESTE CASO VIVO — o número cresce cada vez que o
+    // teto sobe, senão o cenário para de estourar e o caso vira um clique que
+    // sempre dá certo, verde sem medir nada (o pior desfecho para um teste de
+    // recusa). Histórico: eram 3 (3+18=21 estourava o teto de 20); quando o
+    // teto foi para 25, essas 21 passaram a caber, e viraram 6 para voltar a
+    // estourar (6+20=26); quando o teto foi para 26, essas 6 passaram a caber
+    // também (26 = teto exato), e viraram 7. As 4 novas estão FORA de
+    // "Atender", senão a união seria menor que a soma.
     //
     // Antes da correção a tela aceitava o pacote, chegava a 20 exatas e deixava
     // o checkbox da crítica DESABILITADO — prometia uma escolha que o produto
