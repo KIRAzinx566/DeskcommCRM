@@ -314,6 +314,220 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   Continua possível ter mais de um negócio aberto para o mesmo cliente quando é
   você quem cria — o que mudou vale só para o card que o sistema abre sozinho.
 
+## [1.30.0] — 2026-09-16
+
+### Adicionado
+
+- **A conversa ganha "Arquivar" — sai da fila viva, fica guardada numa aba própria e volta sozinha quando o cliente escreve** Quem atende passa o dia na Fila, e nem tudo que acaba ali merece continuar à vista: conversa que o cliente abandonou, número que era trote, atendimento que já terminou e ninguém fechou. Até agora não havia nada a fazer com isso — a conversa ficava na lista para sempre, empurrando para baixo o que ainda é trabalho. Excluir de vez continua fora, porque o histórico é do cliente e não se apaga.
+
+  Agora existe **Arquivar**. Tudo que já é do passado ruma para uma pasta própria: a conversa sai da Fila e das listas de conversas em andamento, aparece na aba **Arquivadas** (ao lado de "Fechadas", com o próprio número) e o histórico continua inteiro para quem for consultar. Arquivar **encerra o atendimento**, como um fechamento — a diferença é onde a conversa fica guardada e o rastro que fica na auditoria. Se o cliente escrever de novo, a conversa volta sozinha para a caixa de entrada — o banco já fazia essa volta, e agora a tela conta isso em vez de esconder.
+
+  Quem pode arquivar é quem já podia encerrar: atendente para cima. O que passa a ficar registrado é o motivo da mudança: arquivar deixa o evento próprio `conversation.archived` na auditoria, em vez de se confundir com "devolvida" ou com o fechamento do atendimento. Fechar continua sendo fechar, e o número da aba "Fechadas" passa a contar só as fechadas — antes ele somava as arquivadas e mostrava mais do que a lista.
+
+- **Os guias do assistente passam a funcionar em qualquer pasta, e dois deixam de ser descartados** Um comando só (`curl -fsSL https://raw.githubusercontent.com/melgarafael/DeskcommCRM/main/scripts/instalar-guias.sh | bash`) liga os guias `deskcomm-instalar`, `deskcomm-cliente-novo`, `deskcomm-metricas`, `deskcomm-prompt`, `deskcomm-contribuir` e `deskcomm-doutrina` nas pastas globais do Claude Code, Codex, Cursor, OpenCode e Antigravity — antes eles só existiam com o assistente aberto dentro de um clone atualizado, o que deixava de fora justamente quem ainda não instalou. Pedir o assunto em português aciona o guia em qualquer um deles. Os guias não se atualizam sozinhos: rodar o comando de novo traz a versão nova, e `curl -fsSL https://raw.githubusercontent.com/melgarafael/DeskcommCRM/main/scripts/instalar-guias.sh | bash -s -- --remover` desfaz. O cabeçalho de dois guias trazia um erro de formato que assistentes mais rigorosos descartavam sem avisar, e foi corrigido.
+
+- **Quem ainda não tem conta já vê login, cadastro, convite e páginas legais em espanhol** O idioma da interface sempre dependeu de uma sessão: `preferência da pessoa → idioma da
+  organização → padrão`. Fora dessa cadeia — login, cadastro, aceite de convite, política de
+  privacidade e termos — não havia nenhum sinal para seguir, e a tela caía sempre em português,
+  mesmo para quem nunca vai ler português.
+
+  Agora essas telas também consultam o `Accept-Language` que o navegador já manda em toda
+  requisição: se o visitante não tem preferência salva (é a primeira vez, ainda não tem conta),
+  o idioma dele na lista de preferências decide. Uma preferência já salva continua vencendo
+  sempre — isto só entra em jogo para quem a tela nunca viu antes.
+
+### Corrigido
+
+- **A ajuda de "esperar a resposta por" no follow-up voltava a português mesmo em espanhol** O texto de ajuda do campo "Esperar a resposta por (minutos)" (nos construtores de
+  classificação e de resposta correspondida do fluxo de follow-up) era uma string pronta em
+  português — composta uma vez, no idioma do arquivo, citando o rótulo da aresta e o mínimo em
+  minutos. Com o idioma em espanhol, ela continuava aparecendo em português, porque nunca
+  passava por `t()`: só existia como texto fixo.
+
+  Virou uma função que compõe a frase no idioma de quem está olhando, citando o mesmo rótulo
+  traduzido que a aresta mostra no canvas do fluxo. Nenhum comportamento muda para quem usa
+  português.
+
+- **O construtor de follow-up para de reaproveitar identificadores, e "cancelar se o lead responder" passa a valer na espera** Duas coisas que estavam quebradas no acompanhamento automático. A primeira: ao abrir um fluxo já salvo e acrescentar um passo ou uma ligação, o construtor recomeçava a contagem de identificadores do zero — o passo novo nascia com o mesmo identificador de um que já existia, e a ligação que você acabou de desenhar aparecia por cima de outra, ou o salvamento era recusado. Agora a contagem continua de onde o fluxo parou. A segunda: a chave "cancelar se o lead responder" só valia enquanto o fluxo esperava uma resposta; numa espera por tempo — "aguarde 2 dias" —, a resposta do cliente não cancelava nada e a próxima mensagem saía assim mesmo, como se ele não tivesse respondido. Agora cancela nos dois casos.
+
+  Um aviso para quem já editou fluxos antes desta versão: um rascunho que ficou com identificadores repetidos **não se conserta sozinho**. Abra o fluxo, apague o passo ou a ligação duplicada pela tela e salve de novo — daí em diante o problema não volta.
+
+- **O domínio de quem manda o PR não viaja mais dentro da imagem** Nada muda na sua VPS: nenhum endereço de terceiro foi encontrado no código que
+  embarca hoje, e nada foi trocado em produção. O que muda é o portão do
+  repositório. A catraca que já barrava o nome antigo do produto — "DeskcommCRM"
+  escrito na tela de quem instalou com a marca dele — passou a barrar também
+  domínio de terceiro: site pessoal, endereço de teste ou visão de alguém
+  enterrado numa parte do código que vai para a imagem. Quando isso acontece, o PR
+  é reprovado com o endereço e o arquivo na mensagem. Foi por esse buraco que a
+  identificação enviada à OpenRouter levava o endereço pessoal de quem escreveu o
+  PR: o consumo de cada instalação ficava creditado a um site que não é o seu nem
+  o nosso.
+
+  Crédito: @webtecnica.
+
+- **A marca enviada deixa de sumir da barra lateral quando o banco não responde** Quem sobe o logo da instalação em Configurações › Marca recebe o aviso “Logo atualizado.” e, no render seguinte, o desenho da marca. Se a consulta ao banco falhasse exatamente nesse instante — uma resposta perdida, um pico de carga no banco —, o sistema tratava o silêncio como resposta e guardava “não há marca gravada” por 30 segundos: a barra lateral voltava a desenhar a marca do produto, sem logo, com o arquivo novo já gravado e sem nada na tela dizendo que algo tinha falhado. Agora a leitura que falha vale só para aquela tela: a tela seguinte pergunta ao banco de novo e mostra a marca enviada. Quando o banco responde, nada muda — a marca continua sendo lida uma vez a cada 30 segundos.
+
+- **Material arquivado que ficou marcado no assistente volta para a tela, com o desmarcar a um clique** Arquivar um material do acervo não podia travar o assistente que o tinha marcado — mas travava: o
+  acervo chegava na seção já sem os arquivados, o id continuava em `knowledge_source_ids`, e o salvar
+  recusava a versão com "um dos materiais marcados não existe mais, ou foi arquivado" sem oferecer
+  onde desmarcar. Agora o arquivado **e marcado** aparece na lista com o selo "arquivado no acervo" e
+  com o desmarcar a um clique; o arquivado que ninguém marcou continua fora da lista, e arquivado não
+  conta como material do assistente em nenhum aviso.
+
+- **Material do tipo documento para de oferecer o editor de perguntas e respostas** Quem cadastrou um documento — uma política de troca, um manual, um contrato — clicava em
+  "Editar conteúdo" no cartão dele e caía num editor de pergunta e resposta EM BRANCO, como se
+  o material tivesse sido cadastrado vazio. O botão agora nasce do tipo do material: documento
+  não guarda pergunta e resposta, então não oferece esse editor. O que ele continua oferecendo
+  é preparar de novo, ver o que o agente aprendeu e arquivar.
+
+- **Importar a planilha não perde mais o produto de nome longo** Quando a planilha não trazia a coluna de código, o nome do produto virava o código
+  dele, cortado em 60 caracteres. Nome de importado passa disso e difere no fim — 100 ml
+  e 200 ml, 128 e 256 GB —, então dois produtos diferentes chegavam com o MESMO código: a
+  segunda linha era recusada como "código repetido na planilha", citando um código que
+  não existe na planilha, e o produto não entrava no catálogo. Agora o corte leva junto
+  uma assinatura curta do nome inteiro, o que mantém os 60 caracteres, continua
+  distinguindo, e a reimportação continua atualizando em vez de duplicar.
+
+  O corte também acontecia antes de colapsar os espaços, e um código terminado em espaço
+  é uma identidade diferente da que a tela grava: editar esse produto pela tela mudava o
+  código dele, e a importação seguinte criava uma segunda linha do mesmo produto. Isso
+  acabou junto.
+
+  Se o seu catálogo já tem produto de nome muito longo que entrou pela planilha, o código
+  dele passa a terminar com essa assinatura. A próxima importação da mesma planilha cria
+  uma linha nova ao lado da antiga, a de código cortado — a antiga pode ser apagada pela
+  tela do catálogo. Nada a fazer antes de atualizar.
+
+  Crédito: @webtecnica.
+
+- **A tela de criar agente e alguns avisos de IA voltaram a português mesmo com o idioma em espanhol** O guarda de i18n (`tests/unit/i18n-espanhol-cobre-a-tela.test.ts`) varre o AST das telas
+  atrás de prosa em português fora de `t()`, mas não alcança texto que mora fora da tela — em
+  constantes importadas de `lib/`. Quatro pontos escapavam por essa lacuna:
+
+  - Os pacotes de capacidade (Atender e responder, Vender e mover o funil, Não perder o
+    cliente, Passar para um humano, Organizar a operação, Aprender e evoluir) na tela de criar
+    ou editar agente, e o texto de cada um.
+  - O prompt padrão de um agente novo — que também é o `system_prompt` de verdade se ninguém
+    editar, por isso em espanhol ele já instrui a IA a responder em espanhol, não em pt-BR.
+  - Os seis avisos de erro do cadastro da chave de inteligência artificial (onboarding).
+  - No construtor de fluxo de resposta correspondida, duas opções ("Se a informação já
+    existir" e as três alternativas dela) que a mesma tela de classificação já traduzia
+    corretamente — só esta ficou para trás.
+
+  Corrigido envolvendo cada ponto em `t()`/`useT()` no local de exibição (mesma convenção do
+  resto do produto) e completando o dicionário. Nenhum comportamento muda para quem usa
+  português.
+
+- **O atendimento para de se desligar sozinho 15 minutos depois de ser ligado** Em Equipe › Atendimento, ligar a chave de um atendente durava
+  **cerca de quinze minutos**. Passado esse tempo, o sistema desligava a chave
+  sozinho e nada a religava — a pessoa aparecia como offline, deixava de receber conversas novas e
+  sumia dos horários oferecidos na Agenda, sem ter feito nada. Quem percebia
+  religava, e quinze minutos depois acontecia de novo.
+
+  A causa: uma rotina automática desligava quem não desse "sinal de vida", e esse
+  sinal **nunca foi implementado em lugar nenhum do sistema**. Como ninguém o
+  emitia, todo atendente era considerado ausente logo depois de se declarar
+  disponível — em toda instalação, sempre.
+
+  A rotina foi removida, e a disponibilidade passou a ser calculada na hora:
+
+  - chave **desligada** → indisponível, e ninguém religa por você
+  - chave **ligada, sem jornada publicada** → disponível 24 horas por dia
+  - chave **ligada, com jornada publicada** → disponível dentro dela, indisponível
+    fora — e **volta sozinho** no início do próximo horário
+
+  Essa última linha é a que não existia: a jornada só sabia restringir, nunca
+  reativar. Agora a chave é a sua decisão ("eu atendo") e a jornada diz quando —
+  sem ninguém precisar ligar nada todo dia.
+
+  A coluna "Status" da tela passa a mostrar três estados em vez de dois:
+  **De plantão**, **Fora do horário** e **Desligado**. Antes, quem estava com a chave
+  ligada às 22h aparecia igual a quem tinha desligado — e ia procurar defeito onde
+  só havia uma jornada que terminou.
+
+  Você não precisa fazer nada para adotar. Se alguém da sua equipe estava
+  aparecendo como offline sem explicação, volta ao normal nesta versão.
+
+  Um detalhe que vale conferir na sua equipe: quem fica com a chave ligada e **sem jornada publicada** passa a contar como disponível 24 horas por dia, porque não há horário que o limite. Se não for isso que você quer para alguém, publique a jornada da pessoa em Equipe › Atendimento.
+
+## [1.29.0] — 2026-09-16
+
+### Adicionado
+
+- **O "Novo Lead" do funil passa a escolher o contato** Pelo funil, o "Novo Lead" pedia título, etapa, valor e tags, mas não tinha onde pôr a pessoa: o negócio nascia sem contato, sem telefone e sem ligação com a base de contatos. Quem cadastrava pelo quadro ficava com um card que o WhatsApp não consegue responder e que as automações não conseguem casar com ninguém. A importação de planilha já fazia o certo — procura o contato pelo telefone, reaproveita e cria quando falta —, e as duas telas davam resultados diferentes para a mesma coisa.
+
+  Agora o diálogo abre com um campo **Contato** no topo: procure pelo nome ou pelo telefone, escolha da base ou crie na hora, sem sair da tela. Escolher alguém com o título ainda vazio preenche o título com o nome do contato.
+
+  O contato continua **opcional**: quem abre o card no meio da ligação e completa depois segue conseguindo. Sem contato escolhido, a tela diz o que o lead perde — não recebe WhatsApp nem entra nas automações. Aberto pelo Inbox, que já sabe de quem é a conversa, nada muda.
+
+  Leads sem contato criados antes desta versão continuam como estão; vinculá-los pela tela é a próxima fatia da #852. Crédito: @rafaelbatistazz.
+
+- **A tela de Contatos passa a filtrar quem veio de anúncio** A lista de Contatos oferecia filtrar por Manual, WhatsApp, Nuvemshop e Importado (CSV). Quem chegou por um clique em anúncio — do Meta ou do Google — ficava gravado com essa origem no sistema e não aparecia em filtro nenhum: para encontrá-lo era preciso abrir contato por contato. Agora as duas origens de anúncio estão na mesma lista de filtros, em português e em espanhol.
+
+- **Dá para digitar o identificador do modelo quando o provedor não tem catálogo** Na tela do agente, o campo Modelo só oferecia uma lista. Quando o provedor escolhido não devolve catálogo — é o caso de quem usa um serviço compatível, um gateway próprio ou um modelo que acabou de sair —, a lista aparecia vazia e não havia como seguir: o agente ficava sem modelo, mesmo com a chave certa cadastrada. Agora, quando não há catálogo para aquele provedor, o campo vira um campo de digitação e aceita o identificador do modelo exatamente como o serviço o nomeia. Com catálogo, nada muda: a lista continua sendo a lista.
+
+- **Áudio pode ser transcrito em outro serviço compatível, sem trocar a chave da conversa** Quem quiser transcrever áudio num serviço diferente do padrão — Groq, um Whisper próprio, qualquer endereço com o mesmo formato de transcrição da OpenAI — agora preenche `TRANSCRIPTION_API_KEY` no `.env`, e opcionalmente `TRANSCRIPTION_BASE_URL` (o endereço do serviço) e `TRANSCRIPTION_MODEL` (o modelo de transcrição). A chave vale só para a transcrição: a conversa com o cliente e a leitura de imagem continuam usando o provedor que já está configurado. Sem essas variáveis, nada muda — a transcrição segue usando a chave da OpenAI, e se ela também não existir, o comportamento é o de hoje, com o aviso na Central e a orientação para cadastrar a chave.
+
+### Corrigido
+
+- **Um aviso de atualização antiga que falhou não trava mais o botão de atualizar** Quando uma atualização feita pela tela falhava e o sistema voltava sozinho para
+  a versão anterior, a tela de Atualização passava a mostrar "A atualização para a
+  versão … não deu certo", sem o botão de atualizar. Se depois alguém atualizasse
+  por outro caminho (o `update.sh` no terminal, por exemplo), o sistema subia
+  normalmente, mas o aviso antigo continuava ali. Quando saía uma versão nova, a
+  tela mostrava de novo a falha de dias atrás e não oferecia o botão, e o único
+  jeito de sair desse aviso era justamente clicar nele. Isso foi medido numa
+  instalação real: uma falha de 13/09 impedia atualizar para a 1.27.2 pela tela em
+  15/09, com a 1.23.0 já no ar desde 14/09.
+
+  Agora, quando o servidor informa uma versão diferente das duas envolvidas na
+  tentativa que falhou, a tela entende que a falha foi superada e volta a oferecer
+  a atualização normalmente. Uma falha que ainda é o estado atual do servidor
+  continua sendo mostrada como antes, com o comando para voltar.
+
+- **Automação com condição de tag passa a funcionar quando a caixa difere** Numa automação, a condição sobre tags só disparava quando o texto digitado era idêntico à tag, maiúsculas incluídas: a regra escrita para "Google" não rodava para a tag "google", que é exatamente como o Inbox grava toda tag de contato. A regra existia, aparecia ativa na tela e nunca acontecia. Agora a condição compara a tag inteira sem diferenciar maiúsculas — "Google" pega "google" e continua não pegando "Google Ads", que é outra tag. Nada que funcionava antes deixa de funcionar, e nenhuma regra passa a alcançar quem não alcançava. Na tela de regras, o operador desses campos passa a se chamar "tem a tag", que é o que ele faz.
+
+- **Automação por tag do contato deixa de criar lead repetido** Uma regra com gatilho "quando um contato ganhar uma tag" e ação "criar/mover lead no funil" criava um negócio novo toda vez que rodava, mesmo quando o contato já tinha um negócio aberto naquele funil — o contato acabava com vários leads iguais. E as ações seguintes da mesma regra, como "atribuir a um atendente", ficavam sem lead para agir, então a execução aparecia como "Parcial" na aba Atividade. Agora a automação move o negócio que o contato já tem no funil de destino, cria só quando não existe nenhum, e as ações seguintes passam a agir sobre esse lead. Leads criados em duplicidade antes desta versão continuam onde estão. Uma consequência que vale saber: numa regra assim, a ação "adicionar tag" que vier depois passa a etiquetar o NEGÓCIO, não mais o contato — é o efeito de as ações seguintes enxergarem o lead. Crédito: @rafaelbatistazz.
+
+- **Contato que veio de anúncio da Meta pelo número oficial passa a ter a origem do anúncio** Quem clicava num anúncio "Clique para o WhatsApp" e caía num número conectado pela API oficial da Meta ficava com a origem "whatsapp", como se tivesse escrito por conta própria. O anúncio de onde a pessoa veio não era gravado, e a venda desse contato não podia ser devolvida à Meta como conversão. Agora a origem passa a ser o anúncio da Meta, com o clique e o título do anúncio, como o canal intermediado já fazia. Vale para os cliques a partir desta versão: a Meta só envia esses dados na primeira mensagem, então os contatos que já entraram continuam como estão. Crédito: @rafaelbatistazz.
+
+- **O CI volta a medir a instalação em PostgreSQL 17, além do 15** Nada muda na sua VPS: nenhuma variável nova, nenhuma migration, nenhuma imagem. O que muda é o que o pipeline mede antes de a release sair — o gate de banco do CI voltou a rodar nas duas majors do PostgreSQL (15 e 17) e passou a exercitar também o `update.sh` sobre um banco COM DADOS, que é o caso da sua instalação e não o de um banco vazio. Crédito: @webtecnica.
+
+- **A spec do inbox em tempo real volta a medir o que conserta o canal, e não só a tela** Nada muda na sua VPS: nenhuma migration, nenhuma variável, nenhuma imagem. O que muda é o que o teste mede. A spec do inbox em tempo real olhava só a saída — o texto na tela, que chega por dois caminhos por causa do `refetchOnWindowFocus` — e por isso ficava verde com o canal de tempo real mudo. Agora ela assere o que trafega no socket (`phx_join` autenticado e o `postgres_changes` com o corpo da mensagem) e reprova quando o conserto do #327 não está no bundle. Crédito: @webtecnica.
+
+- **A hora na linha da Fila passa a ser a do tempo de espera** Na aba Fila a lista ordena por quem espera resposta há mais tempo, mas a hora mostrada à direita de cada linha era a da última mensagem de qualquer lado: responder uma conversa fazia o horário dela pular para agora sem que ela saísse do lugar, e a coluna de horas saía fora de ordem. Agora a hora na Fila é a da última mensagem do cliente — a mesma que ordena a lista e a mesma que a pílula "Aguardando há…" já usava. Nas demais abas nada muda, e a ordem da Fila continua por tempo de espera, agora com teste que a prende. Crédito: @webtecnica.
+
+- **A resposta da IA não aparece mais duplicada depois de o WhatsApp reconectar** Quando o WhatsApp caía e voltava, as respostas da IA que tinham ficado esperando
+  eram reenviadas sozinhas — e a mesma frase podia aparecer duas vezes na conversa.
+  O reenvio automático era o único caminho que não apagava a cópia criada pelo eco
+  do WhatsApp. Agora ele apaga, do mesmo jeito que o envio normal já fazia.
+
+  Quem usa o motor WEBJS tinha um problema pior no mesmo caminho: a mensagem podia
+  ficar presa e ser mandada ao cliente de novo a cada minuto. Isso também foi
+  corrigido.
+
+- **Mídia recebida volta a usar o endereço do provedor configurado no ponto** Quando um ponto de IA era apontado para um serviço compatível — um endereço que não é o oficial do provedor, como um gateway interno —, o atendimento pelo chat funcionava, mas as imagens que os clientes enviavam continuavam sendo descritas pelo endereço oficial, e falhavam, porque a chave era daquele outro serviço. A leitura de mídia agora pega o endereço cadastrado no mesmo lugar em que o chat pega, então imagem e conversa usam o mesmo provedor. Quem nunca cadastrou endereço próprio não percebe diferença: vale o padrão do provedor, como antes. A transcrição de áudio não era afetada por este caminho.
+
+  Duas recusas passam a existir nesse caminho, e as duas abrem aviso na Central em vez de falharem em silêncio: se o endereço cadastrado apontar para dentro do próprio servidor (endereço local, rede interna do Docker, metadados da nuvem), a imagem e a chave não saem para lá; e se a empresa tiver endereço próprio cadastrado mas estiver usando a chave de IA da instalação, a leitura é recusada com a instrução de cadastrar a chave da empresa — a chave que paga a conta da instalação inteira não viaja para um endereço escolhido por uma das empresas.
+
+- **O worker passa a dizer se o laço do event_log carregou, e a publicação exige isso antes de marcar stable** Nada muda na sua VPS: nenhuma migration, nenhuma variável, nenhum comando. O `/healthz` do worker passa a publicar um campo a mais (`event_log_drain`, com o motivo quando o laço não carregou) e a falha ao carregar o laço deixa de ser um aviso de rotina para ser erro — era o aviso que fazia um drain parado parecer normal, e foi assim que a fila do `event_log` ficou dez dias sem drenar com o worker respondendo saudável. Do lado da publicação, o CI passa a executar as imagens do worker e do scheduler antes de publicá-las: worker que não sobe ou laço que não carrega não vira a versão `stable` de quem self-hospeda. Crédito: @webtecnica.
+
+- **No Inbox, o botão de tags diz que a tag é do contato** No painel lateral do Inbox, o botão que abre as tags do contato dizia apenas "Tag", enquanto logo abaixo, no mesmo painel, fica a seção "Tags da conversa". Os dois lugares guardam tags diferentes, e quem atende não sabia em qual estava mexendo. Agora o botão se chama "Tags do contato". Nada muda no comportamento. Crédito: @rafaelbatistazz.
+
+- **O provisionamento do Supabase lê as chaves em qualquer ordem e não perde mais a senha do banco** Na instalação, o passo que busca as chaves de API do projeto novo lia a resposta
+  da Management API por POSIÇÃO: procurava `anon` e, só no que vinha depois dela,
+  `api_key`. Quando a API do Supabase passou a devolver `api_key` antes de `name`,
+  a leitura passou a voltar vazia e a instalação morria no passo 5 com "Não
+  consegui ler anon/service_role" — num projeto que já estava criado e de pé. A
+  leitura agora é por objeto, e a ordem dos campos deixou de importar.
+
+  O estrago maior era o outro lado. A senha do banco é gerada no começo e a API
+  não a devolve depois, então quem morria no passo 5 ficava com um projeto
+  ocupando uma das duas vagas do plano grátis e sem a credencial à mão. A senha
+  passa a ser gravada em `.env.supabase-provision` (só leitura pelo dono, 600)
+  antes de o projeto ser criado; quando um passo falha, a mensagem diz onde ela
+  está; e uma segunda tentativa reaproveita a mesma senha em vez de gerar outra.
+
 ## [1.28.0] — 2026-09-16
 
 ### Adicionado
@@ -5515,6 +5729,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 [Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.17.0...HEAD
 [1.17.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.16.0...v1.17.0
+[1.30.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.29.0...v1.30.0
+[1.29.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.28.0...v1.29.0
 [1.16.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.15.0...v1.16.0
 [1.28.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.27.3...v1.28.0
 [1.15.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.14.0...v1.15.0
