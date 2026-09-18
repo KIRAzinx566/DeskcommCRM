@@ -28,6 +28,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 env:
   UPSTREAM_URL: https://github.com/melgarafael/DeskcommCRM.git
@@ -38,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
     steps:
       - name: RELEASE_APP_TOKEN está configurado?
         id: cfg
@@ -127,7 +129,15 @@ jobs:
       - name: Conflito — abrir ISSUE em vez de PR quebrado
         if: steps.cfg.outputs.ok == 'true' && steps.diff.outputs.novos != '0' && steps.merge.outputs.limpo == 'nao'
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_APP_TOKEN }}
+          # GITHUB_TOKEN, não o RELEASE_APP_TOKEN: o cuidado do cabeçalho deste
+          # arquivo (token de app pra não perder o disparo de outro workflow) só
+          # vale pra branch/PR — issue não dispara nada a jusante, e o
+          # RELEASE_APP_TOKEN nunca teve o escopo de Issues concedido (medido:
+          # "Resource not accessible by personal access token (createIssue)"
+          # mesmo com o repo já com Issues habilitado). O GITHUB_TOKEN com
+          # `issues: write` no `permissions:` do job resolve sem depender de
+          # reconfigurar o PAT pessoal.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           aberta=$(gh issue list --search 'in:title "merge automático deu conflito"' --state open --json number --jq '.[0].number // empty')
