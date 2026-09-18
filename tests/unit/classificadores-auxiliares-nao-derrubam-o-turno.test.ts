@@ -1,5 +1,5 @@
 /**
- * CLASSIFICADOR AUXILIAR "ADVISÓRIO" QUE DERRUBA O TURNO NÃO É ADVISÓRIO.
+ * OS DOIS CLASSIFICADORES AUXILIARES "ADVISÓRIOS" NÃO DERRUBAM O TURNO.
  *
  * ## O defeito, medido ao vivo
  *
@@ -18,15 +18,26 @@
  * ganha um `job_dead` genérico, sem dizer que o motivo foi um classificador
  * AUXILIAR, não a resposta em si.
  *
+ * ## A forma mudou quando os dois passaram a rodar em paralelo
+ *
+ * `tests/unit/classificadores-auxiliares-em-paralelo.test.ts` prova, por
+ * AST, que as duas chamadas são elementos DIRETOS do MESMO `Promise.all` —
+ * só ternário por cima, nada de `.catch` colado em cada uma. Um `.catch` por
+ * chamada quebraria aquela prova estrutural sem quebrar o comportamento, e
+ * por isso o try/catch aqui é em volta do PAR inteiro: uma falha em UM
+ * classificador também descarta o resultado do outro, mesmo que ele tenha
+ * respondido bem — o preço aceito para as duas chamadas continuarem
+ * provadamente em paralelo.
+ *
  * ## O que se prova aqui
  *
  * Estático, pelo mesmo motivo do arquivo irmão: exercitar
  * `executarTurnoDoAgente` de ponta a ponta pede o turno inteiro montado, e
  * `executarTurnoDoAgente` não é exportada de propósito (ver
- * `handoff-por-orcamento.test.ts`). A propriedade que importa — "o call site
- * tem try/catch que só relança LlmBudgetExceededError, e degrada (não
- * relança) qualquer outro erro" — é legível no texto e verificável por
- * sabotagem.
+ * `handoff-por-orcamento.test.ts`). A propriedade que importa — "o
+ * `Promise.all` dos dois classificadores tem try/catch que só relança
+ * LlmBudgetExceededError, e degrada (não relança) qualquer outro erro" — é
+ * legível no texto e verificável por sabotagem.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -50,15 +61,15 @@ function trecho(inicio: string, fim: string): string {
   return FONTE.slice(i, f);
 }
 
-describe("classifyStage não derruba o turno num erro de provedor", () => {
+describe("os classificadores auxiliares (em paralelo) não derrubam o turno num erro de provedor", () => {
   const bloco = trecho(
-    "if (deps.knobs.stageClassifier !== undefined) {",
-    "// F4-04: classifier ADVISÓRIO anti-jailbreak",
+    "try {\n      const [stageResultado, jailbreakVerdict] = await Promise.all([",
+    "// Spec 16 §4: a projeção arma",
   );
 
-  it("a chamada está dentro de um try", () => {
+  it("a chamada do par está dentro de um try", () => {
     expect(bloco, "sem try, qualquer exceção sobe sem tratamento").toContain("try {");
-    expect(bloco.indexOf("try {")).toBeLessThan(bloco.indexOf("await classifyStage("));
+    expect(bloco.indexOf("try {")).toBeLessThan(bloco.indexOf("await Promise.all("));
   });
 
   it("LlmBudgetExceededError ainda relança — a escolta de orçamento precisa dela", () => {
@@ -68,7 +79,7 @@ describe("classifyStage não derruba o turno num erro de provedor", () => {
     ).toMatch(/if\s*\(\s*err instanceof LlmBudgetExceededError\s*\)\s*throw err;/);
   });
 
-  it("qualquer outro erro é logado, não relançado — o turno segue sem hint", () => {
+  it("qualquer outro erro é logado, não relançado — o turno segue sem hint e sem sinal", () => {
     // A régua é NEGATIVA por natureza (ausência de um segundo `throw`), então o
     // controle positivo abaixo prova que a sonda enxerga um `throw` quando ele existe.
     const catchBlock = bloco.slice(bloco.indexOf("} catch (err) {"));
@@ -77,31 +88,10 @@ describe("classifyStage não derruba o turno num erro de provedor", () => {
     // Só UM throw dentro do catch (o condicional de orçamento) — um segundo
     // `throw err;` fora do `if` reintroduziria o defeito original.
     const throws = catchBlock.match(/\bthrow\b/g) ?? [];
-    expect(throws.length, "catch com mais de um throw volta a derrubar o turno em erro comum").toBe(1);
-  });
-});
-
-describe("classifyJailbreak não derruba o turno num erro de provedor", () => {
-  const bloco = trecho(
-    "if (camadaLigada(camadas.jailbreak, deps.knobs.jailbreak !== undefined)) {",
-    "// Spec 16 §4: a projeção arma",
-  );
-
-  it("a chamada está dentro de um try", () => {
-    expect(bloco).toContain("try {");
-    expect(bloco.indexOf("try {")).toBeLessThan(bloco.indexOf("await classifyJailbreak("));
-  });
-
-  it("LlmBudgetExceededError ainda relança", () => {
-    expect(bloco).toMatch(/if\s*\(\s*err instanceof LlmBudgetExceededError\s*\)\s*throw err;/);
-  });
-
-  it("qualquer outro erro é logado, não relançado", () => {
-    const catchBlock = bloco.slice(bloco.indexOf("} catch (err) {"));
-    expect(catchBlock).not.toBe("");
-    expect(catchBlock).toContain("runLog.warn(");
-    const throws = catchBlock.match(/\bthrow\b/g) ?? [];
-    expect(throws.length).toBe(1);
+    expect(
+      throws.length,
+      "catch com mais de um throw volta a derrubar o turno em erro comum",
+    ).toBe(1);
   });
 });
 
@@ -111,12 +101,12 @@ describe("controle negativo: a sonda acusa a volta do defeito", () => {
     // por um `throw err;` incondicional — exatamente o defeito original (um 429
     // comum derrubando o turno como se fosse orçamento esgotado).
     const original = trecho(
-      "if (deps.knobs.stageClassifier !== undefined) {",
-      "// F4-04: classifier ADVISÓRIO anti-jailbreak",
+      "try {\n      const [stageResultado, jailbreakVerdict] = await Promise.all([",
+      "// Spec 16 §4: a projeção arma",
     );
     const catchOriginal = original.slice(original.indexOf("} catch (err) {"));
     const catchSabotado = catchOriginal.replace(
-      /runLog\.warn\(\s*'stage-classifier[\s\S]*?\}\);/,
+      /runLog\.warn\(\s*'classificadores auxiliares[\s\S]*?\}\);/,
       "throw err;",
     );
     expect(catchSabotado, "a sabotagem não mudou o catch — a sonda não acha o alvo").not.toBe(

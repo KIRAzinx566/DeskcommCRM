@@ -98,12 +98,6 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
   Também saiu do projeto o arquivo de agendamento que só servia a uma plataforma de hospedagem que o produto não usa, junto com a exigência de mantê-lo atualizado a cada tarefa nova. A lista que vale continua sendo a do agendador que acompanha a instalação, e ela segue protegida: tarefa sem agendamento, ou agendamento apontando para tarefa que não existe, continuam reprovando na verificação automática.
 
-- **Dois stacks locais no mesmo host deixam de semear o banco um do outro** Quem mantém mais de um checkout do CRM rodando ao mesmo tempo na mesma máquina — cada stack com o próprio `project_id` e a própria faixa de portas — deixa de ver os dados de teste de uma sessão aparecerem no banco da outra. O arquivo `.env.e2e`, que os scripts de seed usam para abrir conexão direta com o banco, passa a receber a porta do Postgres do stack que está de pé, e não mais um endereço fixo da porta padrão: antes, com dois stacks no ar, a segunda sessão semeava o banco da primeira — conexão válida, schema idêntico, suíte verde e o estrago invisível, que é o que fazia o problema sobreviver sem queixa.
-
-  Quando o stack não devolve a URL de conexão, o gerador do `.env.e2e` agora recusa a gerar o arquivo e diz o que faltou, em vez de gravar a porta padrão em silêncio na esperança de acertar. Os scripts de verificação passam a cobrir isso: um teste de shell sobe um stack falso fora da porta padrão e exige que o arquivo gerado acompanhe a porta daquele stack, para que a volta do endereço fixo reprove em vez de passar despercebida.
-
-  Na sua instalação na VPS, nada muda: é o ambiente de desenvolvimento e de testes que fica correto.
-
 - **A ficha do contato identifica o nome do perfil do WhatsApp** Na visão geral do contato, o nome recebido do perfil do WhatsApp deixa de aparecer com o rótulo técnico em inglês e passa a ser identificado claramente na interface. Crédito: @joaopaulomirandamatias.
 
 - **A agenda, o novo contato, o novo lead e o onboarding passam a falar o idioma de quem usa** Quem usa o sistema em espanhol deixa de ver em português os motivos e horários dos blocos da agenda, os avisos de remarcação, o campo de e-mail do novo contato, a janela de novo lead e o rótulo do botão de tema. O onboarding passa a seguir o idioma da organização quando a pessoa não escolheu um idioma próprio, e a página passa a declarar ao navegador o idioma em uso assim que carrega. A tradução completa da interface para chinês simplificado entrou no sistema, mas ainda não aparece para escolha. Em português, nada muda. Crédito: @xxjjjj.
@@ -142,6 +136,442 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   Nada muda no que você roda hoje. O que muda é o que você lê: a mensagem que aparece quando falta uma variável agora manda ajustar o `.env` da instalação, em vez de um painel que você não tem; os procedimentos de trocar chave do WhatsApp e de rotacionar credenciais passam a descrever o `.env` e a recriação dos contêineres; e o texto que quem contribui recebe ao abrir um pedido de mudança deixa de anunciar um resultado de verificação que não existe mais, e diz onde olhar o que de fato trava a entrada do código.
 
   O agendador de tarefas para quem instala sem cron próprio continua existindo e funcionando igual — só deixou de ser descrito como coisa de uma plataforma específica.
+
+## [1.35.0] — 2026-09-18
+
+### Adicionado
+
+- **A atualização agora conta se o banco deu disputa** Quando uma atualização termina, a tela passa a contar o que aconteceu com o
+  banco: se ele estava em disputa com o sistema no ar, quantas retentativas foram
+  necessárias e em qual passada o banco fechou. Se a rodada não passou pelo banco
+  — atualização só de código, por exemplo —, a tela não fala do assunto: ela não
+  inventa uma passada que ninguém mediu. E uma rodada que NÃO conseguiu fechar o
+  banco (a disputa persistiu até o teto de tentativas, ou veio um erro que
+  retentativa não cura) também fica em silêncio: a frase existe para dizer que
+  fechou, e afirmar fechamento onde não houve seria pior que não dizer nada.
+
+  O efeito para quem opera: uma atualização que precisou de três passadas por
+  causa do sistema em uso deixa de parecer idêntica a uma que fechou de primeira,
+  e o dono do servidor sabe que o "deu certo" dele veio acompanhado de disputa —
+  o que muda o que ele confere depois.
+
+- **CSV agora é um formato aceito no acervo de conhecimento da IA** Antes, o acervo de conhecimento só lia PDF, Markdown e texto puro — uma
+  planilha exportada como CSV era recusada com "não sei ler esse tipo de
+  arquivo", e Excel (`.xlsx`/`.xls`) continua recusado, mas agora com uma
+  mensagem que ensina a exportar como CSV primeiro. Cada linha da planilha vira
+  um bloco de busca próprio (`Coluna: valor`), então uma tabela de preços ou uma
+  lista de perguntas frequentes em CSV passa a ser pesquisável pelo agente linha
+  a linha, sem virar uma tabela ilegível depois de indexada. Crédito: @cabindaferreira.
+
+- **Um acompanhamento pode esperar semanas sem morrer quando o cliente fala** Até agora não dava para montar um acompanhamento de retorno — "volte a falar com
+  esta cliente daqui a 28 dias" — dentro de um fluxo. Qualquer espera era
+  interrompida assim que o cliente mandasse qualquer mensagem: ou o acompanhamento
+  era cancelado, ou o relógio era cortado e a mensagem de retorno saía na hora
+  errada. Para uma cliente de manutenção, que conversa com o estúdio várias vezes
+  no mês, os dois desfechos estavam errados — e por isso essa regra só existia
+  escrita no prompt do agente, onde não dá para editar o prazo, ver quem está
+  esperando nem medir o resultado.
+
+  Agora a espera de um fluxo tem uma opção nova.
+  **A resposta do cliente não encurta mais a espera.**
+  Ela vale só para esperas de 24 horas ou mais (numa espera curta
+  seria um tiro no pé: prenderia alguém no meio da conversa) e o acompanhamento
+  fica visível na fila como "Aguardando a data do retorno", com a data em que volta
+  a falar. Enquanto ele dorme, o cliente continua podendo entrar em outros
+  acompanhamentos — antes, um só já ocupava a vaga dele por todo o período.
+
+  Quem pede silêncio continua sendo respeitado: um "pare de me mandar mensagem"
+  cancela também o retorno que estava dormindo.
+
+  Junto vem uma capacidade nova para os agentes de IA,
+  **"Iniciar um acompanhamento configurado"**,
+  que deixa o agente pôr o cliente num fluxo que você montou na tela. É o que tira do texto do agente as decisões de quando falar, o que dizer
+  e quando parar, deixando com ele só o que ele realmente sabe: que o atendimento
+  terminou e ainda há motivo para voltar.
+
+  Há um limite conhecido, e ele importa antes de você armar um retorno longo: se o
+  atendimento que originou o acompanhamento for encerrado ou substituído durante a
+  espera, o envio é cancelado. Isso já acontecia com o retorno agendado pelo agente
+  e não é novo — a diferença é que agora **você fica sabendo**: abre um aviso na
+  Central dizendo qual fluxo era e que o retorno não saiu. Nada a fazer na VPS além
+  de atualizar.
+
+- **Aviso automático N dias antes (ou depois) de uma data do funil** Sua equipe já guardava datas no funil — a data do casamento, o vencimento, o dia da prova — e elas
+  não acionavam nada: quem quisesse avisar 240 dias antes teria de olhar negócio por negócio, e no dia
+  certo.
+
+  Agora existe uma automação para isso, em **Automações → Nova automação**: escolha "Quando faltarem N
+  dias para uma data do funil", diga de qual funil é o campo, qual campo de data e quantos dias antes
+  avisar. No dia certo, a regra dispara uma vez por negócio — dá para mandar mensagem no WhatsApp,
+  aplicar uma etiqueta, mover o card, o que a automação já fazia.
+
+  O número aceita sinal: `7` avisa sete dias antes da data; `-60` avisa **sessenta dias depois** dela —
+  é assim que a confirmação de entrega sai depois do casamento, com a mesma data que já está no
+  negócio. O aviso sai às 9h da manhã no fuso da sua empresa, e cada negócio recebe uma vez só por
+  regra: mudar a data depois do disparo não faz o aviso voltar — para uma segunda cobrança, crie uma
+  regra nova.
+
+  A regra só dispara para negócios do funil e do campo escolhidos, e só nas organizações que a
+  configuraram: quem não usa a automação não é varrido nem recebe nada.
+
+- **Envio de conversão de volta pro Google Ads** Até aqui, mesmo com o clique do Google Ads já sendo capturado (versão
+  anterior), o sistema não tinha como avisar o Google quando aquele lead virava
+  venda de verdade — o anúncio continuava otimizando "pessoa que clicou", nunca
+  "pessoa que comprou".
+
+  Agora existe a conexão completa: um botão "Conectar com Google" em
+  Configurações › Conversões autoriza a organização, e a partir daí, sempre que
+  um negócio vindo do Google Ads é marcado como ganho, o valor da venda é
+  reportado de volta para a conta de anúncios — o mesmo laço que já existia para
+  a Meta.
+
+  Não muda nada para quem não usa: a conexão precisa ser configurada
+  explicitamente (autorizar + informar a conta de anúncios + a ação de
+  conversão), e a instalação precisa ter as credenciais do Google Ads
+  (`GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_OAUTH_CLIENT_ID`,
+  `GOOGLE_ADS_OAUTH_CLIENT_SECRET`) configuradas no `.env` — sem elas, o botão
+  de conectar simplesmente não aparece.
+
+- **Landing page de captura de clique do Google Ads** Até aqui, uma organização que anunciava no Google Ads não tinha como saber
+  quais leads do WhatsApp vieram de qual clique pago — o Google Ads, ao
+  contrário da Meta, não tem um "Clique para o WhatsApp" nativo que carregue
+  essa informação para dentro da conversa.
+
+  Agora existe uma landing page (`/api/v1/anuncios/google/<organização>`) que
+  recebe o clique do anúncio, gera um código curto e redireciona para o
+  WhatsApp com esse código já embutido no texto da mensagem. Quando a pessoa
+  manda a mensagem, o sistema reconhece o código e carimba o contato com a
+  origem do anúncio — o mesmo carimbo que já existe para a Meta.
+
+  Não muda nada para quem já usa o produto: a captura só funciona para a
+  organização que configurar seu número de WhatsApp e o texto da mensagem em
+  `google_ads_landing_pages` (ainda sem tela própria nesta versão). O passo
+  seguinte — reportar a venda de volta para o Google Ads — continua fora do ar,
+  porque depende de credenciais da API do Google Ads que a maioria das
+  instalações ainda não tem.
+
+- **A conversa que ficou com uma pessoa pode voltar ao agente de IA sozinha, depois de um prazo** Quando alguém assume uma conversa — pelo botão, pela IA passando para humano ou pelo celular —, o agente de IA para de responder nela até ser devolvido. Isso continua sendo a regra. O que muda: em Configurações › Distribuição de atendimento, a organização pode ligar um prazo (de 5 minutos a 24 horas) para devolver a conversa ao agente sozinha quando ninguém da equipe deu mais nenhum sinal — nem assumiu, nem respondeu pela tela ou pelo celular. O tempo conta do último sinal, então um atendimento longo com a pessoa respondendo não é interrompido. A volta acontece pelo mesmo caminho do botão "Devolver": as travas saem, o acompanhamento pausado retoma e a linha do tempo do negócio diz que foi o prazo, e depois de quantos minutos. Só devolve onde há agente publicado para aquele número — devolver para ninguém deixaria a conversa muda. Desligado (o padrão, inclusive para quem já tem o sistema instalado), nada muda: a IA só volta quando alguém clica em Devolver. Motivo: numa instalação real, 12 das 31 conversas ativas de um dia estavam paradas com humano, ninguém devolvia, e o cliente que escrevia de novo ficava sem resposta. Crédito: @Gervanno.
+
+- **Kwanza (Kz) e o fuso de Luanda passam a aparecer nas listas de escolha** Quem opera em Angola não encontrava a própria moeda nem o próprio fuso: em
+  Configurações › Organização, a lista de moedas ia só até dólar, peso e real, e
+  as listas de fuso horário — da organização, do perfil de cada pessoa, da equipe
+  e da janela de envio do WhatsApp — só ofereciam cidades da América do Sul. Sem a
+  opção certa, restava deixar o relógio do Brasil e ver o agente respeitar a
+  janela de envio três horas fora do lugar. Agora o kwanza aparece na lista de
+  moedas (e o valor sai escrito como se escreve lá, `249,90 Kz`) e "Luanda
+  (Angola)" aparece em todas as listas de fuso.
+  **Nada muda para quem já usa o sistema:** o padrão de quem nunca escolheu
+  continua sendo real e São Paulo — o que entrou foi opção, não troca.
+  Crédito: @cabindaferreira.
+
+### Alterado
+
+- **A doutrina de chamada de servidor passa a dizer o que o código exige** A documentação interna prometia autenticar chamada de servidor com um token
+  começando em `tok_`, e o sistema exige `dsk_`. Quem seguia o texto recebia
+  "credencial inválida" sem entender por quê — o prefixo `tok_` não existia em
+  nenhuma linha de código.
+
+  Além disso o texto descrevia a autenticação por chave de servidor como se
+  valesse em toda a API, quando ela é habilitada rota por rota. Agora o texto diz
+  a direção (é assim que o produto quer atender sistema externo, e as rotas vão
+  sendo convertidas conforme cada integração precisa) e entrega o comando que
+  responde quais rotas já aceitam hoje, em vez de um número que envelhece.
+
+  Nada muda para quem opera uma instalação: não há env nova, nem migration, nem
+  comportamento diferente no que já estava no ar.
+
+- **O relatório de acesso deixa de se chamar LGPD quando a lei não é essa** O PDF que responde ao direito de acesso do titular citava a LGPD fixa no
+  código. Agora a citação sai do perfil do país da organização — e o documento
+  simplesmente **não cita lei** quando o país ainda não tem a citação revisada, em
+  vez de citar a de outro.
+
+  No Brasil, nada muda no que você entrega: a citação continua "LGPD Art. 18, II
+  (Lei nº 13.709/2018)". O título do arquivo passa a ser "Relatório de Acesso aos
+  Dados" — o documento é sobre o direito ao acesso, e o nome da lei é do país. O
+  prazo de resposta também passa a ser contado no calendário de feriados do país
+  da organização, não no brasileiro fixo.
+
+  Não há ação para quem opera a VPS.
+
+### Corrigido
+
+- **A atualização numa VPS de outra arquitetura se vira sozinha** Numa VPS cuja arquitetura não tem imagem publicada, o registro responde `no matching manifest for linux/arm64/v8`, o `pull` não traz imagem nenhuma e o `up -d` morre junto. O desfecho era o pior possível: o CRM continuava na versão antiga e ninguém era avisado — pelo botão **Atualizar** nem isso, porque o agente roda sozinho no cron e a falha não cabia na tela. Agora, quando o `pull` falha por arquitetura, o kit constrói aqui nesta VPS a MESMA versão alvo (`docker-compose.build.yml`, subindo pelo override com `pull_policy: never` para o Compose não voltar ao registro) e termina dizendo, em português, que as imagens foram construídas aqui nesta VPS e o motivo. Quando a imagem existe para a sua arquitetura, nada muda: nenhum build local, nenhuma ação sua, nenhuma variável, nenhum comando. Crédito: @webtecnica.
+
+- **No construtor de fluxos, a regra de etapa passa a funcionar — e o cartão do passo diz a verdade** No passo "Verificar condição", a etapa do funil era digitada à mão. O sistema
+  compara a etapa pelo código interno dela, então a regra "o lead está na etapa
+  PAGO" nunca era verdadeira, e ninguém avisava: o fluxo publicava e o contato
+  seguia pelo caminho errado. Agora a etapa é escolhida numa lista (com o nome do
+  funil junto), o número de passos é um campo numérico, e publicar recusa a regra
+  sem valor, a que aponta para etapa que não existe mais e a que ficou arquivada —
+  dizendo qual regra corrigir. Um fluxo antigo com a etapa digitada à mão continua
+  rodando como está; ao publicar de novo, o sistema pede para escolher a etapa.
+
+  Regras de "passos" também voltam a decidir como foram escritas: a tela antiga
+  gravava o número como texto e o sistema nunca dava a regra por verdadeira, então
+  "pelo menos 3 passos" mandava todo mundo pelo caminho do "não". Vale a pena
+  conferir os fluxos ativos que comparam passos — eles podem passar a seguir por
+  outro caminho, que é o que foi pedido quando a regra foi escrita.
+
+  No cartão de cada passo, o texto deixa de ser cortado no meio, o passo de
+  classificar nasce com opções em português ("Interessado", "Sem interesse") no
+  lugar de "hot"/"cold", "grace 15min" virou "espera 15 min", e a saída de escape
+  de um passo que já tem saídas deixa de se chamar "Sempre" — ela só é usada
+  quando nenhuma das outras serve, e agora se chama "Outros casos". As linhas
+  entre os passos ganharam contraste: no tema claro elas quase sumiam.
+
+- **A agenda de quem atende passa a dizer por que não dá para marcar, e de quem é o horário** A agenda de quem atende abria com um aviso de permissão sem motivo no lugar dos horários: a tela pedia a lista de membros da organização a uma rota que só quem administra pode ler, recebia a recusa e mostrava "Você não tem permissão para esta ação" — sem dizer de que permissão se tratava, nem como pedir. Quem atende agora lê a mesma lista por um caminho próprio, com o papel mínimo de quem atende, e o que essa lista devolve é só o que a barra da agenda usa: nome e se a pessoa tem agenda. E-mail e data do último acesso não saem por ali.
+
+  O horário ocupado no Google da dona da agenda também deixa de aparecer livre para quem atende. A ocupação passa a ser lida por pessoa, e não pelo que a sessão de quem olha tem direito de ver: quem atende recebia apenas a própria ocupação, e desenhava livre o horário em que a dona já estava comprometida. Quando a leitura de uma pessoa falha, o que foi lido das outras continua na tela, e o motivo da falha fica registrado.
+
+  A explicação do bloqueio passou a distinguir os dois casos que a mesma frase cobria. "Ocupado" é quando alguém já está comprometido naquele horário — inclusive no Google; "fora da jornada" é quando aquele horário não faz parte do que a pessoa publicou. O rótulo da coluna só diz "Você" quando o dono da agenda é quem está logado, e o painel do dono não escreve mais "Você" para si mesmo. E um dia de folga dentro da jornada deixou de ser anunciado como "Nenhum horário publicado neste dia", que fazia parecer configuração faltando para quem já tinha publicado jornada: a folga agora se anuncia como folga, e a falta de jornada continua tendo o seu próprio aviso.
+
+  Quem já roda o sistema não precisa fazer nada: nada de configuração mudou, só o que a tela diz e o que ela mostra.
+
+- **O anonimizador cobre os documentos que o Brasil não usa** Quem manda texto de conversa para o modelo tinha dois buracos: o BI angolano
+  (`003862011LA042`) e o CPF de nove dígitos (`541712345`) atravessavam o
+  anonimizador intactos — medido, antes do conserto, nos dois casos, um depois do
+  outro.
+
+  Agora o conjunto de padrões é declarado no perfil do país, o anonimizador e a
+  guarda que o confere usam o MESMO conjunto (antes eram duas listas que podiam
+  divergir em silêncio), e documento novo entra pelo perfil em vez de virar mais
+  um padrão solto no meio dos outros.
+
+  Ninguém precisa fazer nada.
+
+- **Regra de automação transfere o negócio entre funis em vez de abrir um segundo** Quando uma regra de automação aponta para outro funil e o contato já tinha um negócio aberto no funil antigo, a regra criava um SEGUNDO negócio e deixava o primeiro aberto: o mesmo cliente aparecia duas vezes, um card em cada funil, e ninguém sabia qual dos dois era o de verdade. Agora a regra TRANSFERE: o negócio é levado para o funil da regra com os mesmos dados (título, valor, responsável, campos personalizados e etiquetas) e o do funil antigo é encerrado como perdido, com o registro de para onde foi. Negócio aberto no mesmo funil continua sendo movido de etapa, e contato sem negócio aberto continua ganhando um negócio novo.
+
+  Esse encerramento não conta como perda comercial: "Levado para outro funil" é o motivo próprio da transferência, e as métricas de perdas (a por responsável e a do relatório de atrito) deixam de contá-lo — trocar de funil não é perder o negócio. O motivo de sistema também não aparece na janela "Marcar como perdido": ele continua gravado pela transferência, mas não é oferecido a quem está fechando um negócio à mão — sem isso, um clique tiraria uma perda comercial real do número. A atualização aplica a mudança no banco sozinha: nada precisa ser feito à mão, e negócio encerrado antes dela continua contando como perda.
+
+- **Uma consulta de membro que não volta não acusa mais o responsável de estar fora da organização** Quando uma regra de automação ia atribuir um responsável a um negócio e a
+  consulta que confere se aquela pessoa é membro da organização não voltava — rede
+  fora, banco fora —, a regra terminava dizendo `user_not_in_org`, como se o
+  responsável escolhido tivesse saído da organização. O aviso mandava o operador
+  mexer justamente no que estava certo: quem ele havia escolhido para atender.
+
+  Agora a ação separa "não é membro" de "não deu para saber". O responsável que
+  realmente não é membro continua sendo recusado do mesmo jeito, com
+  `user_not_in_org`. Quando a consulta falha, a execução passa a ser marcada com o
+  código `membro_indeterminado`, e a mensagem do erro fica registrada no detalhe da
+  execução.
+
+  O que muda para quem opera, hoje: o histórico da regra deixa de acusar a
+  configuração. Antes ele dizia que o responsável escolhido estava fora da
+  organização, o que mandava mexer justamente no que estava certo. A frase amigável
+  para esse caso na aba Atividade ainda não existe — o histórico mostra o código —
+  e está sendo tratada à parte.
+
+- **A suíte E2E não deixa conexões de WhatsApp de teste no banco** Ao terminar, o Playwright agora remove as sessões de WhatsApp criadas pelos seeds E2E. Também há um script explícito para limpar resíduos antigos; em banco remoto ele exige `--allow-remote` para evitar exclusão acidental. Crédito: @joaopaulomirandamatias.
+
+- **A Fila para de empurrar para o fim quem insiste — a espera passa a contar da primeira mensagem sem resposta** Na aba Fila, a posição de cada conversa era calculada pela ÚLTIMA mensagem do cliente. O efeito era o inverso do pretendido: quem escrevia de novo — cobrando, perguntando outra vez — reiniciava a própria espera e descia para o fim, atrás de quem escreveu uma vez e ficou quieto. Quem mais estava tentando ser atendido era o último a ser atendido.
+
+  A régua agora é a mensagem do cliente **mais antiga que ninguém respondeu ainda**, e é ela que ordena a lista, que a pílula "Aguardando há…" mostra e que a posição dita no WhatsApp usa. A resposta do atendente continua encerrando a espera: a partir dela, a próxima mensagem do cliente conta do zero, como deve ser.
+
+  Um aviso para quem já tem fila rodando: a atualização preenche a coluna nova das conversas que já existem, usando as mensagens de cada atendimento. Na prática, conversas que estavam no fim da fila porque o cliente insistiu vão subir, e as que estavam no topo podem descer — a ordem passa a refletir quanto tempo cada um espera de fato. Nada precisa ser feito à mão.
+
+- **Instalador volta a pedir consentimento antes de ligar a telemetria** O template self-host não pré-define mais `SENTRY_DSN` vazio antes da primeira execução. Assim, o instalador volta a perguntar pelo envio de relatórios de erro; em modo `--yes`, mantém a telemetria desligada, e uma escolha anterior continua preservada nas reexecuções. Crédito: @joaopaulomirandamatias.
+
+- **O kit explica quando a VPS usa uma arquitetura sem imagem publicada** Instalação e atualização agora recusam ARM64/aarch64 antes de consultar ou baixar as imagens do DeskcommCRM, explicando que as imagens oficiais atuais são `linux/amd64` e orientando usar uma VPS x86_64/amd64. Crédito: @joaopaulomirandamatias.
+
+- **O funil passa a falar a moeda que a empresa escolheu, em vez de real sempre** Em Configurações › Organização dá para escolher a moeda da empresa, e o funil
+  ignorava a escolha em dois pontos. O total no topo de cada coluna do quadro
+  saía sempre com `R$` na frente — o número estava certo e o símbolo mentia. E
+  todo negócio criado pela tela "Novo negócio" nascia em real, mesmo numa empresa
+  que opera em peso ou dólar: o valor cadastrado passava a ser exibido na moeda
+  errada em toda tela que o mostra. Agora o total sai na moeda dos negócios da
+  coluna, e um negócio novo nasce na moeda que a empresa declarou.
+  **Nada muda para quem opera em real,** e nenhum negócio já cadastrado tem a
+  moeda alterada — o conserto vale para o que nasce daqui em diante. Um detalhe
+  visível: o total da coluna passa a mostrar os centavos, porque quem os escondia
+  era a mesma linha que escondia a moeda. Crédito: @cabindaferreira.
+
+- **Um PDF recebido no WhatsApp não derruba mais o agente** Um PDF de poucos KB recebido no WhatsApp reiniciava o processo do agente de IA a cada poucos segundos (estouro de memória ao ler o arquivo), e enquanto isso nenhuma conversa era respondida — o mesmo PDF voltava à fila e derrubava de novo, sem limite. Agora a leitura de PDF roda num processo à parte, com teto de memória próprio: um arquivo que não dá para ler vira um erro comum daquela mensagem, o agente segue respondendo, e depois de cinco tentativas a Central de Avisos recebe o aviso. Vale também para qualquer outro processamento que derrube o processo no meio: ele passa a contar como tentativa em vez de voltar à fila para sempre.
+
+- **Erro de PDF no acervo de conhecimento para de acusar o arquivo errado** Toda falha ao ler um PDF no acervo de conhecimento — qualquer uma —
+  aparecia como "Se ele for só imagens escaneadas, não há letra nenhuma
+  para ler", mesmo quando o PDF tinha texto selecionável e o problema era
+  outro (por exemplo, uma dependência nativa ausente na instalação). A
+  mensagem específica que `extractPdfText` já produzia para cada causa
+  era descartada e trocada por essa frase única em
+  `lib/ai/rag/ingest/documento.ts`, então quem enviava um PDF perfeitamente
+  legível recebia uma explicação que apontava para o próprio arquivo como
+  culpado. Agora a causa relatada é a causa real — e, no caso que motivou o
+  conserto (uma peça nativa do leitor de PDF que ficou de fora da imagem), a
+  mensagem diz o que quem opera a VPS pode de fato fazer: atualizar a
+  instalação e, se não resolver, avisar quem instalou. Antes ela mandava
+  reinstalar pacotes, que num servidor com a imagem pronta não é um passo que
+  exista. Crédito: @cabindaferreira.
+
+- **O teto de gasto de IA volta a contar quando o agente atende no Claude Sonnet 5** A tela Uso e orçamento mostrava gasto zero em instalações que atendem no Claude Sonnet 5 — o modelo padrão do catálogo —, e o limite mensal nunca disparava, por mais que a conta do provedor subisse. A tabela de preços interna tinha parado na geração 4 dos modelos, e o que ela não conhece é registrado como custo desconhecido, que o teto soma como zero. Agora a geração 5 tem preço, e o gasto aparece e conta. Pelo mesmo motivo, o Claude Opus 4.5 em diante era cobrado ao preço do Opus 4 aposentado, três vezes mais caro, o que fazia o teto disparar antes da hora. Crédito: @maclevison.
+
+## [1.34.0] — 2026-09-18
+
+### Adicionado
+
+- **Dá para abrir um dia de atendimento pela tela, e não só fechar** A tela de agenda sabia tirar dias da agenda — feriado, férias, viagem — e não sabia o
+  contrário: **acrescentar** um dia que a jornada semanal não cobre. O botão só fechava, e
+  sempre o dia inteiro.
+
+  Agora o mesmo bloco pergunta o que fazer: fechar o dia, como antes,
+  ou **abrir para atendimento** num intervalo de horas que você escolhe. A lista abaixo continua mostrando os
+  dois, cada um com o seu rótulo.
+
+  Se os dias se repetem, dá para abrir o período inteiro de uma vez:
+  preencha **repetir toda semana até** e o bloco cria toda semana daquele dia
+  da semana até a data limite, pulando o que já estiver cadastrado em vez de
+  duplicar. O limite é um ano por vez.
+
+  Quem mais ganha com isso é quem não atende em jornada fixa. Com a jornada semanal vazia,
+  todo dia nasce fechado e só as datas que você abrir passam a oferecer horário — que é como
+  se monta a agenda de quem atende em dias irregulares, às vezes em lugares diferentes no
+  mesmo dia. Antes isso não tinha como ser feito pela tela.
+
+  Nada muda para quem já usava: fechar um dia continua fechando o dia inteiro, e os dias já
+  cadastrados seguem como estão.
+
+- **Anúncios › Meta mostra o Connect rate de cada campanha** A tabela de campanhas de Anúncios › Meta ganhou a coluna Connect rate (visualizações da página ÷ cliques no link), a mesma conta do Gerenciador de Anúncios da Meta, logo depois do CTR. Campanha que não leva ninguém a uma página — mensagem no WhatsApp, por exemplo — mostra "—", e não 0%, porque ali não houve medição. Não há nada a fazer na instalação: os dois números passam a vir na mesma leitura de insights que a tela já fazia, sem chamada nova e sem gastar cota a mais. E a tabela passa a carregar mesmo quando a métrica nova não vem: se a plataforma recusar um dos dois nomes, a tela repete a leitura sem eles — a coluna fica "—" e todas as outras continuam funcionando, em vez de a tela inteira cair. O "—" não é mudo: no hover ele explica que o número não veio da plataforma (vazio não é zero), e o motivo cru que ela devolveu fica no log do servidor — sem esse rastro, a repetição trocaria um erro visível por um erro invisível. Crédito: @webtecnica.
+
+- **A presença do atendente passa a existir — e a Equipe mostra quem está aí** O produto tinha o **leitor** do sinal de presença e nunca teve o **emissor**:
+  o cron `attendant-heartbeat` derrubava do plantão quem não emitisse sinal de
+  vida há 15 min, e nenhum arquivo do repositório emitia sinal nenhum. O único
+  escritor de `last_heartbeat_at` era o clique na chave de plantão — um carimbo de
+  clique se fingindo de batida, e a chave se desligava sozinha ~15 min depois de
+  ligada (medido pelo @paulolimajr77 no PR #720).
+
+  Agora cada aba aberta emite uma batida a cada 60 s (`POST
+  /api/v1/attendants/presence`), e "tem alguém aí?" é respondido na hora da
+  pergunta, a partir do carimbo: sem cron de expiração e sem coluna booleana de
+  presença. Fechar a aba não escreve nada no banco — a pessoa some da lista de
+  presentes dentro do prazo, sozinha. Quem lê: a rota de disponibilidade, a
+  escalação (e a ferramenta MCP que o agente usa), o aviso ao lead e a tela de
+  Equipe, com selo presente/ausente e o carimbo.
+
+  A presença **não** toca na decisão. A separação é de tipo, não de disciplina: o
+  predicado do plantão (`estaDePlantao`, em `lib/routing/eligibility.ts`) não
+  recebe presença como entrada. Quem tira alguém do plantão é a pessoa (a chave)
+  ou a jornada publicada — nunca o navegador fechando.
+
+  Custo: uma escrita por aba a cada 60 s (480 em um turno de 8 h); com a aba
+  fechada, nenhuma.
+
+### Alterado
+
+- **Arrumação interna de quem valida as chaves de integração** A parte do sistema que confere uma chave de integração (as que começam com `dsk_`) foi separada em duas: a que decide se a chave vale, e a que traduz a recusa para o formato de quem perguntou. Antes as duas eram a mesma peça, e qualquer outro pedaço do sistema que quisesse conferir uma chave tinha de carregar junto o vocabulário de erro de um protocolo que não era o dele.
+
+  Nada muda para quem usa ou opera o sistema: as mesmas chaves continuam valendo, as recusas (chave desconhecida, revogada ou vencida) continuam devolvendo exatamente a mesma resposta, e o registro de último uso da chave continua sendo gravado. Você não precisa fazer nada e nenhuma integração precisa ser refeita.
+
+  Crédito: @faxamkt.
+
+### Corrigido
+
+- **A IA voltou a conseguir remarcar um atendimento para logo depois do próprio fim quando há intervalo configurado** Com um intervalo antes do atendimento configurado — o respiro entre uma conversa e a seguinte —, a IA que tentava remarcar um atendimento para o horário logo depois do fim dele mesmo recebia uma recusa de "horário não disponível". A culpa era do próprio atendimento sendo movido: ele entrava na conta como se já estivesse ocupando o horário de destino, e o intervalo só aumentava a área onde essa confusão acontecia. Sem intervalo configurado, o mesmo pedido passava.
+
+  Agora o atendimento que está sendo remarcado deixa de contar como ocupação contra si mesmo. Nada muda para os vizinhos: o intervalo continua valendo, e mover um atendimento para cima de outro continua sendo recusado como...[truncated]
+
+- **A tela de atualização para de anunciar uma versão que o servidor não confirmou** Quando uma atualização terminava bem mas o servidor não voltava a se comunicar com o sistema — serviço parado, tarefa agendada removida, credencial vencida —, a tela de atualização anunciava como instalada a versão que o pedido pedia, e continuava anunciando por tempo indeterminado. Se o aplicativo não tivesse subido na versão nova, quem abrisse a tela lia a versão nova enquanto o que estava de fato em execução era a antiga, e não havia como desconfiar do que a tela dizia.
+
+  Agora a tela só afirma a versão que o servidor confirmou por último. Nos minutos seguintes ao fim de uma atualização bem-sucedida, ela diz que o pedido terminou, que a confirmação ainda não chegou e qual é a última versão que o servidor confirmou — e não oferece de novo a atualização que acabou de ser feita. Passado o prazo sem nenhuma confirmação, a versão-alvo volta a aparecer como pedido em aberto, com o botão de atualizar de volta: se o aplicativo realmente não subiu, você consegue tentar outra vez pela própria tela.
+
+  Nada para configurar. Quem tem o servidor reportando normalmente não vê diferença nenhuma: a tela segue mostrando a versão em execução e volta sozinha ao estado de sempre assim que a confirmação chega. Crédito: @webtecnica.
+
+- **O agente de IA responde mais rápido no WhatsApp** O turno do agente pagava tempo que não precisava pagar antes de responder ao
+  cliente: os dois classificadores auxiliares — o que sugere a etapa do funil e o
+  que olha sinal de jailbreak — rodavam um depois do outro, e a pausa que dá ar
+  humano à primeira mensagem era somada por cima do tempo que o turno já tinha
+  gastado pensando.
+
+  Agora os dois classificadores rodam ao mesmo tempo (o turno espera só o mais
+  lento) e a pausa humana desconta o que já foi esperado. Quando há fila de
+  mensagens acumulada, o escoamento não dorme entre um lote cheio e o próximo.
+
+  Nada muda no ritmo de envio que protege o número do WhatsApp, nem no consumo do
+  banco de quem não tem atendimento nenhum: os dois padrões que mexeriam nisso
+  ficaram de fora, esperando medição.
+
+- **A origem da página sobrevive quando o contato chega pelo WhatsApp** Quando alguém lia uma campanha no site e tocava no botão que abre o WhatsApp, a
+  conversa entrava no CRM como WhatsApp e a origem da página morria ali: o card
+  nascia sem rótulo nenhum, e o relatório de onde vem o negócio perdia justamente
+  o toque que mais custa — o que veio de anúncio ou de landing page.
+
+  Agora o link do botão pode carregar a origem junto (utm_source, utm_medium,
+  utm_campaign, gclid) e ela é estampada no contato ANTES do card nascer, de modo
+  que o card já nasce com o rótulo. Mensagem sem código nenhum segue exatamente
+  como era.
+
+  O código vale só na primeira mensagem do contato e nunca sobrescreve uma origem
+  já gravada, inclusive a de anúncio: quem chegou de campanha paga primeiro mantém
+  a campanha paga. Ele leva apenas campos de campanha — nenhum dado pessoal — e
+  tem teto de tamanho. Em Configurações → Conversões há a explicação de como montar
+  o link, com um exemplo gerado na hora, e a lista de contatos ganhou o filtro de
+  origem "Site (landing page)".
+
+- **Falhas de leitura da Agenda do Google voltam a explicar o motivo** Quando o Google recusa a leitura incremental da agenda, o diagnóstico agora usa o motivo estruturado da resposta em vez de gravar apenas `Google HTTP N`, sem copiar e-mail ou texto livre devolvido pelo provedor.
+
+- **Conserto do sistema passa a valer já na primeira atualização, não na seguinte** A atualização carregava as rotinas do instalador antes de trocar para a versão nova, então um conserto que vivesse numa dessas rotinas só entrava em vigor na atualização seguinte. Foi o que aconteceu com o conserto que tira o segredo da linha de tarefas agendadas: quem atualizou continuava com a linha antiga até rodar a atualização outra vez.
+
+  Não há nada a fazer: a próxima atualização aplica a correção sozinha — e, desta vez, numa passada só.
+
+- **Dois stacks locais no mesmo host deixam de semear o banco um do outro** Quem mantém mais de um checkout do CRM rodando ao mesmo tempo na mesma máquina — cada stack com o próprio `project_id` e a própria faixa de portas — deixa de ver os dados de teste de uma sessão aparecerem no banco da outra. O arquivo `.env.e2e`, que os scripts de seed usam para abrir conexão direta com o banco, passa a receber a porta do Postgres do stack que está de pé, e não mais um endereço fixo da porta padrão: antes, com dois stacks no ar, a segunda sessão semeava o banco da primeira — conexão válida, schema idêntico, suíte verde e o estrago invisível, que é o que fazia o problema sobreviver sem queixa.
+
+  Quando o stack não devolve a URL de conexão, o gerador do `.env.e2e` agora recusa a gerar o arquivo e diz o que faltou, em vez de gravar a porta padrão em silêncio na esperança de acertar. Os scripts de verificação passam a cobrir isso: um teste de shell sobe um stack falso fora da porta padrão e exige que o arquivo gerado acompanhe a porta daquele stack, para que a volta do endereço fixo reprove em vez de passar despercebida.
+
+  Na sua instalação na VPS, nada muda: é o ambiente de desenvolvimento e de testes que fica correto.
+
+- **A checagem de saúde não diz mais que o banco caiu quando ele está de pé** Quem instalou o CRM num projeto Supabase que **já servia outra aplicação** podia ver a
+  atualização terminar dizendo que o app não respondeu "ok" — com o CRM atendendo
+  normalmente, o login abrindo e os dados todos no lugar.
+
+  A causa era da sonda, não do banco. A checagem de saúde consultava a API do Supabase sem
+  dizer em qual schema procurar, e aí valia o **schema padrão do projeto** — que é `public`
+  em projeto novo, mas é o da outra aplicação quando ela chegou primeiro. A sonda procurava a
+  tabela no lugar errado, recebia "não existe" e concluía que o banco estava fora. Agora ela
+  pergunta pelo mesmo schema que o CRM usa de verdade.
+
+  Isso importa além do susto: a atualização usa essa resposta para decidir se deu certo, e um
+  "não" falso fazia a versão nova ser **revertida sozinha** logo depois de instalar. Quem
+  atualiza pela tela podia ver a versão voltar ao que era, sem nenhum erro aparecendo no CRM.
+
+  Nada muda para quem instalou num projeto Supabase dedicado ao CRM — nesses, a sonda já
+  acertava o schema por acaso, e continua acertando.
+
+- **PDF com texto selecionável deixa de ser recusado como "só imagens escaneadas"** Ao anexar um PDF em Ensinar algo novo ao agente, todo arquivo — mesmo um com texto normal,
+  selecionável — era recusado com "não consegui extrair texto deste PDF. Se ele for só imagens
+  escaneadas...". A causa não era o arquivo: o `pdfjs-dist`, a biblioteca que lê o PDF, saía
+  inteiro do build de produção (`next build` no modo standalone), porque o rastreador de
+  dependências do Next não segue o `import()` que essa biblioteca usa para o subcaminho que o
+  projeto carrega. O pacote simplesmente não chegava na imagem Docker, e todo PDF — com ou sem
+  texto — falhava do mesmo jeito.
+
+  Agora o build inclui o pacote explicitamente, do mesmo jeito que já era feito para o
+  `@napi-rs/canvas` e o `@swc/helpers` — e mais um passo que só apareceu testando o caminho real
+  de produção (o Turbopack bundla o pdfjs-dist num chunk próprio, e esse chunk procura o
+  `pdf.worker.mjs` do pdf.js como arquivo vizinho dentro de `.next/server/chunks/`, não em
+  `node_modules/`). PDFs com texto selecionável voltam a ser lidos; a mensagem de "só imagens
+  escaneadas" volta a aparecer só quando o PDF É, de fato, só imagem. Provado com um PDF real de
+  170 páginas, extraindo texto de ponta a ponta pelo mecanismo de carregamento de chunk que a
+  produção usa.
+
+- **Prévia do agente volta a listar tipos de atendimento da Agenda** O botão de testar o agente com contato fictício usa novamente a ferramenta real que lista os tipos de atendimento da Agenda antes de procurar horários disponíveis.
+
+- **Rodar a suíte de testes numa VPS instalada deixa de acusar um erro que não existe** Quem instala o produto numa VPS copia o `.env.hostgator.example` para `.env` — é o
+  caminho normal da instalação. Um dos testes do projeto varre o disco procurando
+  repetições do endereço das imagens Docker, e esse arquivo copiado herda o mesmo
+  endereço que o exemplo já tem permissão de conter. Resultado: a suíte reprovava em
+  toda instalação de verdade, apontando para um arquivo que nem é versionado.
+
+  O `.env` e o `.env.local` são estado da máquina, não código do projeto; o teste
+  passou a ignorá-los, e continua reprovando qualquer arquivo versionado que repita
+  o endereço.
+
+- **O CI passa a provar que a imagem publicada extrai texto de PDF** Nada muda na sua VPS: nenhuma variável nova, nenhuma migration, nenhum comando. O que muda é o que o pipeline mede antes de a imagem sair — depois que a imagem do app sobe, o job extrai um PDF de amostra DENTRO dela, pelo mesmo caminho que a rota usa, e reprova se o texto não vier.
+
+  Uma imagem publicada podia ler PDF de texto como "sem texto": a extração morre dentro dela antes de o arquivo ser aberto, e nenhum job do pipeline media isso. Os testes de extração rodam pelo repositório, onde a peça que falta na imagem existe; o gate de boot só exige que o app suba. O app sobe — a extração é que não funciona, e isso só aparecia quando alguém mandava um PDF de verdade. Enquanto o empacotamento não levar essa peça para a imagem, este passo fica vermelho de propósito: é ele dizendo no CI, na hora de publicar, o que hoje só aparecia no atendimento. Crédito: @webtecnica.
+
+- **A Zona de perigo volta a apagar os dados operacionais em quem já enviou resposta revisada** Numa organização com resposta revisada, "apagar dados operacionais" parava na primeira tabela: a chave estrangeira de `ai_reply_drafts.message_id` apontava para `messages` sem ação de exclusão, então o banco recusava o `delete from messages` antes de a exclusão das conversas levar os rascunhos junto. O botão prometia apagar seis tabelas e não apagava nenhuma.
+
+  A chave passa a `on delete set null`, como as outras três que apontam para `messages`. Na Zona de perigo o rascunho continua indo embora com a conversa, que é o dado operacional da organização; o que a ação muda é o caminho inverso — apagar uma mensagem avulsa deixa de travar (e deixa de arrastar o rascunho). Um invariante de banco novo cobre o caso: organização com resposta revisada apagada por inteiro, e a organização vizinha intacta.
+
+  Nada muda para quem opera: a correção é de banco e se aplica sozinha na atualização.
 
 ## [1.18.0] — 2026-09-17
 
@@ -6022,6 +6452,9 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 [1.19.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.16.0...v1.17.0
+[1.35.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.34.0...v1.35.0
+[1.34.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.33.0...v1.34.0
+[1.33.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.32.1...v1.33.0
 [1.32.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.32.0...v1.32.1
 [1.32.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.31.1...v1.32.0
 [1.31.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.31.0...v1.31.1

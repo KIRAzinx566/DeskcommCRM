@@ -98,6 +98,8 @@ describe("GET /api/v1/metrics/attendants — carga atual + capacidade", () => {
         agenda: {},
         atualizadoEm: null,
         cargaAtual: 2,
+        ultimoSinalEm: null,
+        presente: false,
       },
       {
         userId: BRUNO,
@@ -107,6 +109,8 @@ describe("GET /api/v1/metrics/attendants — carga atual + capacidade", () => {
         agenda: {},
         atualizadoEm: null,
         cargaAtual: 0,
+        ultimoSinalEm: null,
+        presente: false,
       },
     ]);
 
