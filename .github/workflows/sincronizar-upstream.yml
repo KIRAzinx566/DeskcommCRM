@@ -28,7 +28,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 env:
   UPSTREAM_URL: https://github.com/melgarafael/DeskcommCRM.git
@@ -39,7 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
     steps:
       - name: RELEASE_APP_TOKEN está configurado?
         id: cfg
@@ -129,15 +127,18 @@ jobs:
       - name: Conflito — abrir ISSUE em vez de PR quebrado
         if: steps.cfg.outputs.ok == 'true' && steps.diff.outputs.novos != '0' && steps.merge.outputs.limpo == 'nao'
         env:
-          # GITHUB_TOKEN, não o RELEASE_APP_TOKEN: o cuidado do cabeçalho deste
-          # arquivo (token de app pra não perder o disparo de outro workflow) só
-          # vale pra branch/PR — issue não dispara nada a jusante, e o
-          # RELEASE_APP_TOKEN nunca teve o escopo de Issues concedido (medido:
-          # "Resource not accessible by personal access token (createIssue)"
-          # mesmo com o repo já com Issues habilitado). O GITHUB_TOKEN com
-          # `issues: write` no `permissions:` do job resolve sem depender de
-          # reconfigurar o PAT pessoal.
-          GH_TOKEN: ${{ github.token }}
+          # NÃO troque para o GITHUB_TOKEN — já foi tentado e não funciona
+          # neste repo: `GITHUB_TOKEN` é proibido de criar issue num
+          # repositório que é FORK de verdade (relação de fork do GitHub, não
+          # um clone independente), não importa a permissão declarada aqui
+          # nem o "default workflow permissions" do repo — medido nos dois,
+          # com `issues: write` explícito e com o default do repo em
+          # "write": sempre "Resource not accessible by integration
+          # (createIssue)". O que falta é dar ao RELEASE_APP_TOKEN (PAT de
+          # granularidade fina) a permissão "Issues: Read and write" em
+          # https://github.com/settings/personal-access-tokens — sem
+          # GITHUB_TOKEN, sem "issues: write" aqui, sem mexer no repo.
+          GH_TOKEN: ${{ secrets.RELEASE_APP_TOKEN }}
         run: |
           set -euo pipefail
           aberta=$(gh issue list --search 'in:title "merge automático deu conflito"' --state open --json number --jq '.[0].number // empty')
