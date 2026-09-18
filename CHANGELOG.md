@@ -126,6 +126,44 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
   O teto sobe para 26 — o menor passo que volta a abrir pelo menos um pacote (Evoluir). Você não precisa fazer nada.
 
+## [1.32.1] — 2026-09-17
+
+### Corrigido
+
+- **A senha das rotinas automáticas deixa de ser gravada no log do servidor** A rotina que processa a fila de eventos a cada minuto levava a senha interna escrita na própria linha do agendamento, e o servidor anota cada execução no log do sistema: a senha ia parar lá uma vez por minuto. Agora ela fica num arquivo que só o administrador do servidor lê, e a linha do agendamento só aponta para ele. Instalações novas já nascem assim; nas existentes, a troca acontece sozinha a partir da atualização SEGUINTE a esta, porque a atualização em curso ainda roda o instalador da versão anterior. Crédito: @rafaeskytrabalho.
+
+## [1.32.0] — 2026-09-17
+
+### Adicionado
+
+- **Guias opcionais podem ser instalados e ativados por organização** A área Extensões permite ao responsável pela instalação admitir um catálogo revisado e baixar guias declarativos sem reconstruir o aplicativo. Cada organização escolhe quais guias ativar e como apresentá-los no CRM; desativar preserva a configuração. Os pedidos ficam registrados, com retomada e cancelamento de preparações interrompidas. O conteúdo instalado continua disponível quando o catálogo está fora do ar.
+
+  O responsável pela instalação também atualiza um guia para outra versão do catálogo, desfaz a última troca mesmo com o catálogo fora do ar e remove um guia da instalação. Enquanto houver um guia sendo preparado, a atualização do sistema pela tela espera; a própria tela diz como retomar ou cancelar essa preparação em Extensões. Remover desliga o guia em todas as organizações, guarda a configuração de cada uma e registra na auditoria de cada organização por que ele saiu; ao reinstalar, cada organização decide se ativa de novo.
+
+  Este primeiro perfil aceita apenas conteúdo e ações conhecidas do sistema. Código externo e o catálogo público com avaliações ainda não são oferecidos. O sistema continua funcionando com zero extensões, e a atualização normal aplica as tabelas necessárias, sem variável obrigatória nem edição manual de arquivo. A única variável nova, `EXTENSIONS_LOCAL_CATALOG_ORIGIN`, é de laboratório e fica vazia por padrão.
+
+### Corrigido
+
+- **As travas do modo somente leitura do suporte cobrem todas as tabelas já na instalação nova** As travas do modo somente leitura do suporte cobrem todas as tabelas da organização já na primeira aplicação do schema, e uma instalação nova chega ao mesmo conjunto de travas que uma instalação atualizada.
+
+  Não há nada a fazer: a próxima atualização aplica a correção sozinha.
+
+## [1.31.1] — 2026-09-17
+
+### Corrigido
+
+- **A atualização refaz o banco quando ele está ocupado, e para de mostrar avisos falsos** Quem tinha materiais do acervo ligados a um agente via, a cada atualização, até três avisos de banco (`could not create unique index`), mesmo com tudo certo. Não havia dado errado: o instalador tentava recriar três regras antigas do acervo que ele mesmo apaga logo depois, e que não cabem mais no jeito atual de guardar os materiais. Essas tentativas saíram, e nenhum dado foi apagado ou alterado.
+
+  A atualização também recriava, por um momento, 21 regras de acesso antigas que ela mesma apagava em seguida, e reinstalava outras 2 numa versão mais larga que a de hoje. Isso acabou. Algumas dessas regras eram mais largas que as atuais: no meio-tempo, um usuário só de leitura conseguia alterar dados que as regras de hoje protegem — medido num Postgres de verdade, com um `viewer` que hoje não altera, não apaga e não cria um lead, e que com a regra antiga fazia as três coisas. E se a atualização falhasse justo no comando que apaga a regra antiga, ela ficava valendo até a atualização seguinte.
+
+  O ruído escondia um problema de verdade. Com o CRM atendendo, o banco às vezes recusa um comando da atualização por disputa com o próprio app (`deadlock detected`), ou a conexão cai no meio. A atualização avisava e seguia, e o que não aplicou ficava para trás: numa instalação real, o acervo dos agentes ficou sem a regra que permite lê-lo. Agora a atualização aplica o banco de novo, em até três passadas no total, e mostra na tela o que precisou refazer. Se ainda assim o banco não terminar limpo, o **fim** da saída diz isso e explica o que fazer conforme a causa: repetir a atualização quando o banco estava ocupado, ou acertar a conexão do `.env` quando faltou permissão — repetir, nesse caso, não resolveria. Na atualização pelo botão da tela esse aviso ainda não aparece: ele fica registrado em `.update.log`, na pasta do projeto no servidor.
+
+  A nova tentativa vale a partir da atualização seguinte a esta, porque quem executa uma atualização é o instalador que já está no servidor. Os avisos falsos e as regras de acesso antigas saem já nesta.
+
+- **A atualização deixa de reabrir, no meio do caminho, permissões que ela mesma fecha adiante** O instalador aplica o arquivo de banco inteiro a cada atualização, um comando de cada vez. Três linhas dele concediam uma permissão que o próprio arquivo retira adiante — o banco ficava, no meio do caminho, com uma permissão a mais do que teria no fim.
+
+  As três linhas saíram. O estado final do banco é exatamente o mesmo de antes: quem termina a atualização fica com as mesmas permissões de sempre, e nada muda para quem usa o sistema. Duas guardas novas impedem a volta: uma lê o arquivo e recusa concessão no corpo que seja revogada adiante, e a outra prova em banco que reaplicar o arquivo não deixa nenhuma função ganhar permissão que ela não tinha.
+
 ## [1.17.0] — 2026-09-16
 
 ### Adicionado
@@ -3229,7 +3267,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
   Agora um "." só conta como fim de frase quando não está entre dois dígitos.
 
-## [1.13.0-upstream] — 2026-09-04
+## [1.13.0] — 2026-09-04
 
 ### Alterado
 
@@ -4041,7 +4079,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   sufixo; ele é só a chave que desambigua as duas seções aqui dentro.
 -->
 
-## [1.11.1-kirazinx] — 2026-09-01
+## [1.11.1] — 2026-09-01
 
 ### Corrigido
 
@@ -4053,7 +4091,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   de preencher o que faltava. Agora o campo existe, nasce obrigatório para esse
   provider, e o cadastro completa.
 
-## [1.11.0-kirazinx] — 2026-09-01
+## [1.11.0] — 2026-09-01
 
 ### Adicionado
 
@@ -5848,6 +5886,10 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 [Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.18.0...HEAD
 [1.18.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.16.0...v1.17.0
+[1.32.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.32.0...v1.32.1
+[1.32.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.31.1...v1.32.0
+[1.31.1]: https://github.com/melgarafael/DeskcommCRM/compare/v1.31.0...v1.31.1
+[1.31.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.29.0...v1.30.0
 [1.29.0]: https://github.com/melgarafael/DeskcommCRM/compare/v1.28.0...v1.29.0
 [1.16.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.15.0...v1.16.0
