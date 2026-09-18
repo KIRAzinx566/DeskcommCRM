@@ -134,10 +134,7 @@ jobs:
           # nem o "default workflow permissions" do repo — medido nos dois,
           # com `issues: write` explícito e com o default do repo em
           # "write": sempre "Resource not accessible by integration
-          # (createIssue)". O que falta é dar ao RELEASE_APP_TOKEN (PAT de
-          # granularidade fina) a permissão "Issues: Read and write" em
-          # https://github.com/settings/personal-access-tokens — sem
-          # GITHUB_TOKEN, sem "issues: write" aqui, sem mexer no repo.
+          # (createIssue)".
           GH_TOKEN: ${{ secrets.RELEASE_APP_TOKEN }}
         run: |
           set -euo pipefail
@@ -153,5 +150,19 @@ jobs:
             echo
             echo "Esta issue não fecha sozinha — feche depois de trazer o upstream (manual, ou rodando este workflow de novo depois de resolvido)."
           } > /tmp/issue.md
-          gh issue create --title "upstream tem commits novos, e o merge automático deu conflito" \
-            --body-file /tmp/issue.md
+          # `gh issue create` chama a mutation `createIssue` do GraphQL, que o
+          # GitHub recusa com "Resource not accessible by personal access
+          # token" para PAT de granularidade fina mesmo com Issues: Read and
+          # write concedido e salvo — limitação de plataforma, medida com dois
+          # tokens diferentes (o antigo e um regenerado do zero), os dois
+          # recusados do mesmo jeito. `gh issue list --search` (leitura, acima)
+          # não usa essa mutation e por isso já funcionava. O REST equivalente
+          # não tem esse problema.
+          python3 -c '
+          import json, sys
+          print(json.dumps({
+              "title": "upstream tem commits novos, e o merge automático deu conflito",
+              "body": open("/tmp/issue.md", encoding="utf-8").read(),
+          }))
+          ' > /tmp/issue.json
+          gh api "repos/${{ github.repository }}/issues" --input /tmp/issue.json
