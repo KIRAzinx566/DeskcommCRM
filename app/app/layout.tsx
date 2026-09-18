@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { isMfaEnrolled, loadAuthUser, requiresMfa, resolveActiveOrg } from "@/lib/auth/server";
 import { ensureTenantForUser } from "@/lib/auth/provision";
-import { DEFAULT_VISIBILITY_MODE, type VisibilityMode } from "@/lib/auth/types";
+import { DEFAULT_VISIBILITY_MODE, roleAtLeast, type VisibilityMode } from "@/lib/auth/types";
 import { clientePelaAgendaLigado } from "@/lib/schemas/settings";
 import { AuthProvider } from "@/hooks/auth/AuthProvider";
 import { AppShell } from "./_components/AppShell";
@@ -226,7 +226,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const shell = (
     <VoiceCallProvider>
-      <AppShell sidebarCollapsed={collapsed}>{children}</AppShell>
+      <AppShell
+        sidebarCollapsed={collapsed}
+        podeAtender={Boolean(activeOrg && roleAtLeast(activeOrg.role, "agent"))}
+      >
+        {children}
+      </AppShell>
     </VoiceCallProvider>
   );
 

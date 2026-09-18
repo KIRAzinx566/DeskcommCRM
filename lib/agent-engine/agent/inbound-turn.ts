@@ -1717,6 +1717,7 @@ async function executarTurnoDoAgente(
   // suíte de invariantes ficava vermelha das 22h às 7h (fuso do tenant) — nove
   // horas por dia em que um PR reprova por causa do relógio de parede.
   const clock = deps.clock ?? ((): Date => new Date());
+  const inicioDoProcessamento = performance.now();
   const contextKnobs = {
     historyLimit: deps.knobs.historyLimit,
     maxTokens: deps.knobs.maxContextTokens,
@@ -2846,6 +2847,12 @@ async function executarTurnoDoAgente(
                     agentConfig?.splitMessages ?? false,
                     agentConfig?.splitMaxChars ?? 600,
                   )[0] ?? body,
+                // `processamentoMs` é a contribuição do #849 (@Teowfb): a pausa humana desconta o
+                // tempo que o turno JÁ gastou pensando, em vez de somar em cima dele. Sem este
+                // argumento o `gasto` de `atraso-humano.ts` cai no `?? 0` e o desconto não acontece —
+                // o cliente espera duas vezes. O ponto de chamada mudou de lugar com a #654 (a pausa
+                // saiu de `antesDaPrimeira`, dentro do lock, para cá), e o desconto veio junto.
+                processamentoMs: performance.now() - inicioDoProcessamento,
                 sleep: deps.sleep ?? ((s) => new Promise((resolve) => setTimeout(resolve, s))),
                 log: runLog,
                 ...(canal.signalTyping
@@ -3587,83 +3594,100 @@ async function executarTurnoDoAgente(
     const currentStage: LeadStage = leadState?.stage ?? 'new';
     let stageSuggestion: LeadStage | null = null;
     let stageHintBlock = '';
-    if (deps.knobs.stageClassifier !== undefined) {
-      try {
-        stageSuggestion = await classifyStage(
-          pool,
-          deps.llmCfg,
-          { tenantId, leadId: leadId || null, jobId: job?.id },
-          {
-            context: effectiveContext,
-            currentStage,
-            ...argsAux(deps.knobs.stageClassifier.model),
-          },
-          { registry: deps.registry, log: runLog },
-        );
-        if (stageSuggestion !== null) {
-          stageHintBlock = renderStageHint(stageSuggestion, currentStage);
-        }
-      } catch (err) {
-        // AUXILIAR DE VERDADE, e não um segundo caminho que trava o turno: o
-        // docblock deste classificador promete "degrada sem sugestão; o turno
-        // segue normal" — mas sem este try/catch, um 429/500/timeout do provedor
-        // (não só "texto sem estágio reconhecível") subia sem tratamento e
-        // derrubava o turno INTEIRO antes de a resposta principal ser tentada.
-        // Medido ao vivo: NVIDIA rate-limitada no stage_classifier, e o lead
-        // nunca recebia resposta nenhuma no WhatsApp — silêncio total, sem
-        // handoff, porque `comHandoffSeOrcamentoAcabar` só resgata
-        // LlmBudgetExceededError.
-        //
-        // `LlmBudgetExceededError` é a ÚNICA exceção que RELANÇA: ela precisa
-        // subir até a escolta do turno, que já sabe tratá-la (handoff humano).
-        // Degradar ela aqui a esconderia da escolta, e o teto estourado voltaria
-        // a virar silêncio para o lead — exatamente o defeito que a escolta
-        // existe para fechar.
-        if (err instanceof LlmBudgetExceededError) throw err;
-        runLog.warn('stage-classifier: chamada falhou — turno segue sem hint de estágio', {
-          error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
-        });
-      }
-    }
-
-    // F4-04: classifier ADVISÓRIO anti-jailbreak sobre a mensagem INBOUND do lead (o
-    // skillSignal já é a última inbound). Roda pelo seam agnóstico (modelo BARATO, budget
-    // checado nele). NÃO veta o inbound — só FLAGRA o turno no trace; flag/level não são PII
-    // (a mensagem/reason nunca vão a log). A correlação com promessa fora de tabela escala no fim.
     let jailbreakLevel: JailbreakLevel = 'none';
-    if (camadaLigada(camadas.jailbreak, deps.knobs.jailbreak !== undefined)) {
-      try {
-        const verdict = await classifyJailbreak(
-          pool,
-          deps.llmCfg,
-          { tenantId, leadId: leadId || null, jobId: job?.id },
-          {
-            message: skillSignal,
-            // Knob ausente + organização ligando = roda com o modelo padrão dela,
-            // que é a convenção já usada pelo stageClassifier.
-            ...argsAux(deps.knobs.jailbreak?.model),
-          },
-          { registry: deps.registry, log: runLog },
-        );
-        jailbreakLevel = verdict.level;
-        if (verdict.flag) {
+
+    // Os dois classificadores auxiliares rodam EM PARALELO, e não em série.
+    //
+    // Eles são ADVISÓRIOS, leem sinais diferentes (o contexto e o estágio atual
+    // vs. a última mensagem do lead) e nenhum consome o resultado do outro — em
+    // série o turno pagava duas idas-e-voltas de LLM uma atrás da outra, e o
+    // cliente esperava a soma. `Promise.all` paga só a mais lenta das duas.
+    //
+    // O que NÃO muda por rodar junto: o orçamento mensal da organização é
+    // checado dentro de cada `runModelCall` (a mesma checagem que já corre
+    // concorrente entre turnos de leads diferentes), nenhuma decisão de
+    // guardrail depende de ordem entre os dois, e o `jailbreak` segue sem vetar
+    // o inbound — só flagra o turno no trace.
+    //
+    // AMBOS SÃO AUXILIARES DE VERDADE ("degrada sem sugestão; o turno segue
+    // normal"), e por isso o `Promise.all` inteiro está num try/catch: sem ele,
+    // um 429/500/timeout do provedor em QUALQUER um dos dois rejeita o par e
+    // derruba o turno INTEIRO antes da resposta principal ser tentada. Medido
+    // ao vivo: NVIDIA rate-limitada no stage_classifier, e o lead nunca
+    // recebia resposta nenhuma no WhatsApp — silêncio total, sem handoff,
+    // porque `comHandoffSeOrcamentoAcabar` só resgata LlmBudgetExceededError.
+    //
+    // O preço deste catch ser em volta do PAR, e não um por chamada: uma
+    // falha em UM classificador também descarta o resultado do outro, mesmo
+    // que ele tenha respondido bem. Aceito de propósito — as duas chamadas
+    // precisam continuar como elementos DIRETOS do mesmo array (só ternário
+    // por cima, nada de `.catch` por chamada), porque é assim que
+    // `tests/unit/classificadores-auxiliares-em-paralelo.test.ts` prova que
+    // elas correm em paralelo de verdade; um `.catch` colado em cada chamada
+    // quebra essa prova estrutural sem quebrar o comportamento, e a prova é o
+    // que impede a regressão silenciosa de série no dia em que alguém
+    // reorganizar o turno.
+    //
+    // `LlmBudgetExceededError` é a ÚNICA exceção que RELANÇA do catch: ela
+    // precisa subir até a escolta do turno, que já sabe tratá-la (handoff
+    // humano). Degradar ela aqui a esconderia da escolta, e o teto estourado
+    // voltaria a virar silêncio para o lead — exatamente o defeito que a
+    // escolta existe para fechar.
+    try {
+      const [stageResultado, jailbreakVerdict] = await Promise.all([
+        deps.knobs.stageClassifier !== undefined
+          ? classifyStage(
+              pool,
+              deps.llmCfg,
+              { tenantId, leadId: leadId || null, jobId: job?.id },
+              {
+                context: effectiveContext,
+                currentStage,
+                ...argsAux(deps.knobs.stageClassifier.model),
+              },
+              { registry: deps.registry, log: runLog },
+            )
+          : Promise.resolve(null),
+        // F4-04: classifier ADVISÓRIO anti-jailbreak sobre a mensagem INBOUND do lead (o
+        // skillSignal já é a última inbound). Roda pelo seam agnóstico (modelo BARATO, budget
+        // checado nele). NÃO veta o inbound — só FLAGRA o turno no trace; flag/level não são PII
+        // (a mensagem/reason nunca vão a log). A correlação com promessa fora de tabela escala no fim.
+        camadaLigada(camadas.jailbreak, deps.knobs.jailbreak !== undefined)
+          ? classifyJailbreak(
+              pool,
+              deps.llmCfg,
+              { tenantId, leadId: leadId || null, jobId: job?.id },
+              {
+                message: skillSignal,
+                // Knob ausente + organização ligando = roda com o modelo padrão dela,
+                // que é a convenção já usada pelo stageClassifier.
+                ...argsAux(deps.knobs.jailbreak?.model),
+              },
+              { registry: deps.registry, log: runLog },
+            )
+          : Promise.resolve(null),
+      ]);
+
+      stageSuggestion = stageResultado;
+      if (stageSuggestion !== null) {
+        stageHintBlock = renderStageHint(stageSuggestion, currentStage);
+      }
+
+      if (jailbreakVerdict !== null) {
+        jailbreakLevel = jailbreakVerdict.level;
+        if (jailbreakVerdict.flag) {
           // trace do turno: só flag/level (não PII) — a mensagem e o reason nunca são logados.
           runLog.warn('jailbreak: sinal detectado na mensagem do lead', {
             jailbreak_flag: true,
-            jailbreak_level: verdict.level,
+            jailbreak_level: jailbreakVerdict.level,
           });
         }
-      } catch (err) {
-        // MESMO DEFEITO do stage-classifier acima, mesmo conserto: "NÃO veta o
-        // inbound" era a promessa do comentário e não a implementação — um
-        // 429/500 do provedor derrubava o turno inteiro antes da resposta
-        // principal. `jailbreakLevel` já nasceu 'none' acima; aqui só preserva
-        // esse default em vez de deixar a exceção subir.
-        if (err instanceof LlmBudgetExceededError) throw err;
-        runLog.warn('jailbreak: chamada falhou — turno segue sem sinal (nível "none")', {
-          error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
-        });
       }
+    } catch (err) {
+      if (err instanceof LlmBudgetExceededError) throw err;
+      runLog.warn('classificadores auxiliares: chamada falhou — turno segue sem hint de estágio e sem sinal de jailbreak (nível "none")', {
+        error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
+      });
     }
 
     // Spec 16 §4: a projeção arma quando NENHUMA ferramenta de catálogo entrou —

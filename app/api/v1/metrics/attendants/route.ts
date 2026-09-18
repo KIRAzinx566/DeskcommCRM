@@ -96,7 +96,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const cargaByUser = new Map<string, { current_load: number; capacity: number | null }>();
   if (isServiceRoleConfigured() && metrics.attendants.length > 0) {
     const admin = createAdminClient();
-    const roster = await carregarRosterDeAtendimento(admin, activeOrg.orgId);
+    const roster = await carregarRosterDeAtendimento(admin, activeOrg.orgId, new Date());
     for (const m of roster) {
       cargaByUser.set(m.userId, { current_load: m.cargaAtual, capacity: m.capacidade });
     }

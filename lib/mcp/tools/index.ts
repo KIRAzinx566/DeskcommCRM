@@ -86,6 +86,7 @@ import {
 } from "./agendamento";
 import {
   crmScheduleFollowup,
+  crmEnrollFollowupFlow,
   crmCancelFollowup,
   crmListFollowups,
   crmListAtRiskLeads,
@@ -162,6 +163,7 @@ export const allTools: ReadonlyArray<McpToolDefinition> = [
   crmSetWebhookSourceActive,
   crmSetAutomationRuleActive,
   crmScheduleFollowup,
+  crmEnrollFollowupFlow,
   crmCancelFollowup,
   crmCloseDemand,
   crmProposeReactivation,
