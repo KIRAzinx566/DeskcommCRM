@@ -59,11 +59,6 @@ const ESCRITA_JUSTIFICADA: Record<string, string> = {
   "acolhida.yml::pull-requests: write":
     "comenta a acolhida no PR de fork; é o ÚNICO escopo do workflow (o bloco zera o resto), " +
     "e o job não faz checkout nem usa action nenhuma — ver tests/unit/acolhida-nao-toca-no-fork.test.ts",
-  "sincronizar-upstream.yml::issues: write":
-    "abre a issue de aviso quando o merge automático do upstream dá conflito, com o GITHUB_TOKEN " +
-    "em vez do RELEASE_APP_TOKEN — o PAT nunca teve escopo de Issues, e abrir issue (ao contrário " +
-    "de branch/PR) não dispara nenhum workflow a jusante, então o cuidado do cabeçalho do arquivo " +
-    "sobre token de app não se aplica aqui",
 };
 
 interface Workflow {
