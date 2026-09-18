@@ -8,6 +8,51 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.19.1] — 2026-09-18
+
+### Corrigido
+
+- **A catraca do espanhol passa a cobrar a chave que vem de tabela de outro módulo** O teste que garante que toda frase de tela tem espanhol resolvia a chave quando a tabela de rótulos era declarada no MESMO arquivo. Quando a tabela morava noutro módulo — o caso de `TRIGGER_LABELS` e `ACTION_LABELS` (rótulos do construtor de fluxo), `SEVERITY_LABEL` (inbox da IA) e `ROTULO_DO_PAPEL` (convite de equipe) —, a chamada passava batida e ninguém era avisado. Agora a catraca atravessa o `import` e cobra cada valor possível da tabela no dicionário, nas áreas de produto, `lib/` inclusive.
+
+  Medido na `main` de 18/08/2026: 103 chamadas resolvidas, 196 valores exigidos do dicionário e 9 valores faltando, em 3 arquivos. Esses 9 ficam numa lista de dívida congelada dentro do próprio teste: a lista só encolhe, e traduzir um deles deixa o teste vermelho pedindo a remoção da linha. O que o `t()` recebe de dado de runtime — identificador solto, `algo.campo` — segue fora do alcance de propósito: cobrar isso é o passo seguinte da mesma issue. Nada muda na tela de quem opera.
+
+- **O follow-up espera a janela abrir sem desistir do contato** Quando um passo de mensagem caía fora do horário permitido de envio — a noite,
+  o domingo fechado, ou a faixa de horário que você escolheu —, o acompanhamento
+  já reagendava a mensagem corretamente para a próxima abertura. O problema era o
+  outro lado: o motor do fluxo não ficava sabendo do adiamento, continuava
+  perguntando "essa mensagem já saiu?" e, depois de cerca de onze horas
+  perguntando, desistia do contato. Na tela aparecia o aviso
+  **"Um fluxo de follow-up parou de tentar"**, e o motivo registrado dizia que a
+  mensagem nunca tinha sido concluída — o que era falso: ela estava só esperando
+  o horário que você mesmo configurou. Uma janela que fechasse no sábado à noite
+  e só reabrisse na segunda já passava desse limite.
+
+  Agora o passo diz que está esperando, e diz até quando. O motor guarda o
+  contato parado até a hora da abertura em vez de gastar tentativas, o dossiê do
+  acompanhamento mostra a linha
+  **"Segurou o envio até o horário permitido"** com a data, e a desistência
+  automática continua existindo para o que ela sempre serviu: um envio que de
+  fato travou, sem sinal de vida nenhum.
+
+  Nada muda para quem opera: nenhuma variável nova, nenhum ajuste, nenhum passo
+  na atualização. Contatos que já tinham sido dados como perdidos por esse motivo
+  não voltam sozinhos — o conserto vale dos próximos em diante.
+
+- **A verificação automática deixou de dizer "cancelado" quando ela mesma demora** Quando a bateria de verificação automática levava mais tempo que o limite
+  configurado, o sistema marcava o resultado como "cancelado" — a mesma palavra
+  que aparece quando alguém cancela de propósito. Quem tinha enviado uma
+  contribuição lia "cancelaram o meu trabalho", e quem ia conferir saía procurando
+  uma pessoa que não existia.
+
+  Agora o limite serve só para matar o que travou de verdade, e quem avisa que a
+  bateria engordou é uma mensagem em português que diz o que aconteceu e o que
+  fazer — nomeando a parte que passou do previsto.
+
+  Para quem opera um servidor, nada muda: isto acontece inteiramente na esteira de
+  verificação do projeto, antes de qualquer versão ser publicada. O que muda é o
+  tempo até um conserto chegar até você, porque contribuições boas deixam de ficar
+  paradas por um diagnóstico errado.
+
 ## [1.19.0] — 2026-09-17
 
 ### Adicionado
@@ -6448,7 +6493,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.1...HEAD
+[1.19.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.0...v1.19.1
 [1.19.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.16.0...v1.17.0
