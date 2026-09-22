@@ -8,6 +8,145 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.20.0] — 2026-09-22
+
+### Adicionado
+
+- **O Modo administrador mostra as extensões do servidor** Quem administra a instalação ganha **Modo administrador › Extensões**: de onde
+  vêm as extensões deste servidor (o catálogo admitido, a revisão e quando foi
+  aceito), quais estão instaladas e em quantas empresas cada uma está ligada.
+
+  Antes isso só existia dentro do menu de uma empresa, embora o catálogo seja do
+  servidor inteiro. Instalar e configurar continua na tela da empresa, e a tela
+  nova leva até lá.
+
+- **A ficha do contato mostra o nome da campanha que trouxe o cliente** Quem chega pelo botão de WhatsApp de um anúncio aparecia na ficha com o número
+  do anúncio — `120210000000000` —, que não responde pergunta nenhuma. Agora a
+  ficha mostra o nome da campanha, do conjunto e do anúncio, do jeito que estão
+  escritos na conta de anúncios: "Black Friday · Mulheres 25-34 · Vídeo depoimento
+  v3".
+
+  Os nomes são perguntados à plataforma quando a ficha é aberta, e ficam guardados
+  por sete dias — um anúncio que traz muitos contatos é perguntado uma vez, não
+  uma vez por contato. Se a conta de anúncios não responder, a ficha continua
+  mostrando o que já sabia, sem apagar nada.
+
+  Nada para fazer: quem já tem a conta de anúncios conectada passa a ver os nomes
+  na próxima ficha que abrir.
+
+- **O menu lateral da instalação passa a ser escolhido pela empresa** Até aqui cada **pessoa** escolhia as próprias áreas do menu, convite a convite. A instalação inteira não tinha uma escolha: para uma empresa mostrar o mesmo recorte a todo mundo, era preciso repetir a escolha em cada vínculo — e o convite seguinte reabria tudo.
+
+  Agora a empresa também escolhe: **Configurações → Empresa → Menu lateral**, para quem administra a organização. A pessoa que entra depois já nasce dentro do recorte da empresa, e quem escolhe o próprio menu só consegue escolher **menos** do que a empresa liberou, nunca mais.
+
+  **Para quem não mexer em nada, a instalação continua exatamente como está** — a coluna nasce com o preset completo, e a leitura resolve empresa ∩ vínculo ∩ papel. As áreas essenciais continuam sempre visíveis, e isto é apresentação: não altera permissão, RLS, API nem o que cada papel alcança. Desmarcar uma área aqui apenas a esconde do menu; link, aviso e busca seguem abrindo o que o papel autoriza.
+
+  Não exige ação de quem opera a instalação: a coluna entra pela atualização, sem backfill e sem tocar dado existente.
+
+- **Dados da conexão para integrar outro sistema (endpoint e IDs) + onde obter o token** Depois de conectar um número, a tela de **Conexões** ganhou o painel
+  **"Para integrar"**: endpoint/base da API e os identificadores da conexão
+  (`phone_number_id`, `waba_id` / conta), com um botão para copiar tudo de uma vez.
+
+  É o que faltava para plugar **outro sistema** no mesmo número sem caçar dado no
+  painel do provedor nem reler a documentação:
+
+  - **O token NÃO é exibido de volta.** Nada de credencial volta do servidor
+    depois de gravada — em vez disso, um ícone de ajuda (ao passar o mouse) diz
+    **onde obtê-la** no painel de cada provedor.
+  - **Aviso de webhook.** Um número tem um único endereço de webhook; para dois
+    CRMs atenderem ao mesmo tempo, um precisa reencaminhar as mensagens ao outro.
+  - **Canal por QR (celular):** a credencial é interna desta instalação e não
+    serve para fora — para outro CRM usar o mesmo número, ele conecta por uma
+    sessão própria (novo QR). O painel explica isso e alerta sobre resposta
+    duplicada se os dois tiverem atendimento automático.
+
+- **Remarcar um compromisso já avisado agora corrige o cliente sozinho** Quando o cliente já tinha recebido o aviso do compromisso e alguém mudava o horário, **nada era enviado**. O cliente ficava com a data antiga e aparecia no dia errado — e não havia como corrigir pelo sistema: o botão de enviar ficava desabilitado depois do primeiro envio.
+
+  Agora a correção sai sozinha, e ela **diz que mudou**: "O horário da sua reunião mudou. Agora é…". Mandar a mesma frase duas vezes, com datas diferentes e sem explicação, faria a pessoa não saber qual vale.
+
+  Três cuidados para isso não virar mensagem demais:
+
+  - **só corrige quem já recebeu** — quem ainda está na fila vai sair com o horário novo de qualquer forma;
+  - **só quando o horário muda** — mudar o título ou a descrição não manda nada ao cliente;
+  - **espera dois minutos antes de sair**, e arrastar o compromisso de novo dentro desse tempo substitui a correção anterior em vez de somar outra mensagem.
+
+  Compromisso cancelado não recebe correção: avisar cancelamento é outra coisa, e mandar "o horário mudou" de algo que não existe mais é pior que o silêncio.
+
+  Contribuição de @paulolimajr77 (#803).
+
+### Alterado
+
+- **A Agenda passa a seguir o fuso da empresa, para todo mundo** A semana que a Agenda abre agora vem do fuso cadastrado em
+  **Configurações › Empresa**.
+  Vale igual para quem acessa de outro estado ou país: cinco pessoas da mesma
+  empresa veem a mesma semana.
+
+  Antes, cada tela recalculava pelo relógio do computador de quem abria, e isso
+  divergia do servidor. Quem é de cada compromisso continua sendo mostrado pelo
+  filtro e pela cor de sempre.
+
+- **A janela que junta as mensagens de uma rajada ganha módulo e teste próprios** Nada muda para quem opera: as mensagens seguidas de um mesmo contato continuam virando um turno só
+  do agente. O trecho que decide isso saiu de dentro do drain para um módulo com teste próprio, e o
+  teste prende o comportamento de hoje — inclusive a exclusão do job em espera que evita o cliente
+  ficar sem resposta quando a sessão antiga morre. Crédito: @Teowfb (ideia e medição).
+
+- **Em espanhol, a comanda passa a se chamar "orden de servicio"** Em espanhol, "comanda" é a nota de pedido de um restaurante, e não era isso que a tela mostrava: é a conta de um atendimento, com serviços, comissão e cobrança. Agora Comandas, Faturamento e as frases que a mencionam dizem "orden de servicio". A única frase que ainda dizia "Configuración › Financiero" passa a dizer "Finanzas", como o menu. Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
+
+- **O serviço de envio de e-mail passa a ficar todo na tela E-mail** A chave do serviço externo (Resend) e o endereço do remetente saíram de
+  **Credenciais** e agora ficam em **E-mail**, junto do servidor próprio: é um
+  assunto só, e estava dividido em duas telas.
+
+  O que já estava configurado continua valendo — é o mesmo campo, no mesmo lugar
+  do banco. Credenciais mostra o caminho para quem procurar onde ficava antes.
+
+### Corrigido
+
+- **O filtro de etiqueta do atendimento para de fechar sozinho** Ao abrir o filtro "Filtrar por tag" na tela de atendimento, a lista de
+  etiquetas às vezes se fechava sozinha uma fração de segundo depois de aparecer,
+  e o clique na etiqueta não pegava — era preciso abrir de novo, às vezes mais de
+  uma vez.
+
+  O filtro agora continua na tela enquanto a lista de etiquetas é recarregada, em
+  vez de sumir e voltar. Quem ainda não criou nenhuma etiqueta segue sem o filtro,
+  como antes.
+
+- **O aviso de changelog cheio passa a chegar a quem corta a release** O changelog que o seu servidor recebe antes de atualizar tem um limite de tamanho, e quem escreve
+  uma contribuição não tinha como saber que esse limite havia estourado — a verificação reprovava a
+  contribuição dele por causa das notas acumuladas por outras pessoas. Agora o alerta vai para quem
+  publica as versões, que é quem pode resolver, e chega antes de o limite estourar. Nada muda na sua
+  instalação: o changelog que você lê antes de atualizar continua igual.
+
+- **A conversa não trava mais quando a resposta não veio da sua base de conhecimento** Quando o agente respondia sem consultar nenhum material da base — uma saudação, um
+  agradecimento, qualquer assunto fora do que você indexou —, o sistema entendia isso como
+  "o agente está inseguro", segurava a resposta sem enviar e passava a conversa para a fila
+  humana. O cliente ficava sem resposta esperando alguém assumir.
+
+  Agora a falta de consulta à base é tratada como o que é: ausência de medição, não nota
+  baixa. O agente continua chamando uma pessoa quando escreve que não tem certeza, e
+  continua chamando quando o material encontrado é fraco.
+
+- **O tipo de conta e a descrição do Financeiro passam a aparecer em espanhol** Em Configurações › Financeiro, quem usa o produto em espanhol via o tipo de cada conta (Caixa, Banco, Outra) em português, e a descrição do Financeiro no menu também ficava em português. Agora as duas aparecem em espanhol (Caja, Banco, Otra). Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
+
+- **O kit de instalação passa a clonar o código deste fork, não o do upstream** `install.sh`, `comecar.sh`, `_common.sh` e os labels de procedência dos quatro Dockerfiles apontavam para `github.com/melgarafael/DeskcommCRM` mesmo neste fork já publicando as próprias imagens em `ghcr.io/kirazinx566` — desde antes desta sincronização. Quem instalasse por este kit clonava o repositório do upstream: código diferente do que as imagens publicadas por este fork esperam, um jeito silencioso de a instalação divergir da imagem que ela vai rodar.
+
+  Agora os quatro arquivos apontam para este repositório, com a mesma casinha que o GHCR já exige em minúsculas.
+
+  Ninguém precisa fazer nada: quem já instalou não reclona nada na atualização — o `update.sh` só troca a imagem. O efeito é só para quem instalar do zero por este kit a partir de agora.
+
+- **Conectar o Google funciona quando você abre a instalação por localhost** Quem instala o DeskcommCRM no próprio computador e abre o sistema por `http://localhost:3000` não conseguia terminar a conexão com o Google Agenda: o endereço de retorno oferecido era sempre o que ficou gravado na instalação (o IP da máquina na rede, por exemplo), e o Google compara esse endereço letra por letra. A conexão voltava para outro endereço e nunca se completava.
+
+  Agora, **quando e só quando** o navegador abre o sistema por `localhost` (ou `127.0.0.1`), o endereço de retorno acompanha — e é o mesmo que a tela mostra para você colar no painel do Google. Qualquer outro endereço continua perdendo para o endereço oficial da instalação, então nada muda para quem roda em servidor com domínio próprio.
+
+  Contribuição de @betoarts (#714).
+
+- **Alterar uma opção do agente preserva as outras configurações** Editar uma opção de uma versão em rascunho agora preserva ferramentas, limites e configurações de
+  follow-up que não foram alteradas. Contribuição de @lucasa15 (#1375).
+
+- **Credencial de IA que falha na revalidação deixa de exibir a lista de modelos antiga** Ao testar de novo uma credencial de IA, se o provedor recusasse a chave o sistema registrava o erro mas mantinha a lista de modelos da validação anterior. Na tela, a credencial aparecia com a mensagem de falha e, logo abaixo, a contagem de modelos de antes — parecendo pronta para uso quando já não era.
+
+  Agora a lista é zerada junto com o resultado da validação: quem olha vê o erro e nenhum modelo disponível, que é o estado real. Uma revalidação bem-sucedida continua gravando os modelos que o provedor devolveu.
+
+  Contribuição de @betoarts (#714).
+
 ## [1.19.1] — 2026-09-18
 
 ### Corrigido
@@ -7746,7 +7885,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.1...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.1...v1.20.0
 [1.19.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.0...v1.19.1
 [1.19.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.17.0...v1.18.0
