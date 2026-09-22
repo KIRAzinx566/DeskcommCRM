@@ -124,17 +124,23 @@ describe("o elo que some sem barulho", () => {
     // custo se paga, e a resposta sai sem a conversa. A primeira versão deste
     // caso só olhava a chamada e o sabote passou.
     //
-    // migration 0236 acrescentou mais um elo na cadeia (withNextTasks, depois
-    // de withConversas) — a resposta final passou a ser `leadsComTarefa.leads`,
-    // mas só prova algo se ESSE elo tiver sido alimentado pelo resultado da
-    // conversa, e não por `leads` cru. As duas asserções, juntas, fecham a
-    // mesma classe de defeito para a cadeia inteira.
-    expect(fonte, "withNextTasks não recebeu o resultado de withConversas").toMatch(
-      /withNextTasks\(\s*supabase,\s*[^,]+,\s*leadsComConversa\.leads/,
-    );
-    expect(fonte, "o resultado da cadeia não chegou à resposta").toMatch(
-      /leads:\s*leadsComTarefa\.leads/,
-    );
+    // A cadeia hoje é withConversas → withMarcadoresDoContato → withNextTasks →
+    // resposta (migration 0236 acrescentou o último elo). Exigir o texto
+    // `leads: leadsComConversa.leads` reprovava quem acrescentava uma etapa
+    // CERTA depois dela; o que importa é o resultado de cada uma alimentar a
+    // próxima, e a resposta sair da última.
+    expect(
+      fonte,
+      "o resultado de withConversas não alimenta withMarcadoresDoContato (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
+    ).toMatch(/withMarcadoresDoContato\(\s*supabase,[\s\S]*?leadsComConversa\.leads/);
+    expect(
+      fonte,
+      "withNextTasks não recebeu o resultado de withMarcadoresDoContato (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
+    ).toMatch(/withNextTasks\(\s*supabase,\s*[^,]+,\s*leadsComMarcadores\.leads/);
+    expect(
+      fonte,
+      "a resposta não sai da última etapa (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
+    ).toMatch(/leads:\s*leadsComTarefa\.leads/);
   });
 
   it("a mais RECENTE por contato — não a primeira que o banco devolver", () => {

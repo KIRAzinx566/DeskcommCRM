@@ -51,7 +51,7 @@
  *     explicitamente, com `?? null`.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -423,8 +423,11 @@ describe("nenhum chamador de produção decide a publicada pelo palpite", () => 
       (p) =>
         p !== "lib/ai/agents/versoes-da-tela.ts" &&
         readFileSync(join(raiz, p), "utf8").includes("escolherVersoesDaTela("),
-    )
-    .map((p) => relative(".", p));
+    );
+  // Sem `.map((p) => relative(".", p))` de propósito: `fontesDe` já devolve
+  // caminhos relativos com `/` (template literal, não `join()`), e `relative()`
+  // no Windows trocaria essas barras por `\`, quebrando os `.toContain("app/…")`
+  // abaixo — que são os únicos consumidores desta lista.
 
   it("a sonda enxerga alguma coisa (controle positivo)", () => {
     // Sem isto, uma varredura que devolvesse zero arquivo — pasta renomeada,

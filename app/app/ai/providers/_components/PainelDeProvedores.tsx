@@ -647,7 +647,7 @@ function CartaoDoPonto({
                       "Provider customizado não tem endereço padrão — informe o endpoint compatível com a API da OpenAI (Groq, Together, Cerebras, gateway próprio, modelo local).",
                     )
                   : t(
-                      "Deixe em branco para usar o endereço oficial do provedor. Use isto para apontar para um gateway compatível com a API da OpenAI — inclusive um modelo rodando na sua própria máquina.",
+                      "Deixe em branco para usar o endereço oficial do provedor. Use isto para apontar para um gateway compatível com a API da OpenAI — inclusive um modelo rodando na sua própria máquina. Um endereço na rede do servidor só funciona se quem administra a instalação o tiver liberado em Administração › Destinos internos — e, mesmo liberado, ele não vale para o endereço que esta empresa escolhe aqui.",
                     )}
               </p>
             </div>

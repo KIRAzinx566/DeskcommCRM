@@ -13,6 +13,7 @@ describe("createDefaultRegistry", () => {
     expect(Object.keys(reg).sort()).toEqual([
       "anthropic",
       "custom",
+      "deepseek",
       "google",
       "nvidia",
       "openai",
@@ -25,8 +26,10 @@ describe("createDefaultRegistry", () => {
     expect(() => reg.openai!("k", "gpt-5")).not.toThrow();
     expect(() => reg.google!("k", "gemini-2.5-pro")).not.toThrow();
     expect(() => reg.openrouter!("k", "meta-llama/llama-3.3-70b-instruct")).not.toThrow();
+    expect(() => reg.deepseek!("k", "deepseek-flash")).not.toThrow();
     // Endpoint próprio (gateway compatível, ou modelo local no roteiro).
     expect(() => reg.openrouter!("k", "x/y", "https://gateway.exemplo/v1")).not.toThrow();
+    expect(() => reg.deepseek!("k", "deepseek-flash", "https://gateway.exemplo/v1")).not.toThrow();
     expect(() => reg.nvidia!("k", "meta/llama-3.3-70b-instruct")).not.toThrow();
     // "custom" SÓ funciona com baseUrl — sem endpoint canônico, de propósito.
     expect(() => reg.custom!("k", "qualquer/modelo", "https://gateway.exemplo/v1")).not.toThrow();
