@@ -84,6 +84,16 @@ export const PROVEDORES = [
     prefixoDaChave: "sk-or-…",
   },
   {
+    id: "deepseek",
+    rotulo: "DeepSeek",
+    quandoUsar:
+      "Muito barata e desconta sozinha o trecho repetido da conversa, sem você configurar nada — o custo cai para quem atende com um roteiro que não muda.",
+    aceitaEndpointProprio: true,
+    catalogoSincronizavel: true,
+    ondePegarAChave: "https://platform.deepseek.com/api_keys",
+    prefixoDaChave: "sk-…",
+  },
+  {
     id: "nvidia",
     rotulo: "NVIDIA (build.nvidia.com)",
     quandoUsar:

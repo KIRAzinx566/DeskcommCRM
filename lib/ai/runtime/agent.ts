@@ -31,6 +31,7 @@ import { generateText, stepCountIs, type LanguageModel, type StopCondition, type
 // Repetir a URL aqui criaria dois lugares para consertar quando ela mudar.
 import {
   cabecalhosDeAtribuicaoOpenRouter,
+  DEEPSEEK_ENDPOINT,
   NVIDIA_ENDPOINT,
   OPENROUTER_ENDPOINT,
 } from "@/lib/agent-engine/edge/llm/providers";
@@ -201,6 +202,14 @@ export function buildModel(
     // provedor que o registry de produção (createDefaultRegistry) já executa.
     case "nvidia":
       return createOpenAI({ apiKey, baseURL: baseUrl ?? NVIDIA_ENDPOINT }).chat(modelId);
+    // Mesma fábrica OpenAI-compatível que o registry de produção usa, e SEM
+    // `.chat()` pela mesma razão de lá (providers.ts): DeepSeek é o único
+    // destes que fala a Responses API direto, não a Chat Completions. Sem este
+    // caso, o dono que publicou em DeepSeek receberia `unsupported_provider` no
+    // ensaio enquanto o worker responderia a mensagem real — ensaio mais
+    // rígido que a produção mente sobre o que está quebrado.
+    case "deepseek":
+      return createOpenAI({ apiKey, baseURL: DEEPSEEK_ENDPOINT })(modelId);
     // Sem endpoint canônico, igual ao registry de produção (providers.ts) — um
     // fallback aqui faria o ensaio "passar" contra um endereço que ninguém
     // escolheu, e a mensagem real (que exige o campo na rota de versões)
