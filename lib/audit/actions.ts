@@ -294,6 +294,12 @@ export const AUDIT_ACTIONS = [
   "ai.skill_imported",
   "ai.skill_installed",
   "ai.skill_uninstalled",
+  // Edição pela tela (Fase 2 do PLANO-CONFIG-UI-AGENTE): nova versão + ponteiro
+  // movido. O corpo é texto que o agente lê — mudar isso muda o comportamento,
+  // então fica auditado.
+  "ai.skill_saved",
+  // Rollback para uma versão anterior (Fase 5): move o ponteiro sem criar versão.
+  "ai.skill_restored",
   "ai.router_created",
   "ai.router_updated",
   "ai.router_deleted",
@@ -639,6 +645,9 @@ export const AUDIT_ACTIONS = [
   "catalog_product.updated",
   "catalog_product.deleted",
   "catalog_product.imported",
+  // As fotos do produto (migration 0390): subir uma, e reordenar/remover.
+  "catalog_product.photo_added",
+  "catalog_product.photos_updated",
 
   // Sistema de cobrança ASAAS — dinheiro real saindo do
   // bolso do cliente. Toda credencial de gateway, cobrança gerada/cancelada

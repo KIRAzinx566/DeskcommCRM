@@ -447,7 +447,7 @@ export function InboxLayout({ initialSelectedId = null }: InboxLayoutProps = {})
       */}
       <div
         className={cn(
-          "h-full min-h-0 flex-col md:flex",
+          "h-full min-h-0 min-w-0 flex-col md:flex",
           colunas.conversa,
         )}
       >
@@ -487,7 +487,9 @@ export function InboxLayout({ initialSelectedId = null }: InboxLayoutProps = {})
         )}
         {selectedConversation ? (
           <>
-            <ConversationHeader conversation={selectedConversation} />
+            {/* `key`: trocar de conversa desmonta a confirmação de Fechar/Arquivar
+                aberta — senão o clique de dentro agiria sobre a conversa nova. */}
+            <ConversationHeader key={selectedConversation.id} conversation={selectedConversation} />
             <div className="min-h-0 flex-1 overflow-hidden">
               <ChatThread
                 conversationId={selectedConversation.id}

@@ -190,12 +190,17 @@ export function createDefaultRegistry(opts?: {
     // "Not Found" pelo mesmo modelo, mesma chave).
     openrouter: (apiKey, modelId, baseUrl) => {
       const endpoint = baseUrl ?? OPENROUTER_ENDPOINT;
-      return createOpenAI({
+      const provider = createOpenAI({
         apiKey,
         baseURL: endpoint,
         headers: cabecalhosDeAtribuicaoOpenRouter(),
         fetch: contain(endpoint),
-      }).chat(modelId);
+      });
+      // Confirmado também especificamente na OpenRouter: medido em 2026-09-19,
+      // `google/gemini-2.5-flash-lite` devolvia "Invalid JSON response" sem
+      // `.chat()` (o SDK tentava /responses e recebia a página do chat),
+      // enquanto gpt-4o/4.1 passavam por sorte do roteamento.
+      return provider.chat(modelId);
     },
     nvidia: (apiKey, modelId, baseUrl) => {
       const endpoint = baseUrl ?? NVIDIA_ENDPOINT;

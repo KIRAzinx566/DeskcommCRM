@@ -8,6 +8,172 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+### Adicionado
+
+- **O produto do catálogo ganha foto, e o atendente de IA manda a foto junto** Na tela Produtos, cada produto passa a ter até 5 fotos (JPG ou PNG, até 5 MB
+  cada): quem gerencia sobe, troca a ordem e remove pelo botão "Fotos" da linha,
+  e a primeira foto vira a capa que aparece na lista. Quando o atendente de IA
+  apresenta um produto que tem foto, ele manda a foto junto, com o texto como
+  legenda — pelo mesmo caminho das outras mensagens, então opt-out, LGPD e o
+  ritmo anti-banimento continuam valendo. Se a foto não puder ser enviada, o
+  texto sai sozinho. As fotos ficam num espaço privado do armazenamento, e a
+  atualização cria esse espaço sozinha: não há nada para configurar.
+
+  Ideia de @vgamkt, a partir do #1130.
+
+- **WhatsApp oficial pelo Datafy, um canal opcional que vem desligado** Dá para conectar um número oficial do WhatsApp pelo **Datafy**, parceiro
+  homologado pela Meta. A empresa cola só o token de acesso. O sistema descobre
+  sozinho o número e a conta, confere o token antes de gravar e passa a enviar e
+  receber mensagens por esse número.
+
+  **O canal vem desligado, e quem não o liga não vê nada.** Não aparece aba, a
+  rota de conexão não responde e o webhook recusa entregas. Para ligar, ponha
+  `DATAFY_ENABLED=true` no `.env` e reinicie o app. Depois cada empresa conecta o
+  próprio número em **Conexões**, na aba que passa a aparecer.
+
+  - **Dois passos na tela.** Primeiro o token, e com ele o CRM já envia. Depois,
+    no painel do provedor, cole a URL de webhook que a tela mostra e ative a
+    assinatura. Por fim, cole no CRM o segredo que o painel mostrar. Sem esse
+    segredo o CRM envia, mas recusa tudo o que chega, e a tela avisa isso.
+  - **Credencial guardada cifrada**, por empresa. Ela não volta à tela depois de
+    gravada.
+  - **Mesmas regras do WhatsApp oficial:** janela de 24 horas e custo por
+    mensagem. Por enquanto, este canal ainda não gerencia os modelos aprovados, e
+    por isso não envia modelo fora da janela. O atendimento dentro da janela
+    funciona normalmente. Imagem e áudio recebidos do cliente também ficam para a
+    próxima versão.
+
+  Trabalho de @vgamkt, recortado do PR #1130.
+
+- **Canal Datafy ganha a aba Modelos — criar e sincronizar modelos aprovados pela tela** Quem ligou o canal Datafy (`DATAFY_ENABLED=true`) passa a ver, na aba dele em **Conexões**, a sub-aba **Modelos**. Nela dá para **sincronizar** os modelos aprovados da conta e **criar** um modelo novo, que entra na fila de revisão da plataforma. O formulário é o mesmo do outro provedor parceiro: cabeçalho, corpo, rodapé, botões e exemplos.
+
+  Era o que faltava para atender **fora da janela de 24 horas**. Dentro da janela, texto livre passa. Fora dela, a Meta só aceita modelo aprovado, e até aqui este canal não tinha nenhum para oferecer.
+
+  - **O modelo sai pelo número do Datafy**, com a credencial dele, e nunca pelo número da Meta.
+  - **O resultado da revisão chega sozinho**: quando a plataforma aprova ou recusa, o aviso dela atualiza o modelo na lista, sem precisar clicar em Sincronizar.
+  - **Na conversa com a janela fechada**, o seletor oferece os modelos aprovados deste número e pede os valores de cada `{{1}}`.
+  - Sincronizar e criar é do **administrador**. Quem atende só consulta a lista.
+
+  Nada para fazer: quem não liga o canal não vê nada de novo. Editar e apagar um modelo ainda não estão na tela: isso continua sendo feito pelo painel do provedor.
+
+  Trabalho de @vgamkt, recortado do PR #1130.
+
+- **Editar o texto de uma skill pela tela, com histórico de versões e restauração** Em **IA › Skills**, cada skill instalada ganha o botão **Editar**. Nele dá para mudar a descrição, as palavras-chave que ativam a skill e o procedimento que o agente segue. Cada vez que você salva, nasce uma versão nova, e a anterior fica guardada. No mesmo lugar aparece o histórico de versões, e **Restaurar** volta para qualquer uma delas na hora, sem reiniciar nada. Antes, a única forma de mudar o texto de uma skill era enviar um .zip de novo.
+
+  Uma skill que veio de um pacote com arquivos continua mudando só pelo pacote: a tela avisa e não deixa salvar, porque a versão nova perderia os arquivos.
+
+  O agente também deixa de "esquecer" uma skill quando o cliente responde só a escolha, como "a de 2025": para decidir que skill usar, ele passa a olhar as últimas mensagens do cliente, e não só a mais recente.
+
+  Nada para fazer. Quem edita e restaura é o gerente ou o administrador.
+
+  Construído a partir do trabalho de @vgamkt no #1130.
+
+- **Follow-up quando um negócio nasce** Em **IA → Follow-ups**, o gatilho **Lead criado** inscreve o contato quando um
+  negócio nasce — pela primeira mensagem que abre o card, por formulário ou pelo
+  cadastro manual. Negócios importados por planilha não entram, para a
+  importação não virar um disparo em massa. A entrada na fila leva poucos minutos.
+
+  Um fluxo publicado com esse gatilho também passa a valer para o lead que nasce
+  de uma conversa. Se você já tem uma automação em Webhooks no evento «quando
+  entrar um contato novo», ela passa a rodar nesse caso também.
+
+  Contribuição de @IanCouto (recorte do #1471, entrou pelo #1479).
+
+### Alterado
+
+- **O botão "Atualizar agora" não fica mais atrás do histórico de versões** Na tela Configurações › Atualização, quando há várias versões acumuladas, o
+  botão "Atualizar agora" ficava depois da lista "O que muda" — quem só queria
+  clicar precisava rolar por todo o histórico primeiro. O botão subiu para
+  antes dessa lista; os avisos que pesam na decisão de atualizar (instalação em
+  versão de desenvolvimento, "Requer atenção" e o de histórico incompleto, que
+  avisa quando a lista pode não alcançar a versão instalada) continuam
+  aparecendo antes dele.
+
+  Contribuição de @allisonwilliancandido (#1500).
+
+### Corrigido
+
+- **Anonimizar um contato pela ficha passa a apagar também o que ele escreveu nas conversas** Anonimizar um contato pelo botão da ficha trocava o nome e os dados da ficha,
+  mas o que a pessoa tinha escrito nas conversas continuava guardado, assim como
+  o resumo que a inteligência artificial faz de cada atendimento e as fotos e
+  arquivos que ela enviou. Agora a anonimização, por qualquer caminho, apaga o
+  texto das mensagens, a prévia da última mensagem, o resumo da inteligência
+  artificial e manda apagar os arquivos enviados. Contatos que já tinham sido
+  anonimizados antes são corrigidos na própria atualização. Os resumos da
+  inteligência artificial também passam a constar do relatório de dados que o
+  titular pode pedir. Não há ação para quem opera a VPS.
+
+- **Origem de anúncios do WhatsApp conectado por QR** Contatos que chegam por anúncios Clique para WhatsApp agora recebem a origem do anúncio quando o WAHA NOWEB entrega `externalAdReply`. Antes, o CRM procurava apenas `externalAdReplyInfo` e deixava o contato como WhatsApp sem atribuição. A forma anterior continua aceita, e posts orgânicos continuam fora da atribuição paga. Crédito: @ozzure.
+
+- **O preço dos modelos OpenAI nas duas tabelas do schema passa a bater com a fonte** Quem atendia com gpt-5.6-sol via a tela um preço e a conta somava outro: o catálogo (ai_models) e a tabela de orçamento (ai_pricing) seguiam com 500/3000 centavos por milhão, a versão não promocional, enquanto o código que grava o custo em llm_calls cobrava 400/2000 — preço promocional medido na fonte oficial em 23/09/2026, validade declarada pela própria página até 21/11/2026. As duas tabelas agora mudam juntas, a notes da linha grava fonte e data da medição, e entram na tabela os três ids OpenAI que o código já cobrava e a tabela não conhecia (gpt-4o, gpt-4o-mini, gpt-4o-2024-05-13). Não há ação para quem opera a VPS: a correção chega na próxima atualização.
+
+  Contribuição de @webtecnica (#1498).
+
+- **O roteador em "Automático" passa a usar a inteligência artificial que a empresa escolheu** Quem deixava o modelo do roteador em "Automático" numa empresa que usa só a
+  OpenAI via toda conversa cair no agente reserva: o roteador pedia um modelo da
+  Anthropic ao provedor errado, e a identificação da intenção falhava sempre.
+  Agora "Automático" usa o que está escolhido para a empresa (no painel de
+  provedores ou no padrão da organização). Em empresas que usam a Anthropic, o
+  "Automático" também passa a seguir esse padrão, em vez de um modelo fixo. Quem
+  escolheu um modelo específico na tela do roteador não é afetado. Não há ação
+  para quem opera a VPS.
+
+- **A contabilidade de custo e o teto de gastos passam a registrar chamadas dos modelos OpenAI** Organizações que configuram agentes de atendimento usando modelos OpenAI (como gpt-4o e gpt-4o-mini) tinham o custo registrado como nulo em llm_calls, fazendo a tela Uso e orçamento marcar zero e impedindo que o teto mensal de gastos disparasse. Os modelos OpenAI suportados no catálogo foram adicionados à tabela de preços versionada.
+
+  Contribuição de @webtecnica (#1486).
+
+- **Mensagens enviadas pela API ou pelo MCP respeitam o ritmo do número de WhatsApp** Quem enviava mensagens com token de API (`POST /api/v1/messages` com `Authorization: Bearer`) ou pelas ferramentas de envio do MCP passava direto para o WhatsApp. Não havia intervalo entre uma mensagem e outra, o limite diário e o aquecimento do número eram ignorados, e esses envios nem entravam na contagem do dia. Um script ou um agente externo em laço podia disparar centenas de mensagens seguidas pelo mesmo número, que é o padrão que leva o WhatsApp a banir o número.
+
+  Agora esses envios esperam o intervalo mínimo do número, como o agente do CRM já esperava, e entram na contagem diária. Quando o número atinge o limite do dia, a API responde `429 rate_limited`, informa o motivo e o horário de liberação (`libera_em`) e envia o cabeçalho `Retry-After`. A rota REST por token também passa a ter o mesmo teto de chamadas por minuto que o MCP já tinha.
+
+  O envio feito pela tela, por um atendente, não muda. O canal oficial da Meta também não, porque não corre risco de banimento. O operador não precisa fazer nada, mas uma integração que dispara em massa pela API passa a receber `429` e precisa esperar o `Retry-After`.
+
+  Contribuição de @bossprt (#1487).
+
+- **O agente de IA consegue gravar um aprendizado na memória da empresa** A ferramenta que deixa o agente de IA anotar um aprendizado para toda a operação (**IA › Ensinar o agente › Memória**) falhava em toda chamada: o banco recusava a anotação porque não conhecia a origem "agente". Nada chegava a ser gravado.
+
+  Agora a anotação entra, marcada como **"anotado pelo agente"** na lista de aprendizados, separada do que alguém da equipe escreveu à mão e do que o sistema aprendeu sozinho. A atualização só amplia a regra do banco; nenhum aprendizado existente muda. Nada para fazer.
+
+  Diagnóstico de @vgamkt (#1130).
+
+- **A criação e a sincronização de modelos do parceiro passam a exigir papel de administrador** Na tela de modelos do canal intermediado, criar e sincronizar modelos de mensagem passa a exigir o papel de administrador, como já acontece com os modelos do canal oficial. Ver a lista continua disponível a quem atende, porque o seletor do inbox usa a mesma lista. O pedido de criação agora é validado antes de chegar à plataforma, e o registro de auditoria passa a indicar quem criou o modelo.
+
+- **O menu de um agente não oferece mais arquivar o agente padrão da organização** Na lista de agentes de IA, o item "Arquivar" do agente padrão da organização aparecia habilitado, mas o sistema recusa arquivar esse agente — e a recusa chegava como o código interno "Falha: cannot_archive_default".
+
+  Agora o item fica desabilitado para o agente padrão, e passar o mouse sobre ele explica o motivo. Se a recusa acontecer mesmo assim (a lista estava aberta quando outro administrador tornou aquele agente o padrão), o aviso diz em português que o agente padrão não pode ser arquivado. Nada para fazer.
+
+  Contribuição de @betoarts (recorte do #714).
+
+- **A atualização da VPS faz o backup de segurança que ela promete antes de mexer no banco** Toda atualização anuncia o passo "Backup de segurança (antes de mexer no banco)" — e o backup não acontecia. O script procurava o `backup.sh` a partir do diretório de onde o comando foi digitado, não de onde ele próprio está: chamado de `/root`, por exemplo, ele não achava o arquivo, e a atualização parava ali (ou, no modo assistido, seguia depois de avisar que o backup havia falhado).
+
+  Agora o caminho do backup é resolvido antes de o script entrar na pasta do projeto, como o próprio script já mandava fazer. Atualizando de qualquer diretório, o backup roda de verdade e a mensagem de "backup feito" corresponde ao que aconteceu. Quem opera a VPS não precisa fazer nada.
+
+  Contribuição de @webtecnica (#1476).
+
+- **O backup das sessões do WhatsApp passa a levar a pasta do servidor e para de gravar arquivo vazio como se fosse backup** Na 1.42.0 o `backup.sh` passou a usar o volume real das sessões do WhatsApp, mas dois casos ainda saíam errados. Quem guarda as sessões numa pasta do próprio servidor (montagem do tipo bind, por exemplo `- /srv/waha:/app/.sessions`) continuava recebendo um `waha-*.tgz` vazio, porque o Docker só informa o nome da montagem quando ela é um volume nomeado; agora é a pasta do servidor que vai para o backup. E um arquivo vazio deixou de ser anunciado como `✓ sessões WhatsApp salvas`: se a montagem não tem sessão gravada, nenhum `waha-*.tgz` é criado e o passo avisa, em amarelo, que o pareamento do WhatsApp não entrou no backup. O banco é salvo normalmente e a atualização segue.
+
+  Contribuição de @webtecnica (#1474), construído sobre o #1429 de @matheuspedro360.
+
+- **As confirmações de fechar/arquivar conversa e de segurança usam o mesmo diálogo do resto do CRM** Fechar ou arquivar uma conversa no Inbox (pelo botão ou pelo atalho "e"), e
+  desligar a verificação em duas etapas, gerar novos códigos de recuperação ou
+  sair de todos os dispositivos em Configurações › Segurança, pediam
+  confirmação pela caixinha crua do navegador. Ela ignorava a cor e o tema da
+  instalação, sempre aparecia em português — mesmo para quem usa o CRM em
+  espanhol — e ficava bloqueada dentro de um iframe. Agora usam o mesmo diálogo
+  do resto do produto, no idioma e na aparência de cada organização.
+
+  Contribuição de @allisonwilliancandido.
+
+- **O agente responde com modelos Google pela OpenRouter e não manda mais mensagem em branco** Quem usa a OpenRouter com um modelo que não é da OpenAI, como o `google/gemini-2.5-flash-lite`, via o agente falhar com "Invalid JSON response": o CRM chamava na OpenRouter um endereço que ela não atende para todo modelo. Agora o agente, o botão "Teste", os recursos de IA com a chave da organização e os com a chave da instalação usam o endereço que a OpenRouter atende para qualquer modelo.
+
+  O agente também deixa de mandar ao cliente uma mensagem em branco quando o modelo escreve só espaços ou quebras de linha: o texto volta ao modelo para ele escrever a resposta de verdade.
+
+  Nada para fazer.
+
+  Diagnóstico e conserto de @vgamkt no #1130.
+
+- **O botão Publicar do agente de IA acende depois de salvar o rascunho** Na tela do agente de IA, quem editava as instruções, salvava o rascunho e ia publicar encontrava o botão **Publicar** apagado, com a dica "Salve o rascunho antes de publicar". Salvar de novo não resolvia, e a versão nova ficava sem ir ao ar por esta tela. Agora a tela compara o que de fato seria gravado: campos que o servidor completa sozinho e a ordem em que o banco devolve as configurações não contam mais como alteração pendente. Contribuição de @Sandersono (#1473).
+
 ## [1.21.0] — 2026-09-23
 
 ### Adicionado
@@ -5585,6 +5751,9 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [1.13.0] — 2026-09-04
 
+> **Esta versão não tem imagens publicadas** — o build da tag foi cancelado, e as três imagens não
+> existem no registro. Nada para fazer: quem atualiza chega à 1.14.0 ou superior.
+
 ### Alterado
 
 - **O CRM instala em Postgres 15, não só em 17** Até agora a instalação exigia Postgres 17. Quem tentasse usar um banco 15 ou 16
@@ -6426,6 +6595,8 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   prontos.
 
 ## [1.11.1] — 2026-08-31
+
+> **Não publicada** — a tag `v1.11.1` nunca existiu: o corte não publicou imagens, e o que está abaixo chegou na 1.12.0.
 
 ### Corrigido
 

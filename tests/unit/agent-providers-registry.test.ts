@@ -65,4 +65,14 @@ describe("createDefaultRegistry", () => {
     expect((openrouterModel as { provider: string }).provider).toBe("openai.chat");
     expect((nvidiaModel as { provider: string }).provider).toBe("openai.chat");
   });
+
+  it("openrouter fala Chat Completions, nunca o endpoint /responses", () => {
+    // Medido em 2026-09-19: `google/gemini-2.5-flash-lite` pela OpenRouter
+    // devolvia "Invalid JSON response" porque `createOpenAI()(modelId)` usa o
+    // /responses por padrão e a OpenRouter não o serve para todo modelo.
+    // `.chat()` fixa o formato que a OpenRouter realmente implementa.
+    const reg = createDefaultRegistry();
+    const modelo = reg.openrouter!("k", "google/gemini-2.5-flash-lite") as { provider?: string };
+    expect(modelo.provider).toBe("openai.chat");
+  });
 });
