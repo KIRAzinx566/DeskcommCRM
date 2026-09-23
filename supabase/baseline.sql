@@ -7434,7 +7434,21 @@ from ranked
 where e.id = ranked.id
   and ranked.rn > 1;
 
-drop index if exists idx_followup_enrollments_one_live;
+-- Só derruba a versão por `pointer_id` (issue #1041): numa reaplicação o índice
+-- já é por (organization_id, contact_id), e derrubá-lo aqui o reconstruiria para
+-- a 0145 derrubar e reconstruir de novo adiante.
+do $$
+begin
+  if exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and indexname  = 'idx_followup_enrollments_one_live'
+      and indexdef not ilike '%(organization_id, contact_id)%'
+  ) then
+    execute 'drop index public.idx_followup_enrollments_one_live';
+  end if;
+end
+$$;
 create unique index if not exists idx_followup_enrollments_one_live
   on followup_enrollments (organization_id, contact_id)
   where status in ('active', 'waiting_reply', 'paused_handoff');
@@ -9276,14 +9290,22 @@ alter table public.channel_sessions
   add column if not exists wacalls_jid text,
   add column if not exists wacalls_paired_at timestamptz;
 
+-- datafy (migration 0393, renumerada de 0387, canal Datafy — recorte do #1130) — colunas do provider
+-- que espelha a Cloud API, nullable e antes das constraints que as referenciam.
+alter table public.channel_sessions
+  add column if not exists datafy_phone_number_id text,
+  add column if not exists datafy_waba_id text,
+  add column if not exists datafy_token_encrypted bytea;
+
 alter table public.channel_sessions
   drop constraint if exists channel_sessions_provider_check;
 
 alter table public.channel_sessions
   add constraint channel_sessions_provider_check
-  -- 'wacalls' (0252, renum. de 0233) e 'zernio_social' (0368) somados AQUI —
-  -- UM bloco só por constraint, doutrina de baseline (não duplicar drop+add).
-  check (provider = any (array['waha'::text, 'meta_cloud'::text, 'zernio'::text, 'wacalls'::text, 'zernio_social'::text]));
+  -- 'wacalls' (0252, renum. de 0233), 'zernio_social' (0368) e 'datafy' (0393,
+  -- renum. de 0387) somados AQUI — UM bloco só por constraint, doutrina de
+  -- baseline (não duplicar drop+add).
+  check (provider = any (array['waha'::text, 'meta_cloud'::text, 'zernio'::text, 'wacalls'::text, 'zernio_social'::text, 'datafy'::text]));
 
 alter table public.channel_sessions
   drop constraint if exists channel_sessions_provider_ref_check;
@@ -9295,7 +9317,8 @@ alter table public.channel_sessions
     -- 'zernio_social' (migration 0368) endereça pelo MESMO `zernio_account_id`:
     -- é o mesmo intermediário, com outra superfície de canal.
     (provider in ('zernio', 'zernio_social') and zernio_account_id is not null) or
-    (provider = 'wacalls'    and wacalls_session_id    is not null)
+    (provider = 'wacalls'    and wacalls_session_id    is not null) or
+    (provider = 'datafy'     and datafy_phone_number_id is not null)
   );
 
 comment on column public.channel_sessions.zernio_account_id is
@@ -9918,6 +9941,36 @@ on conflict (model) do update set
   notes = excluded.notes,
   superseded_at = null;
 
+-- ---- as DUAS tabelas de preço do OpenAI (migration 0395, renumerada de 0386, issue #1490) ----
+--
+-- O bloco da 0104 acima semeia 500/3000 para o gpt-5.6-sol, a versão não
+-- promocional do catálogo 0101. O pricing.ts (custo gravado em llm_calls)
+-- cobra 400/2000 — preço promocional medido na fonte oficial em 2026-09-23
+-- (developers.openai.com/api/docs/pricing; a promoção vale ao menos até
+-- 21/11/2026). Quem instala pelo kit nasce com as duas tabelas dizendo o
+-- preço medido, e o invariante catálogo × conta continua com os DOIS lados
+-- iguais. Idempotente: update com guarda de divergência + insert em conflict.
+update public.ai_models
+   set input_price_per_million_cents = 400,
+       output_price_per_million_cents = 2000
+ where provider = 'openai'
+   and model_id = 'gpt-5.6-sol'
+   and (input_price_per_million_cents <> 400
+     or output_price_per_million_cents <> 2000);
+
+insert into public.ai_pricing
+  (model, prompt_cents_per_million_tokens, completion_cents_per_million_tokens, notes)
+values
+  ('gpt-5.6-sol',         400,   2000, 'catálogo 0386 — preço promocional medido na fonte em 2026-09-23 (developers.openai.com/api/docs/pricing); promoção vale ao menos até 21/11/2026'),
+  ('gpt-4o',              250,   1000, 'catálogo 0386 — linha que o pricing.ts já cobrava e a tabela não tinha; preço medido na fonte em 2026-09-23'),
+  ('gpt-4o-mini',          15,     60, 'catálogo 0386 — linha que o pricing.ts já cobrava e a tabela não tinha; preço medido na fonte em 2026-09-23'),
+  ('gpt-4o-2024-05-13',   500,   1500, 'catálogo 0386 — snapshot com preço próprio; linha que o pricing.ts já cobrava e a tabela não tinha; medido em 2026-09-23')
+on conflict (model) do update set
+  prompt_cents_per_million_tokens = excluded.prompt_cents_per_million_tokens,
+  completion_cents_per_million_tokens = excluded.completion_cents_per_million_tokens,
+  notes = excluded.notes,
+  superseded_at = null;
+
 -- ---- agent_inbox_items.kind ganha 'capabilities_missing' (migration 0105capabilities_missing
 -- Quando o turno não consegue montar as capacidades configuradas na tela, ele
 -- segue sem elas (a conversa do cliente não pode morrer por uma tool extra) —
@@ -10386,6 +10439,63 @@ select d.organization_id, d.id, c.conversation_id
       where dc.demanda_id = d.id and dc.conversation_id = c.conversation_id
    );
 
+-- AUTO-CURA (migration 0392): apaga a duplicata que a versão anterior deste
+-- apêndice criou. O guard de R2 abaixo era idempotente só CONTRA SI MESMO —
+-- procurava outra 'derivada' com o mesmo `aberta_em` — e não enxergava a
+-- demanda 'inbound' que o trigger da 0138 cria na entrada. Em quem já rodava,
+-- cada `update.sh` derivava uma segunda demanda para cada conversa nova,
+-- dobrando `demandas_sem_proximo_passo` (o invariante 4) e `escopo.demandas`.
+--
+-- Só sai a 'derivada' que tem a assinatura da duplicata e mais nada:
+--   * INTOCADA — sem próximo passo, sem lead, sem dono humano, sem caso;
+--   * ligada a UMA conversa só — então apagá-la não deixa conversa nenhuma sem
+--     demanda (a cascata leva só esse vínculo);
+--   * nascida DEPOIS de outra demanda de origem real na mesma conversa. É
+--     isso que separa a duplicata da derivada legítima: a do backfill original
+--     é anterior ao trigger, e a 'inbound' que chegou depois dela, numa conversa
+--     reaberta, é mais NOVA — essa derivada é histórico e fica;
+--   * e que NINGUÉM referencia. O backfill da 0222 (mais abaixo) escolhe a
+--     vigente pelo maior `aberta_em`, e a 'inbound' tem o `sent_at` do WAHA
+--     (segundos, anterior ao insert da conversa) — a duplicata costuma vencer,
+--     virar `current_demanda_id` e ser carimbada em `messages.demanda_id`.
+--     Apagá-la zeraria essas referências (`on delete set null`): a próxima
+--     entrada abriria outra demanda e o acompanhamento com fronteira nela seria
+--     cancelado como vencido. Duplicata vigente segue contando dobrado; é o
+--     preço menor.
+--
+-- Dentro de `do` porque essas colunas nascem no bloco da 0222, mais abaixo: no
+-- install ainda não existem (e não há demanda nenhuma para curar). O PL/pgSQL
+-- só analisa o `delete` quando o executa, então o `if` basta.
+do $$
+begin
+  if (select count(*) from information_schema.columns
+       where table_schema = 'public'
+         and (table_name, column_name) in (('conversations', 'current_demanda_id'),
+                                           ('messages', 'demanda_id'),
+                                           ('lead_checkpoints', 'demanda_id'))) = 3 then
+    delete from public.demandas d
+     where d.origem = 'derivada'
+       and d.agent_case_id is null
+       and d.lead_id is null
+       and d.dono_user_id is null
+       and d.proximo_passo is null
+       and (select count(*) from public.demanda_conversas v where v.demanda_id = d.id) = 1
+       and not exists (select 1 from public.conversations c where c.current_demanda_id = d.id)
+       and not exists (select 1 from public.messages m where m.demanda_id = d.id)
+       and not exists (select 1 from public.lead_checkpoints k where k.demanda_id = d.id)
+       and exists (
+         select 1
+           from public.demanda_conversas dc
+           join public.demanda_conversas outra
+             on outra.conversation_id = dc.conversation_id and outra.demanda_id <> d.id
+           join public.demandas d2 on d2.id = outra.demanda_id
+          where dc.demanda_id = d.id
+            and d2.origem <> 'derivada'
+            and d2.created_at < d.created_at
+       );
+  end if;
+end $$;
+
 -- R2 — conversas que nunca escalaram também são demandas.
 insert into public.demandas
   (organization_id, contact_id, aberta_em, origem, estado, dono_kind, desfecho, fechada_em)
@@ -10402,6 +10512,12 @@ select
  where not exists (
    select 1 from public.agent_cases c where c.conversation_id = cv.id
  )
+   and not exists (
+   select 1 from public.demanda_conversas dc where dc.conversation_id = cv.id
+ )
+   -- O guard que faltava (migration 0392): derivar o PASSADO só vale para a
+   -- conversa que não tem demanda NENHUMA. Sem esta linha, toda conversa que o
+   -- trigger da 0138 já cobriu ganha uma segunda demanda no `update.sh` seguinte.
    and not exists (
    select 1 from public.demandas d
     where d.organization_id = cv.organization_id
@@ -11933,7 +12049,21 @@ exception when duplicate_object then null; end $$;
 -- de copiar a definição EM VIGOR, não a da DDL original — recriar a partir da
 -- linha errada reverte a garantia sem conflito de merge e sem sintoma imediato.
 -- Corrigido na integração; ver a nota no MANIFEST da 0145.
-drop index if exists idx_followup_enrollments_one_live;
+-- Só derruba a versão sem `paused_manual` (issue #1041): numa reaplicação o
+-- índice já está na versão final, e reconstruí-lo deixaria a trava de "um
+-- follow-up vivo por contato" ausente durante o build, com o app no ar.
+do $$
+begin
+  if exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and indexname  = 'idx_followup_enrollments_one_live'
+      and indexdef not ilike '%paused_manual%'
+  ) then
+    execute 'drop index public.idx_followup_enrollments_one_live';
+  end if;
+end
+$$;
 create unique index if not exists idx_followup_enrollments_one_live
   on public.followup_enrollments (organization_id, contact_id)
   where status in ('active','waiting_reply','paused_handoff','paused_manual');
@@ -14249,7 +14379,7 @@ alter table public.webhook_events_log
   drop constraint if exists webhook_events_log_provider_check;
 alter table public.webhook_events_log
   add constraint webhook_events_log_provider_check check (provider in (
-    'waha', 'nuvemshop', 'generic', 'meta_cloud', 'zernio'
+    'waha', 'nuvemshop', 'generic', 'meta_cloud', 'zernio', 'datafy'
   ));
 
 -- ---- a marca da instalação sai do .env e vai para o banco (migration 0155) ----
@@ -15487,17 +15617,33 @@ comment on column public.calendar_external_events.transparency is
 -- A cor é DA PESSOA NAQUELA ORGANIZAÇÃO, e por isso mora em user_organizations
 -- e não em auth.users: quem trabalha em duas organizações pode ser verde numa
 -- e azul na outra, e a cor de uma não vaza para a outra.
-alter table public.user_organizations
-  add column if not exists calendar_color text;
+-- ⚠️ A 0186, adiante, troca esta coluna por `calendar_trilha` e a DERRUBA. Sem a
+-- guarda, toda reaplicação do baseline recriaria a coluna e o CHECK aqui para a
+-- 0186 derrubar em seguida: quatro travas exclusivas numa tabela que toda policy
+-- de RLS consulta, e um número de coluna gasto que não volta (issue #1041).
+-- `calendar_trilha` é o sinal de que a 0186 já passou por este banco.
+do $$
+begin
+  if not exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.user_organizations'::regclass
+      and attname = 'calendar_trilha'
+      and not attisdropped
+  ) then
+    alter table public.user_organizations
+      add column if not exists calendar_color text;
 
-alter table public.user_organizations
-  drop constraint if exists user_organizations_calendar_color_format;
-alter table public.user_organizations
-  add constraint user_organizations_calendar_color_format
-  check (calendar_color is null or calendar_color ~ '^#[0-9a-fA-F]{6}$');
+    alter table public.user_organizations
+      drop constraint if exists user_organizations_calendar_color_format;
+    alter table public.user_organizations
+      add constraint user_organizations_calendar_color_format
+      check (calendar_color is null or calendar_color ~ '^#[0-9a-fA-F]{6}$');
 
-comment on column public.user_organizations.calendar_color is
-  'Cor desta pessoa na grade da Agenda, nesta organização. NULL = a tela deriva uma cor estável do user_id, para ninguém nascer sem cor. ⚠️ A policy de SELECT desta tabela é self-OU-manager+: um `agent` NÃO lê a linha dos colegas pelo PostgREST. A tela recebe as cores pela rota que já monta o roster com service role (GET /api/v1/team), não por leitura direta.';
+    comment on column public.user_organizations.calendar_color is
+      'Cor desta pessoa na grade da Agenda, nesta organização. NULL = a tela deriva uma cor estável do user_id, para ninguém nascer sem cor. ⚠️ A policy de SELECT desta tabela é self-OU-manager+: um `agent` NÃO lê a linha dos colegas pelo PostgREST. A tela recebe as cores pela rota que já monta o roster com service role (GET /api/v1/team), não por leitura direta.';
+  end if;
+end
+$$;
 
 drop trigger if exists trg_limpar_vinculos_do_agendamento on public.calendar_appointments;
 create trigger trg_limpar_vinculos_do_agendamento
@@ -15896,10 +16042,23 @@ alter table public.user_organizations
 comment on column public.user_organizations.calendar_trilha is
   'A trilha de cor desta pessoa na grade da Agenda, nesta organização (1..8). NULL = use a derivada de trilhaPadraoDoMembro(user_id), que é estável mas colide para alguns pares — esta coluna existe para quem administra desempatar. A COR de cada trilha vive em app/globals.css (--agenda-pessoa-N) e muda com o tema; guardar hex aqui seria um segundo lugar para a mesma verdade, sem tema escuro. ⚠️ A policy de SELECT desta tabela é self-OU-manager+: um `agent` não lê a linha dos colegas pelo PostgREST, então as trilhas chegam à tela pela rota que monta o roster com service role.';
 
-alter table public.user_organizations
-  drop constraint if exists user_organizations_calendar_color_format;
-alter table public.user_organizations
-  drop column if exists calendar_color;
+-- Só age quando a coluna existe (issue #1041): `drop ... if exists` sem efeito
+-- ainda pede trava exclusiva sobre user_organizations.
+do $$
+begin
+  if exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.user_organizations'::regclass
+      and attname = 'calendar_color'
+      and not attisdropped
+  ) then
+    alter table public.user_organizations
+      drop constraint if exists user_organizations_calendar_color_format;
+    alter table public.user_organizations
+      drop column calendar_color;
+  end if;
+end
+$$;
 
 -- ─── 2 · a cor do tipo de agendamento sai ─────────────────────────────────
 alter table public.calendar_event_types
@@ -21098,19 +21257,68 @@ alter table public.calendar_external_events
  add column if not exists original_start_time jsonb;
 alter table public.calendar_external_events alter column starts_at drop not null;
 alter table public.calendar_external_events alter column ends_at drop not null;
-alter table public.calendar_external_events drop constraint if exists calendar_external_events_periodo_valido;
-alter table public.calendar_external_events add constraint calendar_external_events_periodo_valido
- check(status='cancelled' or (starts_at is not null and ends_at is not null and ends_at>starts_at));
-drop index if exists public.calendar_appointments_google_evento_key;
+-- Os três blocos abaixo só agem quando o banco ainda não chegou à versão da 0225
+-- (issue #1041). Sem a guarda, toda reaplicação revalidava o CHECK varrendo a
+-- tabela, reconstruía o índice único e reescrevia calendar_appointments inteira
+-- para recriar a coluna gerada, tudo sob trava exclusiva e com o app no ar.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'calendar_external_events_periodo_valido'
+      and conrelid = 'public.calendar_external_events'::regclass
+      and pg_get_constraintdef(oid) ilike '%cancelled%'
+  ) then
+    alter table public.calendar_external_events drop constraint if exists calendar_external_events_periodo_valido;
+    alter table public.calendar_external_events add constraint calendar_external_events_periodo_valido
+     check(status='cancelled' or (starts_at is not null and ends_at is not null and ends_at>starts_at));
+  end if;
+end
+$$;
+do $$
+begin
+  if exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and indexname  = 'calendar_appointments_google_evento_key'
+      and indexdef not ilike '%google_calendar_id%'
+  ) then
+    execute 'drop index public.calendar_appointments_google_evento_key';
+  end if;
+end
+$$;
 create unique index if not exists calendar_appointments_google_evento_key
  on public.calendar_appointments(organization_id,google_connection_id,google_calendar_id,google_event_id) where google_event_id is not null;
 -- Nenhum legado é declarado sincronizado sem GET/base. Tupla ambígua fica
 -- preservada e visível; não se adivinha calendário de outra conta/conexão.
-drop index if exists public.calendar_appointments_pendente_no_google_idx;
-drop view if exists public.calendar_google_reconcilable_appointments;
-alter table public.calendar_appointments drop column if exists needs_google_push;
-alter table public.calendar_appointments add column needs_google_push boolean generated always as
- (google_local_revision>google_synced_local_revision and google_conflict is null) stored;
+-- A view é `select a.*` da tabela: ela só precisa sair quando a coluna for
+-- trocada, e volta adiante pelo `create or replace view`.
+do $$
+begin
+  if not exists (
+    select 1 from pg_attribute a
+    join pg_attrdef d on d.adrelid = a.attrelid and d.adnum = a.attnum
+    where a.attrelid = 'public.calendar_appointments'::regclass
+      and a.attname = 'needs_google_push'
+      and not a.attisdropped
+      and pg_get_expr(d.adbin, d.adrelid) ilike '%google_local_revision%'
+  ) then
+    drop index if exists public.calendar_appointments_pendente_no_google_idx;
+    drop view if exists public.calendar_google_reconcilable_appointments;
+    alter table public.calendar_appointments drop column if exists needs_google_push;
+    alter table public.calendar_appointments add column needs_google_push boolean generated always as
+     (google_local_revision>google_synced_local_revision and google_conflict is null) stored;
+  end if;
+  if exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and indexname  = 'calendar_appointments_pendente_no_google_idx'
+      and indexdef not ilike '%(google_next_attempt_at)%'
+  ) then
+    execute 'drop index public.calendar_appointments_pendente_no_google_idx';
+  end if;
+end
+$$;
 create index if not exists calendar_appointments_pendente_no_google_idx
  on public.calendar_appointments(google_next_attempt_at) where needs_google_push and owner_user_id is not null;
 
@@ -36803,6 +37011,198 @@ alter table public.meta_templates
 comment on column public.meta_templates.saved_values is
   'Valores que o operador salvou para reaproveitar em todo disparo deste modelo, chaveados como template_values (slotKey: header:1, button0:1). Só link de mídia: a rota de escrita recusa valor de texto, que costuma ser dado de pessoa. Sobrevive à sincronização, que não lista esta coluna no upsert.';
 
+-- ---- canal de WhatsApp Datafy (migration 0393, renumerada de 0387) ----
+-- Recorte do PR #1130, de @vgamkt. As COLUNAS e o VOCABULÁRIO dos CHECKs de
+-- `channel_sessions` (provider e ref) e de `webhook_events_log` vivem nos blocos
+-- ÚNICOS deles, lá em cima — doutrina "uma constraint, um bloco"
+-- (`tests/unit/baseline-constraint-reconstruida.test.ts`). Aqui só o que é desta
+-- migration e de mais ninguém: a dedup e o índice único entre ativos (desenho da
+-- 0165). A dedup roda ANTES do índice, para o `update.sh` de um banco que já
+-- tenha dois ativos com o mesmo número consertar em vez de quebrar.
+with ativos as (
+  select id,
+         row_number() over (
+           partition by datafy_phone_number_id
+           order by created_at desc nulls last, id desc
+         ) as posicao
+    from public.channel_sessions
+   where archived_at is null
+     and datafy_phone_number_id is not null
+)
+update public.channel_sessions s
+   set datafy_phone_number_id = s.datafy_phone_number_id || '-conflito-' || s.id::text
+  from ativos a
+ where a.id = s.id
+   and a.posicao > 1;
+
+create unique index if not exists channel_sessions_datafy_phone_number_id_ativo_unique
+  on public.channel_sessions (datafy_phone_number_id)
+  where archived_at is null and datafy_phone_number_id is not null;
+
+comment on column public.channel_sessions.datafy_phone_number_id is
+  'phone_number_id da WABA no canal Datafy (parceiro que espelha a Cloud API). É o sessionRef deste canal. Espelhado em lib/channels/session-ref.ts.';
+comment on column public.channel_sessions.datafy_token_encrypted is
+  'Token do Datafy (sk_live_…), cifrado por fn_encrypt_oauth. Nunca volta à tela depois de gravado.';
+
+-- ---- fim canal de WhatsApp Datafy (migration 0393, renumerada de 0387) ----
+
+-- ---- anonimizar pela tela também redige conversas, mensagens e resumos (migration 0391) ----
+--
+-- Há dois caminhos que anonimizam um contato, e só um redigia a conversa:
+--
+--   fn_lgpd_cascade_redact_contact   o pedido formal (redact)    redigia mensagens e conversas
+--   fn_lgpd_anonymize_contact        o botão da ficha do contato  só o contato
+--                                    + lib/lgpd/cascata.ts        (leads, atividades, régua)
+--
+-- Pelo botão, o nome e o CPF que a pessoa escreveu continuavam no corpo das
+-- mensagens, no `last_message_preview` da conversa (o cabeçalho da ficha
+-- anonimizada) e no resumo que o agente guarda por contato (`lead_checkpoints`)
+-- — o "anonimizado" da tela era mentira sobre o que mais importa.
+--
+-- O conserto é no ESTADO, não num dos caminhos: um gatilho na virada de
+-- `is_anonymized`, o mesmo desenho de `trg_contacts_anonimizado_limpa_custom_fields`
+-- e dos outros seis gatilhos de redação deste schema. Assim os dois caminhos — e
+-- qualquer um que venha — passam pelo mesmo lugar, na mesma transação da virada.
+-- Os comandos de mensagens e conversas são os MESMOS da cascata formal; ela os
+-- repete depois, sem efeito novo.
+--
+-- `lead_checkpoints` não estava em NENHUM dos dois caminhos: o resumo corrido,
+-- os compromissos, as objeções, a próxima ação e a declaração do turno são texto
+-- escrito por modelo sobre a conversa, e nomeiam a pessoa.
+--
+-- A mídia das mensagens vai para `storage_redaction_queue` ANTES de a coluna
+-- ser zerada: zerar primeiro perderia o único ponteiro para o arquivo, que
+-- ficaria no bucket para sempre. `request_id` fica nulo — no caminho do botão não
+-- há pedido, e no formal a fila já é idempotente por (bucket, object_path).
+create or replace function public.fn_redigir_conversas_ao_anonimizar()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.storage_redaction_queue (organization_id, bucket, object_path)
+  select distinct new.organization_id, 'whatsapp-media', m.media_storage_path
+    from public.messages m
+   where m.organization_id = new.organization_id
+     and m.conversation_id in (
+       select c.id from public.conversations c
+        where c.contact_id = new.id and c.organization_id = new.organization_id)
+     and m.media_storage_path is not null
+     and length(m.media_storage_path) > 0
+  on conflict (bucket, object_path) do nothing;
+
+  update public.messages set
+    body = '[mensagem anonimizada]',
+    media_url = null,
+    media_mime = null,
+    media_size_bytes = null,
+    media_storage_path = null,
+    metadata = '{}'::jsonb,
+    updated_at = now()
+  where organization_id = new.organization_id
+    and conversation_id in (
+      select c.id from public.conversations c
+       where c.contact_id = new.id and c.organization_id = new.organization_id);
+
+  update public.conversations set
+    metadata = '{}'::jsonb,
+    last_message_preview = null,
+    last_handoff_reason = null,
+    updated_at = now()
+  where contact_id = new.id and organization_id = new.organization_id;
+
+  update public.lead_checkpoints set
+    rolling_summary = '[resumo anonimizado]',
+    commitments = '[]'::jsonb,
+    objections = '[]'::jsonb,
+    next_action = null,
+    declaracao = null
+  where contact_id = new.id and organization_id = new.organization_id;
+
+  return new;
+end
+$$;
+
+-- As DUAS origens de EXECUTE (item 9 do CLAUDE.md): o grant a PUBLIC da criação
+-- e o grant nominal a anon do ALTER DEFAULT PRIVILEGES do baseline.
+revoke all on function public.fn_redigir_conversas_ao_anonimizar() from public;
+revoke execute on function public.fn_redigir_conversas_ao_anonimizar() from anon;
+revoke execute on function public.fn_redigir_conversas_ao_anonimizar() from authenticated;
+
+drop trigger if exists trg_redigir_conversas_ao_anonimizar on public.contacts;
+create trigger trg_redigir_conversas_ao_anonimizar
+  after update of is_anonymized on public.contacts
+  for each row
+  when (new.is_anonymized = true and coalesce(old.is_anonymized, false) = false)
+  execute function public.fn_redigir_conversas_ao_anonimizar();
+
+-- Cura: contatos que JÁ foram anonimizados pelo botão antes deste gatilho. O
+-- gatilho só dispara na virada, e para eles a virada já passou. Cada comando só
+-- alcança o que existia ATÉ `anonymized_at`: um contato anonimizado que volta a
+-- escrever (religado pelo LID) tem conversa NOVA, e reaplicar o baseline no
+-- update.sh não pode redigi-la nem mandar a mídia dela para o apagamento.
+insert into public.storage_redaction_queue (organization_id, bucket, object_path)
+select distinct m.organization_id, 'whatsapp-media', m.media_storage_path
+  from public.messages m
+  join public.conversations c on c.id = m.conversation_id and c.organization_id = m.organization_id
+  join public.contacts k on k.id = c.contact_id and k.organization_id = c.organization_id
+ where k.is_anonymized
+   and m.created_at <= k.anonymized_at
+   and m.media_storage_path is not null
+   and length(m.media_storage_path) > 0
+on conflict (bucket, object_path) do nothing;
+
+update public.messages m set
+  body = '[mensagem anonimizada]',
+  media_url = null,
+  media_mime = null,
+  media_size_bytes = null,
+  media_storage_path = null,
+  metadata = '{}'::jsonb,
+  updated_at = now()
+  from public.conversations c
+  join public.contacts k on k.id = c.contact_id and k.organization_id = c.organization_id
+ where c.id = m.conversation_id
+   and c.organization_id = m.organization_id
+   and k.is_anonymized
+   and m.created_at <= k.anonymized_at
+   and (m.body is distinct from '[mensagem anonimizada]'
+        or m.media_url is not null
+        or m.media_storage_path is not null
+        or m.metadata <> '{}'::jsonb);
+
+update public.conversations c set
+  metadata = '{}'::jsonb,
+  last_message_preview = null,
+  last_handoff_reason = null,
+  updated_at = now()
+  from public.contacts k
+ where k.id = c.contact_id
+   and k.organization_id = c.organization_id
+   and k.is_anonymized
+   and coalesce(c.last_message_at, c.created_at) <= k.anonymized_at
+   and (c.metadata <> '{}'::jsonb
+        or c.last_message_preview is not null
+        or c.last_handoff_reason is not null);
+
+update public.lead_checkpoints l set
+  rolling_summary = '[resumo anonimizado]',
+  commitments = '[]'::jsonb,
+  objections = '[]'::jsonb,
+  next_action = null,
+  declaracao = null
+  from public.contacts k
+ where k.id = l.contact_id
+   and k.organization_id = l.organization_id
+   and k.is_anonymized
+   and l.created_at <= k.anonymized_at
+   and (l.rolling_summary is distinct from '[resumo anonimizado]'
+        or l.commitments <> '[]'::jsonb
+        or l.objections <> '[]'::jsonb
+        or l.next_action is not null
+        or l.declaracao is not null);
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ DE PROPÓSITO, NENHUMA FUNÇÃO É CRIADA DEPOIS DESTE BLOCO. Apêndice que cria
@@ -37542,6 +37942,37 @@ select 'MODULO_BANCO_EXTERNO',
             then 'ligado' else 'desligado' end,
        false, false
 on conflict (chave) do nothing;
+
+-- ---- a memória da organização aceita a origem 'agent' (migration 0394, renumerada de 0385) ----
+-- `crm_save_org_memory` grava `source = 'agent'`, e o CHECK inline da 0067 (que o
+-- Postgres batiza `org_memory_entries_source_check`) só aceitava `manual` e
+-- `flywheel`: toda chamada da ferramenta falhava com 23514 (diagnóstico de
+-- @vgamkt, #1130). Bloco ÚNICO desta constraint, com o conjunto final; as linhas
+-- existentes cabem nele, então reaplicar no `update.sh` não viola nada.
+alter table public.org_memory_entries
+  drop constraint if exists org_memory_entries_source_check;
+alter table public.org_memory_entries
+  add constraint org_memory_entries_source_check
+  check (source in ('manual', 'flywheel', 'agent'));
+
+-- ---- o produto ganha foto (migration 0390, ideia de @vgamkt, #1130) ----
+-- Caminhos em storage/catalog-photos (<org>/<produto>/<uuid>.<jpg|png>); a ordem
+-- é a da tela e a primeira é a capa. Bucket privado, 5 MB, só JPEG/PNG (o que o
+-- WhatsApp oficial aceita como imagem). Racional inteiro na migration 0390.
+alter table public.catalog_products
+  add column if not exists fotos text[] not null default '{}';
+alter table public.catalog_products
+  drop constraint if exists catalog_products_fotos_no_maximo_5;
+alter table public.catalog_products
+  add constraint catalog_products_fotos_no_maximo_5 check (cardinality(fotos) <= 5);
+comment on column public.catalog_products.fotos is
+  'Caminhos em storage/catalog-photos, sempre <organization_id>/<id>/<uuid>.<jpg|png>. A ordem é a da tela e a primeira é a capa. Escrito só por app/api/v1/products/[id]/fotos.';
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('catalog-photos', 'catalog-photos', false, 5242880, array['image/jpeg', 'image/png'])
+on conflict (id) do update
+  set public             = excluded.public,
+      file_size_limit    = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
 
 -- ---- módulos instalados são reaplicados, depois de toda tabela do núcleo (migration 0340) ----
 --

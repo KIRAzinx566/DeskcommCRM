@@ -8,6 +8,34 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Foto no produto do catálogo**, enviada pelo agente junto com a mensagem. @vgamkt.
+- **Canal Datafy**, WhatsApp oficial opcional (desligado por padrão), com aba de Modelos. @vgamkt.
+- **Editar o texto de uma skill pela tela**, com histórico e restauração. @vgamkt.
+- **Follow-up quando um negócio nasce** (gatilho "Lead criado"). @IanCouto.
+
+### Alterado
+
+- **Botão "Atualizar agora"** sobe para antes do histórico de versões. @allisonwilliancandido.
+
+### Corrigido
+
+- **Anonimizar contato** também apaga mensagens, resumos de IA e arquivos.
+- **Origem de anúncio do WhatsApp por QR** passa a ser reconhecida. @ozzure.
+- **Preço dos modelos OpenAI** bate entre as duas tabelas do schema.
+- **Roteador "Automático"** usa o provedor de IA que a empresa escolheu.
+- **Custo de chamadas OpenAI** volta a contar no teto de gastos.
+- **Mensagens por API/MCP** respeitam o ritmo anti-banimento do número. @bossprt.
+- **Agente grava aprendizado na memória da empresa** (falhava sempre). @vgamkt.
+- **Modelos do canal parceiro** exigem administrador.
+- **Agente padrão** não pode mais ser arquivado por engano.
+- **Backup da VPS** resolve o caminho do `backup.sh`. @webtecnica.
+- **Backup de sessões do WhatsApp** leva pastas do servidor. @webtecnica.
+- **Diálogos de confirmação** usam o tema da organização.
+- **Modelos Google pela OpenRouter** voltam a responder. @vgamkt.
+- **Botão Publicar do agente** acende após salvar o rascunho. @Sandersono.
+
 ## [1.21.0] — 2026-09-23
 
 ### Adicionado
@@ -5585,6 +5613,9 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [1.13.0] — 2026-09-04
 
+> **Esta versão não tem imagens publicadas** — o build da tag foi cancelado, e as três imagens não
+> existem no registro. Nada para fazer: quem atualiza chega à 1.14.0 ou superior.
+
 ### Alterado
 
 - **O CRM instala em Postgres 15, não só em 17** Até agora a instalação exigia Postgres 17. Quem tentasse usar um banco 15 ou 16
@@ -6426,6 +6457,8 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   prontos.
 
 ## [1.11.1] — 2026-08-31
+
+> **Não publicada** — a tag `v1.11.1` nunca existiu: o corte não publicou imagens, e o que está abaixo chegou na 1.12.0.
 
 ### Corrigido
 

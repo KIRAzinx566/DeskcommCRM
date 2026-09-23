@@ -900,6 +900,11 @@ const HOSTS_DECLARADOS: Record<string, EntradaDeHost> = {
     categoria: "FORNECEDOR",
     motivo: "endpoint de produção da API do Asaas (billing) — o código FALA com ele.",
   },
+  "cloud.datafyapi.com.br": {
+    categoria: "FORNECEDOR",
+    motivo:
+      "endpoint padrão do canal parceiro que espelha a Cloud API (recorte do #1130), com override por DATAFY_API_BASE_URL. É o destino das chamadas de envio e de validação do token — e o canal só existe numa instalação que o liga (DATAFY_ENABLED).",
+  },
   // ── painel do fornecedor: texto de tela apontando para o endereço DELE ────
   "platform.openai.com": {
     categoria: "CONSOLE",
