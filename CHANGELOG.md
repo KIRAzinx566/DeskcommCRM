@@ -8,6 +8,169 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.21.0] — 2026-09-23
+
+### Adicionado
+
+- **O agente de IA passa a consultar o banco de dados externo que a empresa conectou** O banco externo (**Organização › Dados e acesso › Dados externos**) deixa de ser
+  só uma tela: o agente que atende no WhatsApp agora pode ler dele para responder
+  com o dado real (pedido, assinatura, saldo) em vez de estimar. São duas
+  capacidades novas no pacote **"Organizar a operação"**:
+  **"Ver as tabelas do banco conectado"** e **"Buscar dados no banco conectado"**.
+
+  - **Nada muda sozinho.** Nenhum agente existente ganha as duas: é preciso ligá-las
+    na tela do agente. Sem conexão cadastrada, elas não abrem rede nenhuma.
+  - **Somente leitura**, dentro dos limites que o administrador configurou na
+    conexão (linhas, filtros e tamanho da resposta).
+  - **O log não guarda o que o cliente buscou.** A auditoria registra a tabela e o
+    campo consultados, nunca o valor do filtro (CPF, telefone, nome).
+  - **Busca sem resultado volta vazia.** O agente nunca recebe linhas de outras
+    pessoas quando o filtro não casa.
+
+  Trabalho de @vgamkt, recortado do PR #1130.
+
+- **Cadastro com aprovação — a empresa nova espera o dono da instalação** A tela **Admin › Cadastro** ganhou uma segunda chave, **Cadastro com aprovação**.
+  Com ela ligada, quem cria conta sem convite confirma o e-mail normalmente, mas a
+  empresa não nasce na hora: a pessoa envia o pedido com o nome da empresa, e ele
+  aparece nessa mesma tela para você aprovar ou recusar. Aprovar cria a empresa e
+  torna quem pediu administrador dela.
+
+  Serve a quem hospeda várias empresas numa instalação e quer decidir quem entra
+  sem precisar convidar um a um.
+
+  - A chave nasce **desligada**. Quem não ligar não vê diferença nenhuma.
+  - Quem chega com **convite** continua entrando direto na empresa que convidou.
+  - Nenhuma lista de empresas aparece para visitantes: entrar numa empresa que já
+    existe continua sendo pelo convite.
+  - O e-mail só vale confirmado pelo link que o próprio sistema de login envia.
+
+  Contribuição de @betoarts (#714).
+
+- **Campanhas — falar com uma lista de contatos, no ritmo do número** O CRM passa a ter **Campanhas**: você escolhe um recorte dos contatos que já tem, escreve uma mensagem, confere quantas pessoas aquilo pega — e só então dispara. A tela fica em CRM › Ver tudo em CRM › Campanhas.
+
+  O ritmo é o ponto. Uma campanha manda **uma mensagem por vez, pelo número escolhido**, respeitando o intervalo, a janela de horário e o teto diário que aquele número já tem configurado em Conexões › Proteção de envio. Se quiser ir ainda mais devagar nesta campanha específica, dá para apertar o intervalo, a janela e o teto — mas só para menos: campanha nenhuma consegue furar o limite do número. Quem dispara em rajada queima o número, e número queimado não volta em dias, volta em semanas.
+
+  Antes de gravar a lista, a prévia mostra **quantos entram e quantos ficam de fora, com o motivo de cada um**: quem pediu para não receber, quem não tem telefone, quem tem o mesmo telefone de outro cadastro, quem já está em outra campanha ainda não concluída. Depois de preparada, a lista é congelada — mexer numa etiqueta não muda mais quem vai receber aquele envio, e o número que você conferiu é o número que sai.
+
+  Quem pediu para parar não recebe, e isso é conferido **duas vezes**: quando a lista é montada e de novo no instante de cada envio. Entre uma coisa e outra podem passar horas, e honrar o pedido com um dia de atraso é o mesmo que não honrar.
+
+  A campanha também exige que você declare **com base em quê** está falando com aquelas pessoas — consentimento ou interesse legítimo. No segundo caso, a referência da avaliação (LIA) é obrigatória: é ela que permite responder a quem perguntar por que recebeu a mensagem.
+
+  Você acompanha pela tela: quantas saíram, chegaram, foram lidas e **responderam**, mais quem ficou de fora e por quê. Pode pausar e retomar a qualquer momento; cancelar é definitivo, e quem ainda não recebeu não recebe mais. Antes de iniciar, dá para mandar um **teste** para um contato à sua escolha, pelo mesmo número e com o mesmo texto do envio real.
+
+  Nada muda para quem não usar: nenhuma campanha existe até alguém criar a primeira, e nenhum arquivo de configuração precisa ser editado. Organização suspensa não dispara campanha.
+
+  Crédito: @lussandro.
+
+- **Mensagem automática quando o cliente volta a escrever** Em **IA → Follow-ups**, o gatilho **Cliente voltou** dispara só quando alguém
+  escreve depois de ficar um tempo sem falar — não enquanto some (isso continua
+  sendo Silêncio). Você escolhe o tempo (número + minutos, horas ou dias; o
+  padrão é 1 dia, o teto é 90 dias) e, se quiser, filtra por etiquetas.
+
+  A primeira mensagem do fluxo nasce como texto fixo: o agente de IA **não**
+  responde por cima. O dossiê do acompanhamento mostra que começou porque o
+  cliente voltou.
+
+- **Duplicar e renomear um fluxo de follow-up** Em **IA → Follow-ups**, cada fluxo agora tem **Duplicar** e **Renomear**. A
+  cópia nasce como rascunho com o mesmo desenho e o mesmo gatilho — não publica
+  sozinha e não passa a mandar mensagem. O nome interno também muda pelo lápis
+  ao lado do título no construtor.
+
+- **Um segundo jeito de instalar, com o banco (Supabase) dentro da própria VPS** O kit ganhou um modo de instalação **opcional** em que ele mesmo instala e opera o
+  Supabase **na VPS do cliente**, ao lado do CRM. Não é preciso abrir conta no
+  Supabase nem colar chave nenhuma: o instalador pergunta só o domínio. Na VPS, dentro
+  da pasta do repositório clonado:
+
+  ```bash
+  bash ubuntu-production-installer.sh --domain crm.suaempresa.com.br
+  ```
+
+  O que vale saber antes de escolher este modo:
+
+  - **Memória:** o banco passa a rodar na mesma máquina. O mínimo continua sendo uma
+    VPS de 4 GB (a mesma régua do instalador comum), mas o **recomendado são 8 GB**.
+  - **Backup:** o `backup.sh` passa a guardar também os **arquivos anexados** (fotos e
+    documentos), que nesse modo moram no disco da VPS, e o `restore.sh` os devolve
+    junto com o banco. Se os anexos não puderem ser salvos, o backup falha em vez de
+    dizer "concluído".
+  - **E-mail de acesso:** "esqueci a senha" e a confirmação de cadastro saem pelo
+    **SMTP que você configura no CRM** (tela `/admin/email`). Sem SMTP, esses e-mails
+    não são enviados, e o instalador avisa isso no fim. Depois de configurar o SMTP,
+    rode `bash hostgator-setup-kit/update.sh` para o login passar a usá-lo.
+  - **Atualização:** o `update.sh` também leva o Supabase desta VPS até a versão que o
+    kit fixa, sem apagar dados.
+  - **Mais de uma instalação na mesma VPS:** o banco ganha nomes próprios, e uma
+    segunda cópia do CRM na mesma máquina é recusada em vez de mexer no banco da
+    primeira.
+
+  Quem já instalou com o Supabase na nuvem (ou num Supabase próprio) **não é afetado**:
+  nada muda no comportamento do instalador comum, do backup ou da atualização.
+
+- **Um comando sobe o DeskcommCRM inteiro na sua própria máquina** Até aqui, rodar o DeskcommCRM fora de um servidor exigia montar tudo à mão: banco, autenticação, WhatsApp e fila, cada um com a sua configuração. O instalador da VPS não serve para isso, porque ele assume domínio próprio e proxy na frente.
+
+  Agora existe um caminho local: `./ubuntu-local-installer.sh` prepara a máquina, sobe o banco com a estrutura oficial do produto, gera as chaves, levanta a aplicação, o worker, o WhatsApp e a fila, e cria o usuário administrador — imprimindo no fim o endereço e a senha. Depois disso, `pnpm local:up`, `local:status`, `local:logs` e `local:down` cuidam do dia a dia. O passo a passo está em `docs/SETUP.md`.
+
+  A senha do administrador e a chave do WhatsApp nascem diferentes em cada instalação, e o painel de
+  diagnóstico do WhatsApp só atende a própria máquina — de outro computador da rede, só a aplicação responde.
+
+  Para quem opera uma VPS nada muda: é ferramenta de quem desenvolve ou avalia o produto na própria máquina, e nenhum arquivo da instalação em servidor foi tocado.
+
+  Contribuição de @betoarts (#714).
+
+### Alterado
+
+- **O banco de dados externo vira módulo opcional da instalação, desligado por padrão** A tela **Dados externos** (conectar o banco de outro sistema para o agente consultar) aparecia para todas as empresas da instalação. Agora ela é um **módulo opcional**: quem administra o servidor liga ou desliga em **Modo administrador › Comportamento › Módulos opcionais › Banco de dados externo**, sem mexer no arquivo de ambiente.
+
+  Desligado, o módulo não existe para ninguém: a porta some do menu, do hub de Configurações e da busca, a tela e as rotas dele respondem "não encontrado", e as ferramentas de consulta ao banco externo não são oferecidas ao agente. Ligado, tudo funciona como antes.
+
+  **Quem já usava não perde nada na atualização:** se a instalação tinha pelo menos uma conexão de banco externo cadastrada, o módulo já nasce **ligado**. Nas outras, a atualização grava a chave como **desligado** — e nada muda para quem nunca cadastrou conexão. Isso acontece uma vez só: dali em diante, nenhuma atualização muda a chave, e só a tela de admin liga ou desliga (uma conexão criada depois por uma empresa não liga o módulo para as outras).
+
+  Decisão do dono no doc 37 (18/09), completando o #1372.
+
+- **Follow-up de texto fixo dispara sem agente de IA** Em **IA → Follow-ups**, um fluxo publicado que só envia texto fixo, template ou
+  espera com tempo marcado passa a disparar sozinho — sem ligar um agente de IA
+  e sem chave de modelo. Antes, o gatilho automático (silêncio, cliente voltou,
+  etapa, caso) exigia um agente publicado mesmo quando o fluxo não usava o
+  modelo. Fluxo com classificação, espera inteligente ou mensagem gerada por IA
+  continua precisando do agente.
+
+### Corrigido
+
+- **A planilha de produtos trata IP15 e ip15 como o mesmo código** Na importação de produtos por planilha, um código que só difere de outro nas maiúsculas e minúsculas ("IP15" e "ip15") passa a ser tratado como o mesmo código em todo o caminho. Antes, a planilha recusava a segunda grafia quando as duas vinham no mesmo arquivo, mas aceitava "ip15" quando "IP15" já estava no catálogo, e criava um segundo produto. Como a busca que o agente usa para responder o cliente não diferencia maiúsculas, esse segundo produto podia fazer o agente citar dois preços para o mesmo item.
+
+  Agora as duas situações são recusadas, com o motivo no resumo da importação. Dentro do mesmo arquivo, a linha repetida diz com qual linha colide e como o código estava escrito lá. Contra o catálogo, a linha diz como o código já está cadastrado; para atualizar esse produto, basta escrever o código igual ao do catálogo. As outras linhas da planilha entram normalmente.
+
+  Nada para fazer. Quem já tem no catálogo dois produtos que só diferem na caixa continua com os dois: a importação não apaga nem junta nada, só deixa de criar novos casos.
+
+  Diagnóstico de @webtecnica na issue #482 e no #1441.
+
+- **As rotinas agendadas conferem a senha interna sem vazar pistas pelo tempo de resposta** As rotinas agendadas do sistema (as rotas em `/api/v1/cron/`) conferiam a senha interna (`INTERNAL_CRON_SECRET` ou `INTERNAL_SECRET`) comparando letra por letra e parando na primeira diferença. Medindo o tempo de resposta, quem tentasse de fora conseguia descobrir aos poucos quantas letras tinha acertado. Agora as 30 rotas conferem a senha pelo mesmo portão, que leva o mesmo tempo com senha certa ou errada, e um teste impede que uma rota nova volte a comparar à mão.
+
+  As rotas que só aceitavam o cabeçalho `Authorization: Bearer <senha>` passam a aceitar também `x-cron-secret: <senha>`, como as demais já faziam. Quem chama as rotinas continua funcionando do mesmo jeito: o operador não precisa fazer nada.
+
+  Contribuição de @FabioMundoDigital (#1431).
+
+- **O follow-up não dispara o fluxo inteiro numa só resposta** Num menu de follow-up (1/2/3), uma resposta que não casava o ramo fazia o
+  fluxo reenviar o menu e, no mesmo instante, as mensagens seguintes e o
+  aviso de “não respondeu”. Agora só avança o passo daquela resposta; a
+  próxima pergunta espera o cliente de novo.
+
+- **A resposta do follow-up sai depois que o lead responde** Num fluxo de follow-up que espera a resposta do cliente (menu 1/2/3), a
+  primeira mensagem saía e a seguinte ficava parada depois do "1". O
+  acompanhamento volta a avançar e enviar a mensagem do ramo escolhido.
+
+- **O MCP passa a ter teto de chamadas por token, por organização e para escrita** O endereço que as ferramentas de IA usam para conversar com o sistema (`/api/mcp`) não limitava quantas vezes um token válido chamava as ferramentas. Um agente externo em laço podia disparar mensagens de WhatsApp sem parar, e o WhatsApp restringe e bane o número por volume.
+
+  Agora cada token pode fazer até 60 chamadas por minuto, a organização inteira até 600 por minuto (somando todos os tokens dela) e cada token até 30 chamadas por minuto nas ferramentas que alteram dados, como a que envia mensagem. Passando do teto, a chamada é recusada antes de a ferramenta rodar, a resposta diz quando tentar de novo e a recusa fica registrada no log de auditoria. A IA do próprio sistema não passa por esse teto.
+
+  Se o Redis ficar inalcançável, a contagem passa a ser feita na memória de cada processo do app, e numa instalação com mais de uma cópia do app o teto vale por cópia.
+
+  Contribuição de @Alencaf (#1446).
+
+- **Duas bibliotecas internas sobem de versão para fechar avisos de segurança** O aviso automático de segurança do repositório apontou quatro problemas em bibliotecas que o sistema usa por dentro. Três são da `hono` (que atende chamadas HTTP internas): um pedido malformado podia fazer o serviço consumir memória sem limite, um endereço com fragmento podia confundir cache e proxy, e uma função de exportação ainda escrevia fora da pasta de destino. O quarto é da `js-yaml`, usada só no desenvolvimento do projeto, que podia gastar processador à toa.
+
+  As duas subiram para as versões que corrigem tudo isso (`hono` 4.13.8 e `js-yaml` 4.3.2). Nenhuma tela, nenhuma configuração e nenhum comando mudam: quem opera uma VPS só precisa atualizar como de costume.
+
 ### Adicionado
 
 - **A página com botão de WhatsApp passa a dizer de qual anúncio veio cada lead** Quem manda tráfego pago para uma página com botão de WhatsApp perdia a origem no
@@ -8036,7 +8199,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.20.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.1...v1.20.0
 [1.19.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.0...v1.19.1
 [1.19.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.18.0...v1.19.0
