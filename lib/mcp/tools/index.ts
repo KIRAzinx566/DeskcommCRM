@@ -55,6 +55,7 @@ import {
   crmGerarCobranca,
   crmListarCobrancas,
 } from "./faturamento";
+import { crmDescribeExternalData, crmQueryExternalData } from "./dados-externos";
 import { crmListPrivacyRequests } from "./privacidade";
 import {
   crmArchiveStage,
@@ -121,6 +122,8 @@ export const allTools: ReadonlyArray<McpToolDefinition> = [
   crmSaveOrgMemory,
   crmListContactOrders,
   crmSearchProducts,
+  crmDescribeExternalData,
+  crmQueryExternalData,
   crmListPrivacyRequests,
   crmConsultarCobranca,
   crmListarCobrancas,

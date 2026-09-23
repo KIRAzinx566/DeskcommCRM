@@ -8,6 +8,152 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+### Adicionado
+
+- **A página com botão de WhatsApp passa a dizer de qual anúncio veio cada lead** Quem manda tráfego pago para uma página com botão de WhatsApp perdia a origem no
+  caminho: o link `wa.me` abre o aplicativo no aparelho da pessoa, o servidor nunca
+  vê aquele clique, e a conversa entrava sem campanha, sem conjunto e sem anúncio.
+
+  Em **Configurações › Conversões** nasce a seção "Endereço de captura". Escolha
+  para qual WhatsApp mandar e o texto que a pessoa vai enviar, e a tela devolve um
+  endereço pronto para colar no botão da sua página, no lugar do `wa.me`. A partir
+  daí o próprio CRM guarda a origem do clique, gera um código curto de seis
+  caracteres e abre o WhatsApp com esse código no texto — o visitante continua
+  vendo só o botão de sempre, e a ficha do contato passa a mostrar campanha,
+  conjunto, anúncio e posicionamento.
+
+  Nada para fazer em quem já usa o marcador longo `[dk1:]` na página: ele continua
+  valendo, sem prazo. E nada muda para quem não configurar o endereço — a seção
+  nasce desligada até ser preenchida e salva.
+
+  Uma recusa de propósito, para o dinheiro não ir para o lugar errado: o número
+  precisa vir com código do país. `11 99999-9999` não é salvo, e o campo pede o
+  formato internacional, porque um celular brasileiro escrito sem o `55` é
+  indistinguível de um número dos Estados Unidos — e um endereço de captura
+  apontado para o país errado não quebra nada, só faz o telefone parar de tocar.
+
+  Contribuição de @rafaelbatistazz (#1405, #1409).
+
+- **Entrar com o Google, sem senha, nas telas de entrar e de criar conta** Quem usa Google Workspace já não precisa criar mais uma senha para começar:
+  as telas de entrar e de criar conta ganharam o botão **Entrar com Google**. Ele
+  funciona nos dois sentidos — entra quem já tem conta e cria a conta quem não
+  tem —, sem tela intermediária e sem pedir confirmação por e-mail.
+
+  Alguns cuidados que valem para quem opera:
+
+  - Quem chega por um **convite** continua entrando na empresa que convidou, pelo
+    Google também. Sem isso, a pessoa convidada ganharia uma empresa própria e um
+    assistente de boas-vindas que não é dela.
+  - Numa instalação de **cadastro apenas por convite**, o Google continua barrado
+    para quem não tem convite — e continua liberado para quem já usa o sistema.
+  - Quem tem **verificação em duas etapas** cadastrada continua sendo obrigado a
+    confirmar o código. Seria fácil deixar a porta mais nova mais fraca que a
+    antiga.
+  - Para ligar o botão de verdade, o provedor Google precisa estar habilitado no
+    projeto Supabase da instalação (Authentication → Providers). Com ele
+    desligado, a tela diz exatamente isso, em vez de um erro genérico.
+
+  Contribuição de @webtecnica (#1401).
+
+- **O euro passa a aparecer na lista de moedas** Quem opera em Portugal não encontrava a própria moeda em Configurações › Organização: a lista ia do kwanza ao dólar, sem o euro. Agora o euro aparece, e o catálogo e o total de cada etapa do funil o escrevem como em Portugal, `249,90 €`. O cartão e a ficha do negócio e o painel da conversa ainda escrevem o euro na convenção brasileira (`€ 249,90`). Os negócios que chegam pelo formulário de captação, pela importação de planilha ou pelo agente de IA passam a nascer na moeda da empresa. Antes, nasciam em real. A trava que impede o agente de prometer preço abaixo da tabela também passa a reconhecer valores em euro, inclusive com o milhar separado por espaço (`1 497,00 €`). O padrão de quem ainda não escolheu continua sendo o real. Crédito: @maclevison.
+
+### Alterado
+
+- **A lista de números marca qual deles é o canal oficial** Em Conexões, o número conectado pela API oficial da Meta agora aparece com a
+  etiqueta "API oficial" ao lado do nome. Antes não havia nada na tela
+  distinguindo-o dos números pareados por código QR, e as duas conexões funcionam
+  de jeitos diferentes: a oficial não tem QR para reescanear nem aparelho para
+  deslogar, e as mensagens dela seguem as regras de modelo aprovado.
+
+  A lista continua mostrando TODOS os números da organização, inclusive o oficial:
+  nada foi escondido nem filtrado. A etiqueta é informação, e o estado da conexão
+  (Conectado, Caiu, …) segue no badge de sempre, ao lado dela.
+
+  Contribuição de @webtecnica (#1442).
+
+- **O contador de não lidas acompanha a leitura da conversa** Abrir uma conversa não lida tirava o negrito dela, mas o número no topo continuava contando essa conversa: quem atende via 3 na aba Não lidas com uma delas já aberta na tela, e a conta só batia depois de recarregar a página. O aviso de "os números mudaram" saía para a lista e para a conversa aberta, e nunca para a contagem — que é uma família de consultas à parte, uma por filtro de tela, e por isso não é alcançada por nenhum desses dois avisos. Agora a leitura derruba o número na hora, e o mesmo vale para qualquer filtro que esteja na tela, não só o que estava aberto quando o defeito foi relatado.
+
+  Contribuição de @webtecnica (#1440).
+
+### Corrigido
+
+- **A importação de contatos reconhece cabeçalho em espanhol** A tela de importação de contatos, em espanhol, promete reconhecer as colunas "nombre, teléfono, email, cpf, nacimiento, tags", mas um CSV com cabeçalho "nombre;teléfono" falhava com "cabeçalho sem coluna de telefone nem e-mail". Agora o cabeçalho é reconhecido também em espanhol (nombre, apodo, correo, teléfono, móvil, fecha de nacimiento, cumpleaños…), com acento, maiúsculas e espaços como o Excel escreve. Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
+
+- **O espanhol da interface passa a soar como espanhol, e não como português traduzido** O espanhol do produto seguia a sintaxe do português e trazia palavras que em espanhol significam outra coisa: "demanda" (que é ação judicial), "retorno" e "agendamiento". Agora a demanda é "caso", o agendamento é "cita", o retorno prometido pela IA é "seguimiento" e a pessoa da equipe que atende é "asesor", para não se confundir com o "agente" de IA. A ação "Faturar" passa a "Cerrar y cobrar", porque em espanhol do México "facturar" costuma significar emitir uma nota fiscal. Revisamos as 6.899 frases da tela: cerca de 1.580 foram reescritas em frases mais curtas e diretas, e a Agenda, o Radar de risco e o Financeiro leem-se como texto escrito em espanhol. Também traduzimos as descrições de cinco destinos do menu (entre eles "Dados externos" em Configurações) que apareciam em português. Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
+
+- **A importação de leads por planilha reconhece cabeçalho em espanhol** Em espanhol, uma planilha de leads com cabeçalho "Nombre, Teléfono, Correo…" não era reconhecida: o nome e o telefone caíam em "Colunas que não reconheci", e sem nome do negócio nem do contato a importação era recusada. Agora o importador entende também o cabeçalho em espanhol (nombre, contacto, teléfono, móvil, correo, descripción, precio, origen…), com acento e caixa como o Excel escreve. Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
+
+- **A importação do catálogo por planilha reconhece cabeçalho em espanhol** Em espanhol, uma planilha de produtos com cabeçalho "Producto, Precio, Costo, Cantidad" não era reconhecida: sem uma coluna de nome e outra de preço que o importador entendesse, o arquivo era recusado na primeira tela do catálogo. Agora ele entende também o cabeçalho em espanhol (nombre, producto, descripción, precio, precio de venta, costo, coste, cantidad, existencias, stock…), com acento e caixa como o Excel escreve. Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
+
+- **O link de captura do Google Ads deixa de pôr um "[ref:]" vazio na mensagem do lead** Quando alguém abria o endereço de captura do Google Ads sem o identificador do
+  clique (um teste, um link compartilhado, uma visita que não veio do anúncio), o
+  WhatsApp abria com o texto configurado terminando em `[ref:]`, um colchete vazio
+  que o lead enviava junto e que aparecia na conversa sem significar nada.
+
+  Agora esse caminho tira o marcador inteiro do texto: a pessoa envia só a
+  mensagem, e a conversa entra normalmente, sem origem de anúncio, como já
+  acontecia. O caminho com o identificador do clique não muda.
+
+  Contribuição de @rafaelbatistazz (#1405).
+
+- **O MCP passa a contar token inválido e a barrar quem insiste** O endereço que as ferramentas de IA usam para conversar com o sistema (`/api/mcp`) recusava token inválido sem contar a recusa. Cada recusa custava uma consulta ao banco e ninguém era barrado: dava para varrer tokens sem limite e de graça, e um token já revogado podia ser martelado de vários endereços ao mesmo tempo sem que nada reagisse.
+
+  Agora a recusa conta em dois lugares: por origem (30 recusas em 5 minutos) e pelo próprio valor apresentado (5 recusas em 5 minutos — a chave é o resumo do valor, nunca o valor em si). Estourado o teto, a resposta é `429`. Token válido em uso não entra na conta, e falha do banco — que é problema nosso, não de quem chamou — não tranca ninguém.
+
+  Contribuição de @webtecnica (#1447).
+
+- **O modelo enviado fora da janela de 24 horas agora pede os valores que ele exige** Quando a janela de 24 horas fechava e você escolhia um modelo aprovado com imagem no
+  cabeçalho, ou com campos como {{1}} no texto, o envio saía sem esses valores. O WhatsApp
+  recusava a mensagem, mas a tela mostrava "Modelo enviado", e o cliente nunca recebia nada.
+
+  Agora o painel mostra um campo para cada valor que o modelo exige, como o link da imagem
+  do cabeçalho, e só libera o botão com todos preenchidos. Se o envio falhar mesmo assim, o
+  aviso passa a ser de erro e diz o motivo.
+
+  O link da mídia também pode ficar salvo no modelo: marque "Salvar este link no modelo" e
+  ele vem preenchido nos próximos envios. Crédito: @rafaelbatistazz.
+
+- **Backup do WhatsApp passa a usar o volume real de sessões** Os comandos de backup e restauração agora identificam o volume físico montado no WAHA, evitando gerar arquivos vazios quando o nome do projeto é prefixado pelo Docker Compose. Backups das sessões feitos antes desta versão podem ter saído vazios: depois de atualizar, rode um backup novo.
+
+  Contribuição de @matheuspedro360 (#1429).
+
+- **Mensagem de rede social não vai mais para a ficha que foi juntada a outra** Quando duas fichas de contato eram juntadas e a que saía da lista tinha vindo do Instagram (ou de outra rede social conectada), a mensagem seguinte daquela pessoa continuava sendo gravada na ficha que saiu da lista, que ninguém mais abre. Agora o canal social procura só entre as fichas ativas, como o WhatsApp e as chamadas de voz já faziam.
+
+  Um limite que continua: a junção ainda não leva a identidade da rede social para a ficha que fica. Por isso, depois de juntar duas fichas assim, a próxima mensagem social daquela pessoa pode abrir uma ficha nova, em vez de cair na ficha que ficou.
+
+  Contribuição de @Alencaf (#1444).
+
+- **O classificador de intenção do roteador para de trocar de agente no meio de um fluxo por causa de resposta curta** Com um agente "grudado" (sticky) na conversa — por exemplo, o de Agendamento,
+  no meio de uma coleta de dados —, uma resposta curta e ambígua do lead
+  ("Primeira", "sim", "essa mesma") podia ser reclassificada para outra
+  intenção com confiança suficiente pra trocar de agente, porque o
+  classificador via só aquela mensagem isolada, sem a pergunta que ela
+  respondia. O atendimento saía do fluxo de agendamento no meio da conversa,
+  sem avisar ninguém.
+
+  O classificador agora recebe também as últimas mensagens da conversa (não o
+  histórico inteiro) só pra desambiguar respostas curtas — continua rodando a
+  cada turno, com o mesmo custo por chamada de antes. Quem não usa o roteador
+  por intenção não é afetado.
+
+  Trabalho de @marcelovolei15, recortado do PR #1450.
+
+- **A troca de senha permite conferir os dois campos antes de salvar** A tela de recuperação mantém a confirmação da nova senha e ganha controles independentes para mostrar ou ocultar o conteúdo dos dois campos. Ela também mostra a força da senha, exige letra, número e símbolo e identifica os campos para o gerenciador de senhas do navegador oferecer o salvamento depois da troca.
+
+  Contribuição de @matheuspedro360 (#1430).
+
+- **A suíte deixa de depender do proxy de modelo de quem a roda** Nada muda para quem usa o CRM: a correção é na suíte de testes.
+
+  Quem contribui com um proxy de modelo configurado no shell (LiteLLM, um gateway
+  da empresa, qualquer roteador local) via `tests/unit/gateway-destino-por-caminho`
+  reprovar na própria máquina enquanto passava no CI — o teste afirma para onde a
+  requisição vai, e os SDKs da Anthropic e da OpenAI leem `ANTHROPIC_BASE_URL` do
+  ambiente por conta própria, apontando o destino para `localhost`.
+
+  O teste passa a isolar essas variáveis, e a devolvê-las depois.
+
+  Contribuição de @lussandro (#1427).
+
 ## [1.20.0] — 2026-09-22
 
 ### Adicionado
@@ -34,6 +180,8 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   Nada para fazer: quem já tem a conta de anúncios conectada passa a ver os nomes
   na próxima ficha que abrir.
 
+  Contribuição de @rafaelbatistazz (#1387 e #1389).
+
 - **O menu lateral da instalação passa a ser escolhido pela empresa** Até aqui cada **pessoa** escolhia as próprias áreas do menu, convite a convite. A instalação inteira não tinha uma escolha: para uma empresa mostrar o mesmo recorte a todo mundo, era preciso repetir a escolha em cada vínculo — e o convite seguinte reabria tudo.
 
   Agora a empresa também escolhe: **Configurações → Empresa → Menu lateral**, para quem administra a organização. A pessoa que entra depois já nasce dentro do recorte da empresa, e quem escolhe o próprio menu só consegue escolher **menos** do que a empresa liberou, nunca mais.
@@ -41,6 +189,8 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   **Para quem não mexer em nada, a instalação continua exatamente como está** — a coluna nasce com o preset completo, e a leitura resolve empresa ∩ vínculo ∩ papel. As áreas essenciais continuam sempre visíveis, e isto é apresentação: não altera permissão, RLS, API nem o que cada papel alcança. Desmarcar uma área aqui apenas a esconde do menu; link, aviso e busca seguem abrindo o que o papel autoriza.
 
   Não exige ação de quem opera a instalação: a coluna entra pela atualização, sem backfill e sem tocar dado existente.
+
+  Contribuição de @webtecnica (#1359).
 
 - **Dados da conexão para integrar outro sistema (endpoint e IDs) + onde obter o token** Depois de conectar um número, a tela de **Conexões** ganhou o painel
   **"Para integrar"**: endpoint/base da API e os identificadores da conexão
@@ -58,6 +208,8 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
     serve para fora — para outro CRM usar o mesmo número, ele conecta por uma
     sessão própria (novo QR). O painel explica isso e alerta sobre resposta
     duplicada se os dois tiverem atendimento automático.
+
+  Trabalho de @vgamkt, recortado do PR #1130.
 
 - **Remarcar um compromisso já avisado agora corrige o cliente sozinho** Quando o cliente já tinha recebido o aviso do compromisso e alguém mudava o horário, **nada era enviado**. O cliente ficava com a data antiga e aparecia no dia errado — e não havia como corrigir pelo sistema: o botão de enviar ficava desabilitado depois do primeiro envio.
 
@@ -87,7 +239,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 - **A janela que junta as mensagens de uma rajada ganha módulo e teste próprios** Nada muda para quem opera: as mensagens seguidas de um mesmo contato continuam virando um turno só
   do agente. O trecho que decide isso saiu de dentro do drain para um módulo com teste próprio, e o
   teste prende o comportamento de hoje — inclusive a exclusão do job em espera que evita o cliente
-  ficar sem resposta quando a sessão antiga morre. Crédito: @Teowfb (ideia e medição).
+  ficar sem resposta quando a sessão antiga morre. Contribuição de @webtecnica (#1394), a partir da ideia e da medição de @Teowfb (#849).
 
 - **Em espanhol, a comanda passa a se chamar "orden de servicio"** Em espanhol, "comanda" é a nota de pedido de um restaurante, e não era isso que a tela mostrava: é a conta de um atendimento, com serviços, comissão e cobrança. Agora Comandas, Faturamento e as frases que a mencionam dizem "orden de servicio". A única frase que ainda dizia "Configuración › Financiero" passa a dizer "Finanzas", como o menu. Para quem usa em português nada muda, e não exige ação de quem opera a instalação. Crédito: @JowaniOrantes.
 
@@ -182,7 +334,6 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
   A causa era a checagem por chave. Cada chave era conferida por um `printf | grep -qx` próprio, ou seja, um processo por chave, e qualquer falha desse processo era lida como "chave ausente". Agora a pertença é respondida dentro do próprio shell, sem abrir processo, e não tem como falhar sozinha. A assinatura das rodadas registradas na issue #1153 confirma isso: cada uma acusou uma ou duas chaves espalhadas, enquanto uma lista truncada perde a cauda e, para deixar de fora aquelas chaves, teria de acusar de 14 a 54 ao mesmo tempo.
 
   A lista também é contada duas vezes, desenho de @webtecnica no PR #1207: a lista do pipeline e uma contagem direta no `install.sh`, as duas por chave única. Se divergirem, o resultado é inconclusivo, nunca "chave faltando". Contar por chave única evita outro falso vermelho: um `envq` repetido em dois ramos de um `if` é uma chave só. O piso fixo de 30 chaves saiu. Nada muda para quem instala pelo kit.
-
 
 ## [1.41.0] — 2026-09-20
 
