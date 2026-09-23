@@ -8,6 +8,63 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.22.0] — 2026-09-23
+
+### Adicionado
+
+- **O link da imagem do modelo se salva na aba Templates, sem enviar nada** Em **Conexões › Templates da Meta**, cada modelo com imagem, vídeo ou documento no cabeçalho ganha um campo para o link público do arquivo e o botão **Salvar link**. Antes a única forma de salvar esse link era enviar o modelo numa conversa com a janela de 24 horas fechada — ou seja, era preciso disparar para um cliente só para deixar o modelo pronto. Agora o link fica salvo direto no modelo, e quando você escolhe esse modelo numa conversa o campo do link já vem preenchido. Apagar o campo e clicar em **Remover link** esquece o link. Salvar é do administrador, como sincronizar. Crédito: @rafaelbatistazz.
+
+### Corrigido
+
+- **Na Agenda, o botão Confirmar volta a ser alcançável em janelas baixas** Em telas largas com pouca altura (por exemplo 1280×500 ou 1024×560), o formulário de "Novo agendamento" cortava a lista de horários e o botão Confirmar sem barra de rolagem: os campos acima do calendário ocupavam quase toda a altura e o painel ficava sem espaço. Agora o formulário inteiro rola, o painel de marcar mantém a altura do próprio conteúdo e a lista de horários continua com a sua rolagem própria.
+
+- **O agente deixa de dizer que "vai ver os horários" sem consultar a agenda** O agente com ferramenta de agenda já era impedido de responder "vou verificar os horários" ou "estou confirmando a disponibilidade" sem ter consultado a agenda de verdade naquele turno. Uma forma parecida escapava: "Vou chamar a responsável pra ver os horários." A mensagem saía e o turno terminava sem consulta nenhuma: a promessa de olhar os horários ficava só na promessa. Agora essa forma também é barrada, e o agente é orientado a consultar a agenda e responder com os horários reais. A regra nova é estreita de propósito: frases em que quem vai ver é o cliente ("pra você ver a agenda do evento"), "nada a ver com o seu agendamento" e "vamos ver: o horário de funcionamento é…" continuam saindo normalmente. Não há nada a configurar.
+
+  Contribuição de @gyanu2507 (#972); relato de @spoliagency (#970).
+
+- **A atualização para de refazer no banco o que já estava pronto** Toda atualização reaplica o esquema do banco inteiro com o sistema no ar. Alguns trechos dele desfaziam e refaziam, a cada atualização, coisas que já estavam no formato final: a tabela de compromissos da agenda era regravada inteira, uma coluna da tabela de membros da equipe era criada e apagada, e duas proteções da agenda e do follow-up eram reconstruídas. Enquanto isso acontecia, quem usava a agenda ou fazia login podia ficar esperando, e cada passada consumia de novo recursos do banco.
+
+  Agora esses trechos conferem o banco antes e só agem quando ele ainda não chegou ao formato final. O resultado final é o mesmo de antes; a atualização só deixa de repetir esse trabalho. Nada precisa ser feito por quem opera a instalação.
+
+- **Rodar a atualização de novo remove o aviso de manutenção que ficou preso** Se uma atualização era interrompida depois de pôr no ar o aviso de manutenção, o aviso ficava de pé e o CRM respondia 503 para todo mundo (site, rotinas e webhooks do WhatsApp); rodar o `update.sh` de novo dizia "Nada a atualizar" e saía sem tocar nele. Agora essa mesma saída remove o aviso preso, avisa quem está operando e diz como concluir a atualização interrompida. Medido numa VPS real, onde o CRM ficou 6h30 fora do ar por isso.
+
+  Contribuição de @gideony (#1524).
+
+- **O aviso de "sem chave de IA" no onboarding deixa de dizer "chave de da Anthropic"** Quem instala sem chave de IA e cria o primeiro atendente vê um aviso explicando que ele ficou
+  como rascunho. A frase juntava duas preposições e saía "Não achei chave de da Anthropic
+  (Claude)" — e, em espanhol, "No encontré ninguna clave de de la Anthropic". Agora sai "Não
+  achei chave da Anthropic (Claude)". Nenhum comportamento muda: é só o texto do aviso.
+
+- **Atualizar a instalação não duplica mais as demandas do Radar** Cada atualização da VPS criava uma segunda demanda para toda conversa nova que já tinha a sua, e o Radar passava a mostrar o dobro de demandas abertas sem próximo passo (o índice de atrito também contava em dobro). A atualização agora só cria demanda para conversa que não tem nenhuma, e a duplicata que as atualizações anteriores deixaram é apagada sozinha na próxima atualização. Só sai a cópia que ninguém tocou: demanda com próximo passo, responsável, lead ou caso fica como está, e a cópia que já virou o atendimento em curso da conversa também fica, para não interromper acompanhamento nenhum. Depois de atualizar, a contagem do Radar pode cair, e o número novo é o correto.
+
+- **Extensão removida deixa de aparecer como instalada no painel do dono do servidor** Remover uma extensão marca a instalação como removida, mas a linha continua no banco. A tela `/admin/extensoes` lia todas as linhas, então uma extensão já removida seguia listada como instalada, junto com a contagem de empresas dela. Agora a tela ignora as instalações removidas, do mesmo jeito que o restante do sistema de extensões já fazia.
+
+- **Textos longos sem espaços no Inbox não estouram mais a largura da tela** No Inbox, mensagens com sequências longas e contínuas de caracteres sem espaço (como códigos Pix copia-e-cola de 150+ caracteres) estufavam a bolha de mensagem para além da coluna de conversa, desalinhando o layout e ocultando os botões de ação do topo. A coluna da conversa, o scroller e a bolha ganharam contenção de largura mínima, e o texto ganhou quebra forçada (`wrap-anywhere`): o layout fica íntegro no desktop (medido em 1024 e 1280 px).
+
+  Contribuição de @webtecnica (#1508); relato de @tec7alex (#1451).
+
+- **Importar uma skill recusa, já na leitura do pacote, nome que o Storage não aceita** O pacote de skill vira chave de objeto no Storage (`{organização}/{nome}/{versão}/{caminho}`), e o
+  Storage tem alfabeto próprio para nome de arquivo. Um zip com `assets/ícone.png` — ou uma skill
+  chamada `Relatório de vendas` — passava pela conferência do pacote e só quebrava adiante, na hora de
+  subir o arquivo, com um erro que não ensinava o que fazer. Agora a recusa acontece na leitura do
+  zip, antes de qualquer envio, e a mensagem diz qual nome está fora do alfabeto e o que usar no
+  lugar. Quem envia pacote com letras sem acento, números, ponto, hífen, sublinhado ou espaço não vê
+  diferença nenhuma.
+
+  Contribuição de @webtecnica (#1346), no passo que a #686 pedia.
+
+- **Validação de credenciais OpenRouter passa a aceitar gateways compatíveis sem rota /key** Quando `OPENROUTER_BASE_URL` aponta para um gateway próprio OpenAI-compatível (LiteLLM, vLLM, proxy interno), a validação de credenciais em IA › Credenciais falhava com `provider_status_404` porque a rota `/key` é exclusiva do OpenRouter oficial. O validador agora detecta a ausência de `/key` em bases customizadas e valida a autenticidade e catálogo via `GET /models`, permitindo validar e publicar agentes contra gateways privados.
+
+  Contribuição de @webtecnica (#1376).
+
+- **O painel "Como está indo" do papel Operador passa a contar só o agente aberto** Na página de um agente, a aba de operação mostrava os números do papel Operador somando todos os agentes da organização. Com dois ou mais agentes, o painel de um mandava marcar capacidades nele por causa de conversas de outro, e um agente parado não aparecia enquanto outro trabalhasse. Agora cada agente vê só as conversas dele.
+
+  Os números passam a contar a partir desta versão: as execuções registradas antes dela não diziam qual agente atendeu, então o painel de cada agente começa do zero e se preenche com as próximas conversas (a janela é de 30 dias).
+
+- **Evento do WhatsApp que chega num formato inesperado fica guardado e marcado como recusado** Quando o WhatsApp manda um evento num formato que o CRM não reconhece, o CRM recusa o evento e guarda uma cópia dele para quem for investigar. Isso tinha três falhas. No endereço de recebimento próprio de cada número, um campo que esse endereço nem usa podia fazer o evento ser recusado antes de a cópia ser guardada, e ela se perdia. Quando a cópia era guardada, ficava marcada como "recebida", igual a um evento que deu certo, e depois ninguém conseguia separar um do outro. E um evento malformado, que qualquer pessoa pode mandar antes de o CRM conferir a assinatura, aparecia no registro do servidor como erro.
+
+  Agora a cópia é guardada nesses casos, a recusa fica marcada como erro junto com os nomes dos campos que vieram diferentes (nunca o conteúdo, que é dado do cliente), e a recusa que acontece antes da assinatura aparece no registro como aviso. Mensagens no formato normal seguem entrando exatamente como antes.
+
 ### Adicionado
 
 - **Foto no produto do catálogo**, enviada pelo agente junto com a mensagem. @vgamkt.
@@ -8232,7 +8289,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.21.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.22.0...HEAD
+[1.22.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.1...v1.20.0
 [1.19.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.0...v1.19.1
