@@ -8644,6 +8644,11 @@ export const DICIONARIO: Traducoes = {
   "Importar planilha": { es: "Importar hoja de cálculo" },
   "Baixar planilha modelo": { es: "Descargar plantilla" },
   "Produto cadastrado": { es: "Producto registrado" },
+  "Produto atualizado": { es: "Producto actualizado" },
+  "Produto apagado": { es: "Producto eliminado" },
+  "O cadastro e as fotos deste produto são apagados. Essa ação não pode ser desfeita.": {
+    es: "El registro y las fotos de este producto se eliminan. Esta acción no se puede deshacer.",
+  },
   "Produto desativado": { es: "Producto desactivado" },
   "Produto reativado": { es: "Producto reactivado" },
   "Não consegui ler essa planilha.": { es: "No pude leer esa hoja de cálculo." },
