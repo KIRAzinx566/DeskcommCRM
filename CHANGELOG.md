@@ -8,6 +8,66 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Ajuste opcional para a conversa ficar com quem atendeu** Em **Configurações › Distribuição de atendimento** há uma opção nova, **A conversa fica com quem atendeu**, que vem desligada. Com ela ligada, quem responde pelo Inbox a uma conversa sem responsável passa a ser o responsável, e o agente de IA fica calado nessa conversa até alguém devolvê-la. E quando o cliente escreve de novo numa conversa já encerrada, ela volta direto para o último atendente, sem passar pela distribuição, desde que essa pessoa ainda faça parte da equipe. Desligada, nada muda: responder cala a IA só por alguns minutos, e a conversa encerrada volta para a fila. Ideia de @gustavorodcruz96 (#1527).
+
+- **Base dos roteiros de atendimento, desligada por padrão** O banco e o motor dos roteiros de atendimento — a IA conduzindo perguntas durante a conversa, uma por vez — chegam à instalação como módulo opcional desligado. Nada muda para quem opera: não há tela nova, e com a chave desligada o atendimento da IA não consulta roteiro nenhum. A atualização acrescenta ao banco um estado novo de acompanhamento, uma coluna no roteador de intenção e duas proteções: anonimizar um contato encerra o roteiro dele, e um roteiro nunca ocupa a vaga do acompanhamento automático do contato.
+
+  Trabalho de @vgamkt, recortado do PR #1130 (primeira de quatro partes).
+
+- **Quando o telefone da conversa cai, dá para continuar o atendimento por outro número** No Inbox, o botão **Transferir** ganhou duas abas: **Atendente**, como antes, e **Número**. Na aba Número você escolhe outro número de WhatsApp da empresa e clica **Continuar por este número**: o sistema abre a conversa do mesmo cliente nesse número e já a mostra na tela. Se a conversa lá estiver livre, você fica como responsável e o atendimento automático daquele número não entra no meio; se ela já estiver com alguém, a tela diz com quem. Números desconectados aparecem na lista, mas não podem ser escolhidos. Quando o número da conversa aberta não está conectado e existe outro conectado, aparece acima do campo de digitar a faixa **Responder por outro número**, que leva direto para essa escolha. Antes não havia como responder: a conversa ficava presa ao número que caiu. O histórico antigo continua na conversa do número original. Crédito: @rafaelbatistazz.
+
+- **Variável META_WEBHOOK_BASE_URL para separar a URL pública dos webhooks da Meta** Adiciona a variável opcional `META_WEBHOOK_BASE_URL`, permitindo configurar uma URL pública dedicada para o callback dos webhooks da Meta (WhatsApp Cloud API / canais oficiais), separada de `NEXT_PUBLIC_APP_URL`. Mantém compatibilidade total com instalações existentes por fallback automático.
+
+  Contribuição de @webtecnica (#1554).
+
+### Corrigido
+
+- **Na visão Mês da Agenda, os dias do mês vizinho mostram os compromissos deles** A visão Mês desenha seis semanas: os últimos dias do mês anterior na primeira linha e os primeiros do mês seguinte nas últimas. Os compromissos desses dias não eram buscados, então a célula aparecia vazia mesmo com consulta marcada ou horário ocupado na agenda do Google. Agora a busca cobre exatamente os dias que a grade desenha.
+
+- **Roteiros de atendimento conferem na mensagem o que gravam, encerram quando um humano assume e expiram** Consertos dos roteiros de atendimento (módulo opcional, ainda desligado e sem tela). Antes de gravar uma resposta, a IA confere que ela está escrita no que o cliente mandou — inclusive nas mensagens seguidas de uma rajada. Uma opção da lista que ele não citou, a cilindrada da moto lida como ano, uma data diferente da que ele escreveu ou um "sim" a uma pergunta que ainda não foi feita não entram mais. O CPF confere o dígito verificador. Áudio sem transcrição e figurinha não contam mais como "não respondeu". O roteiro encerra quando uma pessoa assume a conversa ou o cliente pede para parar, e expira depois de 72 horas sem resposta. Os roteiros saíram da lista de fluxos de Follow-ups (na fila de acompanhamentos eles aparecem como "Coletando respostas do roteiro"), e o módulo só poderá ser ligado quando a tela dele existir.
+
+  Trabalho de @vgamkt, recortado do PR #1130 (segunda de quatro partes).
+
+- **No Inbox, a resposta enviada não some mais e o texto seguinte não é apagado** Numa conversa com histórico carregado, a resposta recém-enviada podia aparecer e sumir: ela entrava no pedaço mais antigo da conversa, não no mais recente. Agora ela aparece no fim da conversa e é trocada pela mensagem confirmada sem duplicar; se o envio falha, só ela sai da tela. Quem já tinha começado a digitar a próxima resposta enquanto a anterior era enviada também perdia esse texto quando a anterior era confirmada, e agora ele fica. E a conferência periódica que recupera mensagens perdidas pelo Inbox voltou a rodar: ela recomeçava a contagem a cada atualização da tela e, com a tela mudando, nunca chegava a rodar. Contribuição de @gustavorodcruz96 (#1527).
+
+- **Extratores de atribuição deixam de gravar o id do anúncio como clique de origem** Quando uma mensagem com `referral` de anúncio chegava sem `ctwa_clid`, os extratores de atribuição (API oficial e WAHA) utilizavam o id do anúncio (`source_id`) como fallback para `sourceId` (`ad_source_id`), fazendo com que o envio de conversões reportasse o identificador do anúncio à plataforma como se fosse o identificador do clique. Agora os extratores gravam `sourceId` exclusivamente quando o clique (`ctwa_clid` / `ctwaClid`) estiver presente, mantendo o id do anúncio estritamente em `adId` (`ad_id`).
+
+  Contribuição de @webtecnica (#1552).
+
+- **Ação de automação assign_owner passa a ajustar owner_kind e limpar owner_agent_id** A ação de automação `assign_owner` atualizava `owner_user_id` diretamente no `crm_leads` sem ajustar `owner_kind` nem limpar `owner_agent_id`, violando a constraint `crm_leads_owner_kind_coherence` em leads previamente atribuídos a agentes de IA ou gerando incoerência em leads com dono sem tipo. Agora a ação roteia a atribuição por `resolveOwnerPatch`, garantindo a coerência do trio `owner_user_id`, `owner_kind` e `owner_agent_id`.
+
+  Contribuição de @webtecnica (#1549).
+
+- **crm_find_free_slots tolera dia e dias_a_frente juntos priorizando dia** A ferramenta MCP `crm_find_free_slots` não recusa mais chamadas com `periodo_ambiguo` quando o modelo de IA preenche `dia` e `dias_a_frente` simultaneamente, priorizando o campo mais específico (`dia`) e documentando a precedência no schema da ferramenta.
+
+  Contribuição de @webtecnica (#1555).
+
+- **O "digitando…" aparece no WhatsApp do cliente enquanto a IA prepara a resposta** O indicador de "digitando…" praticamente nunca aparecia quando o agente de IA respondia: ele só era acionado se sobrasse tempo de espera depois que a IA terminava de pensar, e quase nunca sobrava. Agora ele acende no começo do atendimento de cada mensagem, cobrindo os segundos em que o cliente espera a resposta. Crédito: @rafaelbatistazz.
+
+- **Freio de envio por token aplicado antes de abrir conversa e teto por organização** Ao iniciar conversa e envio por token (`crm_start_conversation_and_send`), o freio de ritmo e teto diário do número passa a ser checado antes de registrar a abertura da conversa no banco, impedindo conversas vazias residuais quando o envio for retido por limite de taxa (429). Além disso, a rota `/api/v1/messages` agora respeita um teto global por organização além do teto por token individual.
+
+  Contribuição de @webtecnica (#1556).
+
+- **O modelo de mensagem volta a sair pelo WhatsApp oficial da Meta** Desde a 1.45.0, todo envio de modelo aprovado por um número conectado ao WhatsApp oficial da Meta falhava com "template_missing", e a conferência dos valores do modelo deixava de acontecer. Como o modelo é o único jeito de voltar a falar com um cliente depois de 24 horas sem resposta, essas conversas ficavam sem saída. Agora o envio acha o modelo que a sincronização da Meta trouxe, e quem usa também um canal parceiro com um modelo de mesmo nome continua com cada número usando a própria definição. Crédito: @bonito-system.
+
+- **Etapa criada pela tela gera slug com hífen e normaliza busca em agendamento e handoff** A geração de slug de etapa na interface (`lib/leads/stage-editing.ts`) utilizava sublinhado (`_`), enquanto os módulos de movimentação automática por agendamento (`lib/leads/appointment-stage-move.ts`) e de handoff (`lib/leads/handoff-stage-move.ts`) procuravam slugs padronizados com hífen (`agendamento-solicitado` e `chamar-humano`). Agora o gerador produz slugs com hífens e os consumidores passam a buscar também etapas legadas com sublinhado como fallback, garantindo compatibilidade total sem quebras. Funis novos também passam a nascer com slug de hífen, porque usam o mesmo gerador; slugs já gravados não mudam.
+
+  Contribuição de @webtecnica (#1548); relato de @franceschini-lucas (#1542).
+
+- **Transcrição aceita base URL com ou sem /v1 e sem duplicar caminho** Ao configurar uma URL base customizada para transcrição de áudio (ex.: Groq ou Whisper próprio, como sugerido no `.env.example`), o provedor de transcrição concatenava `/v1/audio/transcriptions` sem normalizar o sufixo `/v1` ou barras finais, resultando em `/v1/v1/audio/transcriptions` e gerando erro 404. O provedor agora normaliza a base removendo barras finais e o sufixo `/v1`, suportando tanto URLs com quanto sem `/v1`.
+
+  Contribuição de @webtecnica (#1550).
+
+- **e2e do Trunk SIP garante dígito no sufixo e remove host na varredura de chave crua** A spec `tests/e2e/trunk-sip-config.spec.ts` passa a garantir um dígito no sufixo aleatório derivado de `Date.now().toString(36)` e a limpar ocorrências de `host` em `corpoSemOBloco`, evitando que nomes de host gerados casem com o padrão de chave de tradução crua (`a.b.c`).
+
+  Contribuição de @webtecnica (#1553).
+
+- **Atualização de modelo pelo Zernio passa a filtrar pela conexão correspondente** A sincronização de status de modelo vinda de webhook do Zernio (`lib/channels/zernio/avisos.ts`) atualizava o espelho local (`meta_templates`) filtrando apenas por organização e nome. Em organizações com mais de uma conexão espelhando modelos de mesmo nome (ou conexões com múltiplos idiomas), o estado recebido do Zernio podia sobrescrever a linha de outro canal. Agora a atualização filtra por `channel_session_id` e idioma, isolando as conexões.
+
+  Contribuição de @webtecnica (#1551).
+
 ## [1.23.0] — 2026-09-24
 
 ### Adicionado
