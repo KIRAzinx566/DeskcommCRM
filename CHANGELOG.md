@@ -8,6 +8,12 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.23.0] — 2026-09-24
+
+### Adicionado
+
+- **Editar e apagar um produto pela tela de Produtos** A tela de Produtos ganhou os botões **Editar** e **Apagar** em cada linha do catálogo. Editar reabre os mesmos campos do formulário de "Novo produto", pré-preenchidos, e salva pelo botão "Salvar alterações". Apagar pede confirmação — o cadastro e as fotos do produto são removidos, e não é possível desfazer. As duas ações já existiam na API (usadas até aqui só pelo botão "Desativar"); a tela agora oferece um caminho para editar os demais campos e para remover de verdade um produto, sem precisar da API por fora. Nada a configurar.
+
 ## [1.22.0] — 2026-09-23
 
 ### Adicionado
@@ -8289,7 +8295,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.22.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.23.0...HEAD
+[1.23.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.19.1...v1.20.0
