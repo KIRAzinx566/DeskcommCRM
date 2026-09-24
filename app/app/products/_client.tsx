@@ -6,11 +6,22 @@ import { toast } from "sonner";
 
 import { showApiError } from "@/components/feedback/ApiErrorToast";
 import { useT } from "@/hooks/i18n/useT";
-import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { apiClient } from "@/lib/api/client";
 import { MAXIMO_DE_FOTOS } from "@/lib/catalogo/fotos";
 import { formatCents } from "@/lib/money";
 import { precoParaCentavos, type Produto } from "@/lib/schemas/produtos";
+import { PencilSimple, Trash } from "@/lib/ui/icons";
 
 interface Textos {
   titulo: string;
@@ -48,6 +59,24 @@ const VAZIO: Rascunho = {
   quantidade: "0",
   controla_estoque: true,
 };
+
+/** O inverso de `precoParaCentavos`, para pré-preencher o campo de edição. */
+function centavosParaTexto(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
+function rascunhoDoProduto(p: Produto): Rascunho {
+  return {
+    codigo: p.codigo,
+    nome: p.nome,
+    marca: p.marca ?? "",
+    categoria: p.categoria ?? "",
+    preco: centavosParaTexto(p.preco_cents),
+    custo: p.custo_cents === null ? "" : centavosParaTexto(p.custo_cents),
+    quantidade: String(p.quantidade),
+    controla_estoque: p.controla_estoque,
+  };
+}
 
 function doRascunho(
   r: Rascunho,
@@ -207,6 +236,109 @@ function FotosDoProduto({ produto, urls }: { produto: Produto; urls: Record<stri
   );
 }
 
+/**
+ * Os campos do produto, compartilhados entre "Novo produto" e "Editar" — um só
+ * lugar, para os dois formulários nunca divergirem (o mesmo motivo do schema
+ * único em lib/schemas/produtos.ts).
+ */
+function CamposDoProduto({
+  rascunho,
+  onChange,
+}: {
+  rascunho: Rascunho;
+  onChange: (r: Rascunho) => void;
+}) {
+  const t = useT();
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-sm">
+          {t("Código")}
+          <input
+            value={rascunho.codigo}
+            onChange={(e) => onChange({ ...rascunho, codigo: e.target.value })}
+            className="mt-1 h-9 w-full rounded-md border px-3"
+            data-testid="produto-codigo"
+          />
+        </label>
+        <label className="text-sm">
+          {t("Nome")}
+          <input
+            value={rascunho.nome}
+            onChange={(e) => onChange({ ...rascunho, nome: e.target.value })}
+            className="mt-1 h-9 w-full rounded-md border px-3"
+            data-testid="produto-nome"
+          />
+        </label>
+        <label className="text-sm">
+          {t("Marca")}
+          <input
+            value={rascunho.marca}
+            onChange={(e) => onChange({ ...rascunho, marca: e.target.value })}
+            className="mt-1 h-9 w-full rounded-md border px-3"
+          />
+        </label>
+        <label className="text-sm">
+          {t("Categoria")}
+          <input
+            value={rascunho.categoria}
+            onChange={(e) => onChange({ ...rascunho, categoria: e.target.value })}
+            className="mt-1 h-9 w-full rounded-md border px-3"
+          />
+        </label>
+        <label className="text-sm">
+          {t("Preço de venda")}
+          <input
+            value={rascunho.preco}
+            onChange={(e) => onChange({ ...rascunho, preco: e.target.value })}
+            placeholder="5.499,00"
+            className="mt-1 h-9 w-full rounded-md border px-3"
+            data-testid="produto-preco"
+          />
+        </label>
+        <label className="text-sm">
+          {t("Custo")} <span className="text-muted-foreground">{t("(opcional)")}</span>
+          <input
+            value={rascunho.custo}
+            onChange={(e) => onChange({ ...rascunho, custo: e.target.value })}
+            placeholder="4.100,00"
+            className="mt-1 h-9 w-full rounded-md border px-3"
+          />
+          <span className="mt-1 block text-xs text-muted-foreground">
+            {t("Serve para o atendente saber até onde pode negociar. Não aparece para o cliente.")}
+          </span>
+        </label>
+      </div>
+
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={rascunho.controla_estoque}
+          onChange={(e) => onChange({ ...rascunho, controla_estoque: e.target.checked })}
+          data-testid="produto-controla-estoque"
+        />
+        {t("Controlar estoque deste produto")}
+      </label>
+      {rascunho.controla_estoque ? (
+        <label className="mt-2 block text-sm">
+          {t("Quantidade")}
+          <input
+            value={rascunho.quantidade}
+            onChange={(e) => onChange({ ...rascunho, quantidade: e.target.value })}
+            className="mt-1 h-9 w-32 rounded-md border px-3"
+          />
+        </label>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(
+            "Sem controle de estoque, este produto sempre aparece como disponível para o atendente — é o certo para item sob encomenda ou fracionado.",
+          )}
+        </p>
+      )}
+    </>
+  );
+}
+
 export function ProdutosClient({
   inicial,
   urlsDasFotos,
@@ -228,6 +360,11 @@ export function ProdutosClient({
   const [resumo, setResumo] = React.useState<ResumoDaImportacao | null>(null);
   const arquivoRef = React.useRef<HTMLInputElement>(null);
   const [fotosAbertas, setFotosAbertas] = React.useState<string | null>(null);
+  const [editando, setEditando] = React.useState<string | null>(null);
+  const [rascunhoEdicao, setRascunhoEdicao] = React.useState<Rascunho>(VAZIO);
+  const [salvandoEdicao, setSalvandoEdicao] = React.useState(false);
+  const [confirmarApagar, setConfirmarApagar] = React.useState<string | null>(null);
+  const [apagando, setApagando] = React.useState<string | null>(null);
 
   const filtrados = React.useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -254,6 +391,47 @@ export function ProdutosClient({
       showApiError(e);
     } finally {
       setSalvando(false);
+    }
+  }
+
+  function abrirEdicao(p: Produto) {
+    setRascunhoEdicao(rascunhoDoProduto(p));
+    setEditando(p.id);
+    setCriando(false);
+    setFotosAbertas(null);
+  }
+
+  async function salvarEdicao() {
+    if (!editando) return;
+    const corpo = doRascunho(rascunhoEdicao, t);
+    if ("erro" in corpo) {
+      toast.error(corpo.erro as string);
+      return;
+    }
+    setSalvandoEdicao(true);
+    try {
+      await apiClient.patch(`/api/v1/products/${editando}`, corpo);
+      toast.success(t("Produto atualizado"));
+      setEditando(null);
+      router.refresh();
+    } catch (e) {
+      showApiError(e);
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  }
+
+  async function apagar(p: Produto) {
+    setApagando(p.id);
+    try {
+      await apiClient.delete(`/api/v1/products/${p.id}`);
+      toast.success(t("Produto apagado"));
+      setConfirmarApagar(null);
+      router.refresh();
+    } catch (e) {
+      showApiError(e);
+    } finally {
+      setApagando(null);
     }
   }
 
@@ -387,91 +565,7 @@ export function ProdutosClient({
 
       {criando && podeEditar ? (
         <div className="mb-6 rounded-lg border p-4" data-testid="form-produto">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              {t("Código")}
-              <input
-                value={rascunho.codigo}
-                onChange={(e) => setRascunho({ ...rascunho, codigo: e.target.value })}
-                className="mt-1 h-9 w-full rounded-md border px-3"
-                data-testid="produto-codigo"
-              />
-            </label>
-            <label className="text-sm">
-              {t("Nome")}
-              <input
-                value={rascunho.nome}
-                onChange={(e) => setRascunho({ ...rascunho, nome: e.target.value })}
-                className="mt-1 h-9 w-full rounded-md border px-3"
-                data-testid="produto-nome"
-              />
-            </label>
-            <label className="text-sm">
-              {t("Marca")}
-              <input
-                value={rascunho.marca}
-                onChange={(e) => setRascunho({ ...rascunho, marca: e.target.value })}
-                className="mt-1 h-9 w-full rounded-md border px-3"
-              />
-            </label>
-            <label className="text-sm">
-              {t("Categoria")}
-              <input
-                value={rascunho.categoria}
-                onChange={(e) => setRascunho({ ...rascunho, categoria: e.target.value })}
-                className="mt-1 h-9 w-full rounded-md border px-3"
-              />
-            </label>
-            <label className="text-sm">
-              {t("Preço de venda")}
-              <input
-                value={rascunho.preco}
-                onChange={(e) => setRascunho({ ...rascunho, preco: e.target.value })}
-                placeholder="5.499,00"
-                className="mt-1 h-9 w-full rounded-md border px-3"
-                data-testid="produto-preco"
-              />
-            </label>
-            <label className="text-sm">
-              {t("Custo")} <span className="text-muted-foreground">{t("(opcional)")}</span>
-              <input
-                value={rascunho.custo}
-                onChange={(e) => setRascunho({ ...rascunho, custo: e.target.value })}
-                placeholder="4.100,00"
-                className="mt-1 h-9 w-full rounded-md border px-3"
-              />
-              <span className="mt-1 block text-xs text-muted-foreground">
-                {t("Serve para o atendente saber até onde pode negociar. Não aparece para o cliente.")}
-              </span>
-            </label>
-          </div>
-
-          <label className="mt-3 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rascunho.controla_estoque}
-              onChange={(e) => setRascunho({ ...rascunho, controla_estoque: e.target.checked })}
-              data-testid="produto-controla-estoque"
-            />
-            {t("Controlar estoque deste produto")}
-          </label>
-          {rascunho.controla_estoque ? (
-            <label className="mt-2 block text-sm">
-              {t("Quantidade")}
-              <input
-                value={rascunho.quantidade}
-                onChange={(e) => setRascunho({ ...rascunho, quantidade: e.target.value })}
-                className="mt-1 h-9 w-32 rounded-md border px-3"
-              />
-            </label>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t(
-                "Sem controle de estoque, este produto sempre aparece como disponível para o atendente — é o certo para item sob encomenda ou fracionado.",
-              )}
-            </p>
-          )}
-
+          <CamposDoProduto rascunho={rascunho} onChange={setRascunho} />
           <div className="mt-4">
             <Button onClick={salvar} disabled={salvando} data-testid="salvar-produto">
               {t(salvando ? "Salvando…" : "Salvar produto")}
@@ -530,11 +624,79 @@ export function ProdutosClient({
                   >
                     {t(p.ativo ? "Desativar" : "Reativar")}
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => (editando === p.id ? setEditando(null) : abrirEdicao(p))}
+                    aria-expanded={editando === p.id}
+                    data-testid={`editar-${p.codigo}`}
+                  >
+                    <PencilSimple size={14} aria-hidden className="mr-1" />
+                    {t("Editar")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => setConfirmarApagar(p.id)}
+                    data-testid={`apagar-${p.codigo}`}
+                  >
+                    <Trash size={14} aria-hidden className="mr-1" />
+                    {t("Apagar")}
+                  </Button>
                 </>
               ) : null}
             </div>
             {podeEditar && fotosAbertas === p.id ? (
               <FotosDoProduto produto={p} urls={urlsDasFotos} />
+            ) : null}
+            {podeEditar && editando === p.id ? (
+              <div className="border-t bg-muted/30 p-4" data-testid={`form-editar-${p.codigo}`}>
+                <CamposDoProduto rascunho={rascunhoEdicao} onChange={setRascunhoEdicao} />
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={salvarEdicao}
+                    disabled={salvandoEdicao}
+                    data-testid="salvar-edicao-produto"
+                  >
+                    {t(salvandoEdicao ? "Salvando…" : "Salvar alterações")}
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditando(null)} disabled={salvandoEdicao}>
+                    {t("Cancelar")}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {podeEditar ? (
+              <AlertDialog
+                open={confirmarApagar === p.id}
+                onOpenChange={(aberto) => setConfirmarApagar(aberto ? p.id : null)}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("Apagar")} &ldquo;{p.nome}&rdquo;?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("O cadastro e as fotos deste produto são apagados. Essa ação não pode ser desfeita.")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={apagando === p.id}>{t("Cancelar")}</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={apagando === p.id}
+                      className={buttonVariants({ variant: "destructive" })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void apagar(p);
+                      }}
+                      data-testid={`confirmar-apagar-${p.codigo}`}
+                    >
+                      {t(apagando === p.id ? "Apagando…" : "Apagar")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             ) : null}
             </li>
             );
