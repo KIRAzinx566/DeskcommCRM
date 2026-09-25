@@ -122,6 +122,16 @@ export const PROVEDORES = [
     // formato que só valeria para um dos serviços possíveis.
     prefixoDaChave: "a chave do serviço escolhido",
   },
+  {
+    id: "requesty",
+    rotulo: "Requesty",
+    quandoUsar:
+      "Uma chave só para centenas de modelos de vários fabricantes, com a opção de manter o tráfego na Europa. Bom para comparar modelos sem abrir conta em cada provedor.",
+    aceitaEndpointProprio: true,
+    catalogoSincronizavel: true,
+    ondePegarAChave: "https://app.requesty.ai/api-keys",
+    prefixoDaChave: "rqsty-…",
+  },
 ] as const satisfies readonly ProvedorSuportado[];
 // `as const satisfies` e não anotação de tipo: a anotação apagaria os literais
 // e `Provider` viraria `string`, deixando o compilador aceitar qualquer texto
