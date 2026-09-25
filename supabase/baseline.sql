@@ -38449,6 +38449,14 @@ create index if not exists prospecting_candidates_expira_idx
   on public.prospecting_candidates ((coalesce(attempted_at, created_at)))
   where status not in ('queued','sending') and suppression_salt is null;
 
+-- ---- reindexação incremental: hash do conteúdo indexado (migration 0411, renumerada de 0409, de @vgamkt, #1130) ----
+-- O indexador pula a fonte cujo conteúdo não mudou desde a última indexação
+-- bem-sucedida com o mesmo modelo. Racional inteiro na migration 0411 (renumerada de 0409).
+alter table public.ai_knowledge_sources
+  add column if not exists content_hash text;
+comment on column public.ai_knowledge_sources.content_hash is
+  'Hash do conteúdo que foi indexado por último. O indexador pula a reindexação quando o hash atual é igual E o modelo de embedding da versão ativa é o mesmo.';
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ DE PROPÓSITO, NENHUMA FUNÇÃO É CRIADA DEPOIS DESTE BLOCO. Apêndice que cria
@@ -39287,6 +39295,44 @@ on conflict (model) do update set
   completion_cents_per_million_tokens = excluded.completion_cents_per_million_tokens,
   notes = excluded.notes,
   superseded_at = null;
+
+-- ---- Catálogo da Requesty (migration 0410) ----
+--
+-- Roteador OpenAI-compatível, como a OpenRouter: ids `fabricante/modelo`
+-- verificados em `GET https://router.requesty.ai/v1/models`, preço do mesmo
+-- endpoint convertido para CENTAVOS por milhão. `supports_vision` entra junto
+-- porque num roteador é o catálogo que diz se o modelo enxerga imagem. Não
+-- insere em `ai_pricing`; o backfill 0113 acima cria a linha por `model_id` na
+-- próxima reaplicação (update.sh), e o preço é resolvido só por `model_id`,
+-- sem provider. Racional inteiro na migration 0410.
+insert into public.ai_models
+  (provider, model_id, display_name, description, context_window,
+   input_price_per_million_cents, output_price_per_million_cents,
+   supports_tools, supports_vision)
+values
+  ('requesty', 'openai/gpt-4o-mini', 'GPT-4o mini (Requesty)',
+   'Barato e rápido, bom para atendimento de volume. Enxerga imagem.',
+   128000, 15, 60, true, true),
+  ('requesty', 'openai/gpt-4.1-mini', 'GPT-4.1 mini (Requesty)',
+   'Segue instruções melhor que o 4o mini, com contexto longo. Enxerga imagem.',
+   1047576, 40, 160, true, true),
+  ('requesty', 'google/gemini-2.5-flash', 'Gemini 2.5 Flash (Requesty)',
+   'Contexto muito longo e custo baixo. Enxerga imagem.',
+   1048576, 30, 250, true, true),
+  ('requesty', 'anthropic/claude-haiku-4-5', 'Claude Haiku 4.5 (Requesty)',
+   'Rápido, para atendimentos curtos e classificação. Enxerga imagem.',
+   200000, 100, 500, true, true),
+  ('requesty', 'anthropic/claude-sonnet-4-5', 'Claude Sonnet 4.5 (Requesty)',
+   'O que melhor segue instruções longas e usa as ferramentas do CRM. Enxerga imagem.',
+   1000000, 300, 1500, true, true)
+on conflict (provider, model_id) do update set
+  display_name = excluded.display_name,
+  description = excluded.description,
+  context_window = excluded.context_window,
+  input_price_per_million_cents = excluded.input_price_per_million_cents,
+  output_price_per_million_cents = excluded.output_price_per_million_cents,
+  supports_tools = excluded.supports_tools,
+  supports_vision = excluded.supports_vision;
 
 -- ---- menu lateral por EMPRESA (migration 0367, issue #1341) ----
 --

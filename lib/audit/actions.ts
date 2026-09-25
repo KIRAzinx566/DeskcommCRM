@@ -132,6 +132,10 @@ export const AUDIT_ACTIONS = [
   "lead.tags_changed",
   "message.sent",
   "message.received",
+  "message.edited",
+  "message.revoked",
+  "message.hidden_in_crm",
+  "message.restored_in_crm",
   // Uma rodada do cron `recover-stuck-messages` que de fato marcou mensagem
   // como falha (rodada vazia não vira linha — varredura não é mutação).
   "message.recover_stuck_run",
@@ -188,6 +192,7 @@ export const AUDIT_ACTIONS = [
   "ai.credential_created",
   "ai.credential_deleted",
   "ai.credential_revalidated",
+  "ai.knowledge_reindex_all",
   "ai_agent.created",
   "ai_agent.updated",
   "ai_agent.archived",
