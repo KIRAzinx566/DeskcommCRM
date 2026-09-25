@@ -14,31 +14,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 - **Ligar para o contato direto da conversa** O botão Chamar aparece no cabeçalho da Inbox quando há um contato com telefone e a chamada de voz da organização está pareada. Assim, o atendente inicia a ligação sem sair da conversa. Crédito: @raphaelmartins.
 
-- **O Jev percebe na hora quando o cliente se irrita — desligado até você ligar** IA › Provedores ganhou o cartão "Jev — decisões rápidas". O Jev é um serviço da TypeSafe AI
-  que não conversa com o cliente: ele lê cada mensagem que o cliente manda e diz, geralmente em
-  menos de um segundo, se o cliente está irritado. É o sinal que o sistema já usa para passar a conversa a uma pessoa
-  da equipe. Cada mensagem medida custa uma fração de centavo de dólar, cobrada na sua conta da
-  TypeSafe AI.
-
-  Nada muda na sua instalação enquanto você não ligar. Para usar, clique em "Pegar a chave na
-  TypeSafe", cole a chave pelo próprio cartão, espere o teste da chave passar e clique em "Ligar
-  o Jev". Na primeira vez, quem administra a empresa confirma que concorda com o envio de cada
-  mensagem dos clientes, uma de cada vez e sem o resto da conversa, para a TypeSafe AI, nos
-  Estados Unidos. Antes de sair, o sistema apaga CPF, telefone e e-mail do texto. Só cadastrar
-  a chave não manda nenhuma mensagem de cliente para fora (o sistema só usa a chave para
-  testá-la na TypeSafe), e excluir a chave desliga o Jev.
-
-  Se a empresa já tem a IA de sempre, o Jev começa só observando: ela continua decidindo, e o
-  cartão mostra em quantas mensagens os dois chegaram à mesma conclusão. Ligado, o cartão mostra
-  também quantos clientes irritados o Jev percebeu na semana. Depois de clicar em
-  "Deixar o Jev decidir", ele mede primeiro, e a IA de sempre só entra quando ele não responde.
-  Numa empresa sem a IA de sempre, o Jev mede sozinho. Se ele falhar, o clima fica sem medida
-  até ele voltar.
-
-  As medições aparecem em IA › Execuções, no filtro "Só o Jev", cada uma dizendo se o Jev
-  decidiu ou só observou. Quando uma falha pede
-  providência (chave recusada, crédito acabado), um aviso na Central diz o que fazer. A política
-  de privacidade da instalação passa a citar a TypeSafe AI como fornecedor opcional.
+- **O Jev percebe na hora quando o cliente se irrita — desligado até você ligar** IA › Provedores ganhou o cartão "Jev — decisões rápidas": um serviço da TypeSafe AI que não conversa com o cliente, só lê cada mensagem e diz, em geral em menos de um segundo, se o cliente está irritado — o sinal que já chama uma pessoa da equipe. Nada muda enquanto você não ligar; ligando, quem administra confirma o envio de cada mensagem (sem o resto da conversa, CPF/telefone/e-mail apagados antes de sair) para a TypeSafe AI. Com IA de sempre configurada, o Jev começa só observando; "Deixar o Jev decidir" inverte a prioridade. Falhas aparecem na Central, e a política de privacidade passa a citar a TypeSafe AI.
 
 - **Catálogo visual por categorias e cards no modal de ferramentas** O modal de ferramentas agora exibe todas as telas do sistema organizadas em cards visuais agrupados por categoria (Atendimento, CRM, Agente de IA, Canais, Análise e Organização), com pílulas para filtro rápido e busca instantânea. Crédito: @saraivabr.
 
@@ -46,18 +22,7 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
   Contribuição de @deskcommopp4s-cmd (#1604).
 
-- **Atualizar lead e marcar/remarcar/cancelar compromisso por integração externa** `PATCH /api/v1/leads/[id]` e `POST/PATCH/DELETE /api/v1/agenda/agendamentos`
-  passam a aceitar `Authorization: Bearer dsk_...` (com o escopo `mcp:write`)
-  além da sessão do navegador — o mesmo padrão que `/api/v1/messages` e
-  `/api/v1/contacts` já usavam. Serve qualquer integração de servidor que precise
-  atualizar um negócio ou marcar um compromisso sem navegador (ex.: monitoramento
-  de andamento processual via n8n). Na agenda, a chave precisa do mesmo papel
-  que as ferramentas de agenda do agente de IA exigem: ao criar a chave em
-  Configurações › API Tokens, marque "Tratar o token como gerente" — a chave
-  comum (atendente) recebe `403` ao marcar, remarcar ou cancelar, pela API e
-  pelo MCP igualmente. Por chave, vale o mesmo teto de escrita do
-  envio de mensagens: acima dele a resposta é `429` com `Retry-After`. Nada muda
-  para quem usa a tela.
+- **Atualizar lead e marcar/remarcar/cancelar compromisso por integração externa** `PATCH /api/v1/leads/[id]` e `POST/PATCH/DELETE /api/v1/agenda/agendamentos` passam a aceitar `Authorization: Bearer dsk_...` (escopo `mcp:write`) além da sessão do navegador, como `/api/v1/messages` e `/api/v1/contacts` já usavam. Na agenda, a chave precisa de "Tratar o token como gerente"; sem isso recebe `403`. Mesmo teto de escrita do envio de mensagens. Nada muda para quem usa a tela.
 
   Contribuição de @nsbastosconsultoria (#1578).
 
@@ -72,15 +37,11 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
   Contribuição de @nsbastosconsultoria (#1578).
 
-- **A localização que o cliente manda chega com o ponto no mapa** No WhatsApp oficial intermediado, a localização compartilhada pelo cliente
-  chegava só como «📍 Location», sem dizer onde era. Agora a ingestão busca as
-  coordenadas e grava a mensagem como localização: na conversa aparece um cartão
-  que abre o ponto no mapa, e o assistente recebe o link — o pino passa a valer
-  como endereço de entrega. Se a busca falhar, a mensagem entra como antes.
+- **A localização que o cliente manda chega com o ponto no mapa** No WhatsApp oficial intermediado, a localização chegava só como «📍 Location», sem dizer onde era. Agora a ingestão busca as coordenadas e grava como localização: um cartão que abre o ponto no mapa, e o assistente recebe o link. Se a busca falhar, entra como antes.
 
 - **Escolha um logo para cada tema da marca** A tela de marca aceita uma imagem opcional para o tema escuro, exibida sem moldura branca. O logo atual continua no tema claro e conserva a proteção de contraste no escuro quando não há uma segunda imagem. Instalação e organizações mantêm suas próprias marcas; remover uma arte não apaga a outra. Crédito: @vitorlacerdadigital.
 
-- **Dá para regular o raciocínio dos modelos da OpenAI com OPENAI_REASONING_EFFORT** Os modelos de raciocínio da OpenAI (gpt-5.x, gpt-6) pensam antes de responder, e no atendimento pelo WhatsApp isso vira espera: medido com `gpt-6-luna`, o rascunho levava de 9 a 27 s, com uns 700 tokens de raciocínio para uma resposta de 40, e às vezes o modelo nem chamava a ferramenta de envio. Com `OPENAI_REASONING_EFFORT=none` no `.env`, a mesma chamada caiu de uns 5 s para uns 2 s e chamou a ferramenta todas as vezes. Valores aceitos: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`; vazio mantém o padrão do modelo. Vale só para o provedor OpenAI direto e só para modelos que raciocinam (`o*`, `gpt-5*`, `gpt-6*`, fora as variantes `-chat`); os demais seguem sem o campo. Grafia errada impede o worker de subir e o log diz qual variável corrigir. Contribuição de @rogercampel (#1598).
+- **Dá para regular o raciocínio dos modelos da OpenAI com OPENAI_REASONING_EFFORT** Os modelos de raciocínio da OpenAI (gpt-5.x, gpt-6) pensam antes de responder, o que no WhatsApp vira espera — medido com `gpt-6-luna`, de 9 a 27s. Com `OPENAI_REASONING_EFFORT=none` no `.env`, caiu para uns 2s. Valores aceitos: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`; vazio mantém o padrão. Só para OpenAI direto e modelos que raciocinam. Contribuição de @rogercampel (#1598).
 
 ### Alterado
 
@@ -104,126 +65,71 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 - **O aviso de mensagem retida na conversa mostra o que vale agora e de qual cidade é o horário** O aviso de "mensagem retida" na conversa continuava na tela depois de a mensagem ter saído, e o "fora do horário de envio" seguia aparecendo com o horário já aberto. Agora o aviso some quando uma resposta já saiu depois da retenção e quando o horário de envio está aberto, porque o próximo atendimento já vai reavaliar. O horário também passa a dizer de qual cidade é ("7h–22h, horário de Manaus"), para quem está em outro fuso não ler um horário que não é o seu. Crédito: @bonito-system.
 
-- **Ao ligar um pacote de capacidades que não cabe, o aviso aparece no próprio pacote** Na configuração do agente, ligar um pacote que passaria do limite de capacidades era recusado
-  com um aviso no topo do seletor. Com a tela rolada até um pacote lá de baixo (como "Passar para
-  um humano"), o aviso ficava fora da vista: o interruptor não mudava e parecia que o clique não
-  funcionava. Agora o aviso aparece dentro do cartão do pacote clicado, rola até ficar visível e é
-  anunciado por leitor de tela.
+- **Ao ligar um pacote de capacidades que não cabe, o aviso aparece no próprio pacote** Ligar um pacote que passaria do limite era recusado com aviso no topo do seletor — com a tela rolada, ficava fora da vista e parecia que o clique não funcionava. Agora o aviso aparece dentro do cartão clicado, rola até visível e é anunciado por leitor de tela.
 
   Contribuição de @resdasilva (#1622).
 
-- **O backup só dá o banco como salvo depois de conferir que o arquivo pode ser lido** O backup do banco agora confere o arquivo inteiro antes de dizer que terminou. Se a gravação falhar no meio ou o arquivo sair ilegível, o backup falha e o arquivo é apagado para ninguém confiar nele, e a atualização não segue sem um backup válido. Antes, quando a gravação falhava no meio, o backup acusava a falha, mas o arquivo cortado ficava na pasta de backups junto dos bons. Contribuição de @bonito-system (#1589).
+- **O backup só dá o banco como salvo depois de conferir que o arquivo pode ser lido** O backup agora confere o arquivo inteiro antes de dizer que terminou; se a gravação falhar, o arquivo é apagado em vez de ficar junto dos backups bons. Contribuição de @bonito-system (#1589).
 
-- **A busca de telas (⌘K) fica legível no item destacado, e o "X" dos diálogos se anuncia "Fechar"** Na busca de telas (⌘K ou Ctrl+K), o item destacado mostrava o grupo e a descrição em cinza
-  sobre o fundo verde, quase invisíveis. Agora eles aparecem em cor clara e legível, e a
-  descrição quebra em até duas linhas em vez de ser cortada no meio.
+- **A busca de telas (⌘K) fica legível no item destacado, e o "X" dos diálogos se anuncia "Fechar"** Na busca (⌘K), o item destacado mostrava grupo e descrição em cinza sobre fundo verde, quase invisíveis. Agora ficam claros e legíveis. E o "X" que fecha diálogos, anunciado em inglês ("Close") para leitor de tela, agora anuncia "Fechar" (ou "Cerrar").
 
-  O botão "X" que fecha diálogos e painéis laterais era anunciado como "Close", em inglês, para
-  quem usa leitor de tela. Agora é anunciado como "Fechar" (em espanhol, "Cerrar").
+- **Cerca de escrita em organizations fecha pontos cegos de escopo léxico e exportações** A cerca de escrita em `organizations` passa a resolver a identidade do cliente admin por escopo léxico em vez de só pelo nome no arquivo; `export { ... }`/`export default` também passam a contar como exportadas, fechando um falso-verde.
 
-- **Cerca de escrita em organizations fecha pontos cegos de escopo léxico e exportações** A cerca de escrita em `organizations` (`tests/unit/escrita-em-organizations-usa-cliente-admin.test.ts`) passa a resolver a identidade do cliente admin por escopo léxico da declaração em vez de apenas pelo nome no escopo do arquivo. Além disso, funções com declaração `export { ... }`, `export default` ou que escapam como valor agora são devidamente tratadas como exportadas, impedindo que parâmetros sem anotação explícita de tipo passem desapercebidos com falso-verde.
+- **A tela Execuções deixa de poder mostrar a chave do provedor de IA numa mensagem de erro** Quando um provedor de IA recusava uma chamada repetindo a chave no texto do erro, IA › Execuções podia mostrar a chave inteira — o filtro que deveria trocá-la por `[CHAVE]` nunca funcionou (um caractere invisível no lugar errado). Agora funciona nas falhas novas; mensagens já gravadas não são reescritas — se suspeitar, troque a chave.
 
-- **A tela Execuções deixa de poder mostrar a chave do provedor de IA numa mensagem de erro** Quando um provedor de IA recusava uma chamada e repetia a chave de acesso no texto do
-  erro, a tela IA › Execuções podia mostrar essa chave inteira. O filtro que deveria
-  trocá-la por `[CHAVE]` existia, mas nunca funcionou: um caractere invisível no lugar
-  errado fazia ele não reconhecer chave nenhuma (Anthropic, OpenAI, Google, OpenRouter,
-  nem o cabeçalho de autorização).
+- **O clima da conversa passa a ser medido quando a chave de IA foi cadastrada pela tela** O medidor de clima (que chama uma pessoa quando o cliente se irrita) só funcionava com a chave no arquivo de configuração; cadastrada pela tela (IA › Credenciais), não media nada, sem aviso. Agora usa a chave da tela também. Com OpenAI/Google/DeepSeek sem modelo escolhido para medir o clima, cai no modelo padrão da empresa (pode ser mais caro — escolha um menor se quiser gastar menos).
 
-  Agora a chave aparece como `[CHAVE]` nas falhas novas. As mensagens que já estavam
-  gravadas não são reescritas; se você suspeita que alguma chave apareceu ali, gere uma
-  nova no painel do provedor e troque em IA › Credenciais.
+- **Membro revogado da empresa tem conversas abertas desatribuídas de volta para a fila** Revogar um membro não desatribuía suas conversas abertas: ficavam vinculadas a um usuário revogado, com o robô silenciado sem prazo, mudas para a IA e invisíveis na fila. Agora a revogação desatribui, solta o silenciamento (exceto handoff já passado a humano) e acorda o roteamento, com auditoria. Contribuição de @webtecnica (#1619).
 
-- **O clima da conversa passa a ser medido quando a chave de IA foi cadastrada pela tela** O sistema lê o clima de cada mensagem do cliente e chama uma pessoa da equipe quando ele
-  se irrita. Esse medidor só funcionava quando a chave de IA estava no arquivo de
-  configuração da instalação. Se a chave foi cadastrada pela tela (IA › Credenciais), ele
-  não media nada, sem aviso nenhum. O `install.sh` permite pular a chave e cadastrar
-  depois pela tela.
+- **A reconciliação do Vitest ensina a checar Failed Suites antes de alertar sonda cega** Documentação interna em `CLAUDE.md`: o Vitest imprime erros de coleta/timeout de hooks em `Failed Suites`, que soma `FAIL` sem aparecer no rodapé `Tests N failed`. A doutrina agora ensina a checar isso antes de sugerir `--reporter=verbose`. Contribuição de @webtecnica.
 
-  Agora ele usa a chave cadastrada pela tela. Com a Anthropic ou a OpenRouter, a partir
-  desta versão o clima passa a ser medido, a conversa com cliente irritado passa para uma
-  pessoa, e cada medição aparece em IA › Execuções e entra no gasto de IA do mês.
+- **Funil com algumas centenas de negócios volta a abrir** O quadro de um funil com ~400+ negócios parava de carregar: os dados dos cards eram buscados numa consulta só com todos os ids, e o cabeçalho da resposta passava do limite do Node ("fetch failed"). Agora saem em lotes de 100.
 
-  Com a OpenAI, o Google ou a DeepSeek, sem um modelo escolhido em IA › Provedores › "Medir
-  o clima da conversa", o clima passa a ser medido pelo modelo padrão da empresa — o mesmo
-  que o painel já dizia estar valendo ali —, com a chave cadastrada pela tela ou com a do
-  arquivo de configuração. Esse modelo costuma ser mais caro que o de classificação; para
-  gastar menos, escolha um modelo menor nesse mesmo lugar.
-
-- **Membro revogado da empresa tem conversas abertas desatribuídas de volta para a fila** Ao revogar um membro da organização, suas conversas abertas não eram desatribuídas pelo trigger `fn_routing_member_revoked`: conversas que haviam sido assumidas permaneciam vinculadas a um usuário revogado e com o robô silenciado sem prazo (`bot_silenced_until = 'infinity'`), tornando-as mudas para a IA e invisíveis na fila dos demais atendentes até uma intervenção manual. Agora, a revogação desatribui automaticamente todas as conversas abertas do membro (`status in ('open','pending','claimed','ai_handling')`), limpa as informações de responsável, solta o silenciamento do bot (exceto quando a conversa foi passada pela IA a um humano, que continua na fila humana), registra o evento em `conversation_assignment_events`, acorda o roteamento por canal e emite a atividade de liberação na linha do tempo com a respectiva auditoria. Contribuição de @webtecnica (#1619).
-
-- **A reconciliação do Vitest ensina a checar Failed Suites antes de alertar sonda cega** Documentação interna em `CLAUDE.md`, para quem desenvolve: o Vitest imprime erros de coleta de arquivo e timeouts de hooks na seção dedicada `Failed Suites`, que soma linhas `FAIL` sem aparecer no rodapé `Tests N failed`.
-
-  A doutrina agora ensina a ler `Failed Suites` no log antes de sugerir re-rodar a suíte com `--reporter=verbose`. Nada muda para quem opera uma instalação.
-
-  Contribuição de @webtecnica.
-
-- **Funil com algumas centenas de negócios volta a abrir** O quadro de um funil com cerca de 400 negócios ou mais parava de carregar. O servidor buscava os dados dos cards (score, próxima ação, contato, conversa) passando todos os ids numa consulta só, e a resposta do banco trazia um cabeçalho maior que o limite do Node — a busca falhava como "fetch failed" e o quadro não abria. Agora essas consultas saem em lotes de 100 ids, e o tamanho do funil não derruba mais o quadro.
-
-- **A junção de fichas de contato herda a identidade social do contato que sai** Quando duas fichas de contato são juntadas, a identidade social (Instagram e outras redes conectadas) do contato que sai agora passa para o vencedor que não tem uma — com a mesma guarda de unicidade dos demais campos herdados e sem sobrescrever a identidade que o vencedor já tinha. Sem isso, a próxima mensagem daquela pessoa por rede social não encontrava a ficha viva e abria uma nova, refazendo a duplicata que a fusão acabou de desfazer. Não há ação para quem opera a VPS.
+- **A junção de fichas de contato herda a identidade social do contato que sai** Quando duas fichas são juntadas, a identidade social do contato que sai passa para o vencedor que não tem uma. Sem isso, a próxima mensagem por rede social abria uma ficha nova, refazendo a duplicata que a fusão desfez. Sem ação para quem opera.
 
   Contribuição de @webtecnica (#1596).
 
-- **A caixa de abas da Inbox volta a ser barata em instalação grande — a RLS de contacts não é mais reavaliada por conversa** Abrir a Inbox e trocar de aba ficava de 1,8 a 2,2 s por contagem numa instalação com 528 conversas, porque a função que decide quem manda na conversa relia a política de isolamento de contatos duas vezes para cada conversa da lista. A partir desta versão ela roda com privilégio próprio sobre uma linha que já passou pela política da própria conversa, e devolve exatamente o mesmo texto de antes — as abas mostram as mesmas contagens. A mudança é só de desempenho no banco: nenhuma ação para quem opera, e a instalação recebe o conserto sozinha na próxima atualização.
+- **A caixa de abas da Inbox volta a ser barata em instalação grande — a RLS de contacts não é mais reavaliada por conversa** Trocar de aba ficava de 1,8 a 2,2s por contagem numa instalação com 528 conversas, porque a função de quem manda na conversa reavaliava a política de contacts duas vezes por conversa. Agora roda com privilégio próprio, mesmo resultado, só desempenho — nenhuma ação para quem opera.
 
   Contribuição de @webtecnica (#1602), a partir da medição de @rogercampel (#1571).
 
-- **Invariante garante que a configuração de SMTP da instalação é estritamente server-side** Adiciona o teste de invariante `tests/invariants/configuracao-de-smtp-e-server-side.test.ts` para a tabela `platform_smtp_settings`, espelhando a proteção de suas irmãs (`platform_meta_app`, `platform_google_oauth`).
+- **Invariante garante que a configuração de SMTP da instalação é estritamente server-side** Novo teste de invariante para `platform_smtp_settings`, espelhando a proteção de `platform_meta_app`/`platform_google_oauth`: privilégios revogados de anon/authenticated, RLS sem policies públicas, senha isolada via `fn_encrypt_oauth`. Contribuição de @webtecnica.
 
-  O teste afere privilégios revocados para `anon` e `authenticated`, permissão estrita ao `service_role`, ativação de RLS sem policies públicas, isolamento da senha criptografada via `fn_encrypt_oauth`/`fn_decrypt_oauth` e garantia de integridade do singleton.
-
-  Contribuição de @webtecnica.
-
-- **O assistente consegue gravar o pedido no negócio do cliente que está atendendo** Ao fechar um pedido, o assistente chamava a atualização do negócio com o id do contato em vez do id do negócio, e a gravação era recusada: o pedido confirmado ficava sem valor e sem os dados de entrega. Quando o id recebido é o do contato da conversa em curso e ele tem um único negócio aberto, a gravação agora vai para esse negócio. Com dois negócios abertos, nada muda: a escolha continua sendo de quem opera.
+- **O assistente consegue gravar o pedido no negócio do cliente que está atendendo** Ao fechar um pedido, o assistente chamava a atualização com o id do contato em vez do id do negócio, e a gravação era recusada. Quando o contato tem um único negócio aberto, a gravação agora vai para esse negócio. Com dois negócios abertos, nada muda.
 
   Contribuição de @jmpo (#1583).
 
-- **O negócio só se liga a contato e responsável da própria empresa** Um negócio só pode apontar para um contato da mesma empresa e ter como responsável um atendente ativo dela. A regra agora vale no banco, para todo caminho que grava negócios: tela, agente, token de servidor, automação, importação, webhook de entrada, prospecção, cópia para outro funil e acesso direto à API do banco. Contato de fora recebe "Contato não encontrado", sem dizer se ele existe em outro lugar. Responsável de fora, desligado ou só leitor é recusado. Reenviar o responsável que o negócio já tem continua funcionando, mesmo que ele tenha sido desligado.
+- **O negócio só se liga a contato e responsável da própria empresa** Um negócio só pode apontar para um contato da mesma empresa e ter como responsável um atendente ativo dela — regra agora no banco, para todo caminho que grava negócios (tela, agente, token, automação, importação, webhook, prospecção, cópia para outro funil, API direta). Contato de fora recebe "Contato não encontrado"; responsável de fora/desligado/leitor é recusado. Na atualização, vínculos inválidos existentes são desfeitos e a linha do tempo registra o porquê.
 
-  Na atualização, negócios que já apontavam para um contato de outra empresa, ou para um responsável que nunca foi membro dela, perdem esse vínculo, e a linha do tempo de cada um registra o porquê. Negócios de quem foi desligado continuam com essa pessoa como responsável. Mover um negócio de funil não falha mais quando o responsável saiu da empresa: a cópia nasce sem responsável e a linha do tempo explica.
+- **A descrição de imagem usa o modelo escolhido para visão mesmo quando o provedor padrão da empresa está sem chave** Organizações com binding em `visao_de_imagem` mas sem credencial no chat padrão falhavam ao derivar mídias de imagem, porque o worker resolvia o padrão da organização antes de checar o binding dedicado. Agora o binding da visão é resolvido primeiro. Crédito: @webtecnica. Relato: @rogercampel.
 
-- **A descrição de imagem usa o modelo escolhido para visão mesmo quando o provedor padrão da empresa está sem chave** Organizações que usavam binding específico em `visao_de_imagem` mas não tinham credencial configurada no modelo de chat padrão (por exemplo, durante onboarding ou com Gemini sem chave cadastrada) falhavam prematuramente ao tentar derivar mídias de imagem, porque o worker resolvia a configuração padrão da organização antes de inspecionar o binding dedicado do ponto. Agora, o binding da visão é consultado e resolvido prioritariamente, recorrendo ao padrão da organização apenas como fallback. Crédito: @webtecnica. Relato: @rogercampel.
+- **Quem escolheu outra IA na instalação deixa de pedir a ela um modelo da Anthropic** Ao escolher na instalação uma IA diferente da Anthropic, o sistema trocava o provedor mas deixava gravado o modelo padrão da Anthropic — o que usa o modelo padrão (medição de clima, etc.) pedia à OpenAI um modelo que ela não tem, e falhava. Agora grava provedor + modelo juntos; instalações já com a combinação errada são realinhadas sozinhas.
 
-- **Quem escolheu outra IA na instalação deixa de pedir a ela um modelo da Anthropic** Ao escolher na instalação uma IA diferente da Anthropic (a OpenAI, por exemplo), o
-  sistema trocava o provedor da empresa mas deixava gravado o modelo padrão da Anthropic.
-  O que usa o modelo padrão da empresa — a medição do clima da conversa, entre outros —
-  pedia à OpenAI um modelo que ela não tem, e falhava.
-
-  Agora a instalação grava o provedor junto com um modelo dele. Nas instalações que já
-  estão com a combinação errada, a medição do clima passa a usar um modelo do provedor
-  escolhido (o marcado como padrão, quando há), sem que você precise mexer em nada. Se você
-  já escolheu o modelo padrão em IA › Provedores, a sua escolha continua valendo.
-
-- **O negócio que nasce de uma mensagem vem na moeda da organização** O negócio aberto automaticamente quando um cliente escreve nascia sempre em real (BRL), qualquer que fosse a moeda da organização. Numa empresa em guarani, o valor do pedido gravado depois saía para a plataforma de anúncio como se fosse em real. Agora ele nasce na moeda da organização, e os negócios ainda sem valor que tinham nascido em real são alinhados na atualização.
+- **O negócio que nasce de uma mensagem vem na moeda da organização** O negócio aberto automaticamente nascia sempre em real (BRL), qualquer que fosse a moeda da organização — numa empresa em guarani, o valor saía para a plataforma de anúncio como se fosse em real. Agora nasce na moeda certa; negócios sem valor são alinhados na atualização.
 
   Contribuição de @jmpo (#1583).
 
-- **A Central não acusa promessa sem responsável quando o assistente já pediu ajuda à equipe** Quando o assistente respondia «dejame confirmar con el equipo» e abria um caso para uma pessoa, a Central mostrava, minutos depois, o aviso «o assistente prometeu algo e ninguém ficou responsável» para a mesma pergunta. O caso esperando uma pessoa agora conta como responsável. E esse aviso passa a ser escrito no idioma da organização, em vez de sempre em português.
+- **A Central não acusa promessa sem responsável quando o assistente já pediu ajuda à equipe** Quando o assistente abria um caso para uma pessoa, a Central ainda mostrava «o assistente prometeu algo e ninguém ficou responsável» minutos depois. O caso esperando uma pessoa agora conta como responsável, e o aviso sai no idioma da organização.
 
   Contribuição de @jmpo (#1583).
 
-- **O rascunho de resposta chega sem esperar um resumo da conversa que ninguém usa** No modo assistido, depois de escrever o rascunho o agente ainda pedia ao modelo um resumo da conversa (o checkpoint) e só entregava o rascunho quando esse resumo terminava. Nesse modo o resumo não é gravado nem lido por ninguém, e a espera era a maior parte do tempo: medido em produção, a resposta ficou pronta às 12:32:40 e o rascunho só apareceu às 12:32:56 — 16 dos 28 segundos depois de "Sugerir resposta". Agora o rascunho sai assim que a resposta fica pronta. O teste do agente (a tela de prévia) continua mostrando o resumo, e o aviso de "o agente não propôs uma resposta" continua valendo.
+- **O rascunho de resposta chega sem esperar um resumo da conversa que ninguém usa** No modo assistido, o agente esperava um resumo da conversa (não gravado nem lido por ninguém nesse modo) antes de entregar o rascunho — medido em produção, 16 dos 28s de "Sugerir resposta" eram essa espera. Agora o rascunho sai assim que fica pronto.
 
-- **Os candidatos da prospecção nativa agora têm prazo, e é o cron quem apaga** A tabela `prospecting_candidates` nascia sem dono de expurgo: nome, telefone e endereço de pessoas pesquisadas e nunca contatados ficavam para sempre, e uma campanha montada e abandonada deixava esse dado parado sem nenhum evento que o expirasse.
+- **Os candidatos da prospecção nativa agora têm prazo, e é o cron quem apaga** `prospecting_candidates` nascia sem dono de expurgo: dados de gente pesquisada e nunca contatada ficavam para sempre. Agora a retenção vale de verdade — **365 dias de padrão (piso de 90)** — via `fn_expurgar_prospeccao_vencida`, chamada em lotes pelo cron diário `data-retention`. Tokens de supressão (opt-out/exclusão) são preservados para sempre. Ajustável por `PROSPECCAO_RETENTION_DAYS`. Quem opera a VPS não faz nada. Contribuição de @webtecnica.
 
-  A política de retenção passa a valer de verdade: **365 dias de padrão (piso de 90)** — decisão do dono, alinhada ao horizonte da conversa do caso e da captação — aplicados pela nova função `fn_expurgar_prospeccao_vencida`, chamada em lotes pelo cron diário `data-retention`, com o piso dentro do corpo da função como os demais prazos da casa. O relógio conta da criação para quem nunca foi contatado e da última tentativa para quem já recebeu mensagem; `queued` e `sending` nunca entram, e os tokens de supressão (`suppression_*`) de quem pediu opt-out/exclusão são preservados para sempre, garantindo que uma reimportação futura não traga a pessoa de volta.
+- **O agente usa o modelo do número da conversa, não o de outro canal com o mesmo nome** Com WhatsApp oficial da Meta e um canal parceiro com modelo de mesmo nome/idioma, o agente podia usar o modelo do outro número antes de enviar. Agora usa a mesma regra da tela: a definição do próprio número. Crédito: @bonito-system.
 
-  Quem opera a VPS não faz nada: a correção chega na próxima atualização. O valor pode ser ajustado com `PROSPECCAO_RETENTION_DAYS` no `.env`, como os demais prazos de retenção.
-
-  Contribuição de @webtecnica.
-
-- **O agente usa o modelo do número da conversa, não o de outro canal com o mesmo nome** Quando a organização tem o WhatsApp oficial da Meta e um canal parceiro com um modelo de mensagem de mesmo nome e idioma, o agente de IA podia montar e conferir o texto do modelo do outro número antes de enviar. Agora ele usa a mesma regra do envio pela tela: a definição do próprio número e, no canal oficial, a da conta desse número. Crédito: @bonito-system.
-
-- **Retorno de OAuth de redes sociais preserva a sessão em SameSite=Strict** O retorno da autorização OAuth de canais sociais agora passa por `/auth/social-return`, um documento intermediário sem efeitos que realiza uma navegação interna same-origin para `/app/connections?aba=sociais`. Isso garante que navegadores enviem os cookies de sessão de volta mesmo sob a política `SameSite=Strict`, evitando redirecionamentos indesejados para a tela de login. Conexões pendentes antigas também são recuperadas de forma transparente no proxy. O aviso de autorização concluída ou não concluída na aba Redes sociais continua aparecendo na volta: a página intermediária passa adiante só esse sinal, sem repetir nenhum dado recebido do provedor.
+- **Retorno de OAuth de redes sociais preserva a sessão em SameSite=Strict** O retorno da autorização OAuth de canais sociais passa por `/auth/social-return`, um documento intermediário que navega same-origin para `/app/connections?aba=sociais` — garante que o navegador envie os cookies de sessão sob `SameSite=Strict`, evitando redirecionar para login. O aviso de autorização continua aparecendo na volta.
 
   Contribuição de @saraivabr (#1579).
 
-- **As specs do token de servidor declaram o mesmo prefixo que o código emite** As especificações do token de servidor (Spec 01 e Spec 11) descreviam um prefixo e um formato que o código nunca emitiu; agora as duas declaram o formato implementado (`dsk_` + 8 hex aleatórios + segredo, com os 12 primeiros caracteres virando o prefixo que a tela exibe), e a Spec 01 registra por que o prefixo não carrega ambiente. Nenhum token é emitido, revogado ou regravado por isso: é alinhamento de documentação, e não há ação para quem opera a VPS.
+- **As specs do token de servidor declaram o mesmo prefixo que o código emite** As especificações (Spec 01 e Spec 11) descreviam um prefixo e formato que o código nunca emitiu; agora declaram o formato real (`dsk_` + 8 hex + segredo). Alinhamento de documentação — nenhum token muda, sem ação para quem opera.
 
   Contribuição de @webtecnica (#1601).
 
-- **Mensagem de WhatsApp que chega com o banco indisponível não se perde mais** Se o banco de dados demorava ou ficava fora por um instante (reinício, backup, sobrecarga) no momento em que um cliente mandava mensagem, ela era descartada em silêncio: não aparecia no Inbox e a IA não respondia. Agora o CRM pede ao WhatsApp que reenvie a mensagem, e o que ainda assim não entrar é reprocessado automaticamente a cada minuto, por até cerca de 20 minutos. Se mesmo assim a mensagem não puder ser gravada, um aviso aparece na Central pedindo para conferir as conversas no celular do número. Crédito: @Gervanno.
+- **Mensagem de WhatsApp que chega com o banco indisponível não se perde mais** Se o banco demorava ou ficava fora por um instante quando um cliente mandava mensagem, ela era descartada em silêncio. Agora o CRM pede reenvio ao WhatsApp, e o que não entrar é reprocessado a cada minuto por até ~20min; se mesmo assim falhar, um aviso aparece na Central. Crédito: @Gervanno.
 
-- **O worker de respostas automáticas usa a chave da instalação quando a conta não tem chave** Numa instalação cujo provedor registrado na organização não tem chave no `.env` (o `anthropic` que o banco semeia em toda organização nova, por exemplo, enquanto o instalador coletou só `OPENAI_API_KEY`), o worker que responde sozinho pulava a mensagem do cliente com `ai_gateway_key_missing` mesmo com a chave da instalação ali — enquanto o ensaio do agente e o "Sugerir resposta" respondiam. Esse degrau agora resolve o id do modelo pelo provedor do próprio modelo no catálogo, e os três caminhos passam a concordar; id que o catálogo não conhece continua sem resposta, sem chamar o endpoint de outro provedor. Não há ação para quem opera a VPS.
+- **O worker de respostas automáticas usa a chave da instalação quando a conta não tem chave** Numa instalação cujo provedor registrado não tem chave no `.env`, o worker pulava a mensagem do cliente com `ai_gateway_key_missing` mesmo com a chave da instalação ali, enquanto o ensaio e "Sugerir resposta" respondiam. Agora resolve o modelo pelo provedor certo, e os três caminhos concordam. Sem ação para quem opera.
 
   Contribuição de @webtecnica (#1597).
 
