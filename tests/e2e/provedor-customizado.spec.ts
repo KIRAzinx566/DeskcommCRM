@@ -2,8 +2,13 @@
  * O provedor "custom" (API compatível com OpenAI, endereço escolhido por quem
  * administra) — pela tela, nos dois lugares onde ele passou a existir.
  *
- * Bloco 1 (editor de agente, `AgentForm.tsx`): escolher "API customizada" faz
- * aparecer o campo de endereço com a moldura de OBRIGATÓRIO (diferente de
+ * O rótulo na tela é "Provedor personalizado" (renomeado do "API customizada"
+ * original pelo upstream) — o `id: "custom"` e as mensagens de validação
+ * ("Provider customizado exige...") não mudaram, só o texto da opção.
+ *
+ * Bloco 1 (editor de agente, `AgentForm.tsx`): escolher "Provedor
+ * personalizado" faz aparecer o campo de endereço com a moldura de
+ * OBRIGATÓRIO (diferente de
  * OpenRouter/NVIDIA, onde o mesmo campo é opcional); deixá-lo vazio bloqueia o
  * botão de salvar com a mensagem certa; preenchê-lo some com o erro. Também
  * prova que o seletor de credencial reconhece "custom" como provedor real
@@ -76,7 +81,7 @@ test.beforeEach(() => {
 // o login pode disparar uma re-semeadura de credenciais (banco compartilhado).
 test.describe.configure({ timeout: 240_000 });
 
-test.describe("Provedor 'API customizada' no editor de agente", () => {
+test.describe("'Provedor personalizado' no editor de agente", () => {
   test("endereço nasce obrigatório, bloqueia o salvar vazio, e some o erro ao preencher", async ({
     page,
   }) => {
@@ -90,8 +95,8 @@ test.describe("Provedor 'API customizada' no editor de agente", () => {
 
     const provider = page.locator("#provider");
     await provider.click();
-    await page.getByRole("option", { name: /API customizada/i }).click();
-    await expect(provider).toContainText(/API customizada/i);
+    await page.getByRole("option", { name: /Provedor personalizado/i }).click();
+    await expect(provider).toContainText(/Provedor personalizado/i);
 
     // O campo aparece com a moldura de OBRIGATÓRIO — diferente da moldura
     // "opcional" que OpenRouter/NVIDIA usam para o mesmo campo.
@@ -153,7 +158,7 @@ test.describe("Provedor 'API customizada' no editor de agente", () => {
   });
 });
 
-test.describe("Provedor 'API customizada' no painel de Provedores", () => {
+test.describe("'Provedor personalizado' no painel de Provedores", () => {
   let credsPanel: CredsE2E;
 
   test.beforeAll(() => {
@@ -172,7 +177,7 @@ test.describe("Provedor 'API customizada' no painel de Provedores", () => {
     await page.click('[data-testid="avancado-entender"]');
 
     await page.click('[data-testid="provider-sentiment_classify"]');
-    await page.getByRole("option", { name: /API customizada/i }).click();
+    await page.getByRole("option", { name: /Provedor personalizado/i }).click();
 
     // O campo nasce OBRIGATÓRIO — moldura diferente da que OpenRouter/NVIDIA
     // usam para o mesmo campo (lá é "opcional").
@@ -220,14 +225,14 @@ test.describe("Provedor 'API customizada' no painel de Provedores", () => {
 
 /**
  * Regressão de um bug real, achado em produção (não em teste): o diálogo
- * "Adicionar credencial" listava "API customizada" como opção de provider e
- * NÃO tinha campo de endereço nenhum — quem escolhesse "custom" recebia
- * sempre "Provider customizado exige o endereço do endpoint", sem jeito
- * nenhum de preencher o que faltava. AgentForm e o painel de Provedores
+ * "Adicionar credencial" listava o provedor personalizado como opção de
+ * provider e NÃO tinha campo de endereço nenhum — quem escolhesse "custom"
+ * recebia sempre "Provider customizado exige o endereço do endpoint", sem
+ * jeito nenhum de preencher o que faltava. AgentForm e o painel de Provedores
  * ganharam o campo; este terceiro lugar (AddCredentialDialog.tsx) ficou pra
  * trás porque nenhum spec de e2e cobria o cadastro de credencial pela tela.
  */
-test.describe("Provedor 'API customizada' no diálogo de Adicionar credencial", () => {
+test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", () => {
   let credsCred: CredsE2E;
 
   test.beforeAll(() => {
@@ -243,7 +248,7 @@ test.describe("Provedor 'API customizada' no diálogo de Adicionar credencial", 
     await page.getByRole("button", { name: /Adicionar credencial/i }).click();
 
     await page.locator("#cred-provider").click();
-    await page.getByRole("option", { name: /API customizada/i }).click();
+    await page.getByRole("option", { name: /Provedor personalizado/i }).click();
 
     // O campo existe (o bug era exatamente ele não existir) e nasce
     // OBRIGATÓRIO — moldura diferente de OpenRouter/NVIDIA, onde é opcional.
