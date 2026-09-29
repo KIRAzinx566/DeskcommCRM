@@ -271,7 +271,10 @@ test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", ()
     // placeholder, não mais um texto "(obrigatório)" separado).
     const baseUrl = page.locator("#cred-base-url");
     await expect(baseUrl).toBeVisible();
-    await expect(page.getByText(/Endereço \(base URL\)/i)).toBeVisible();
+    // `getByText` bateria também na frase de `quandoUsar` do provedor
+    // personalizado, que reusa "endereço (base URL)" na explicação — por
+    // isso a label pelo `for`, não texto livre.
+    await expect(page.locator('label[for="cred-base-url"]')).toHaveText(/Endereço \(base URL\)/i);
     await expect(baseUrl).toHaveAttribute("required", "");
 
     await page.locator("#cred-label").fill(`custom e2e ${Date.now()}`);
