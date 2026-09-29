@@ -24,11 +24,15 @@ function payload(): ExportPayload {
     messages_count_total: 0,
     messages_recent: [],
     leads: [],
+    honorarios_contratos: [],
+    honorarios_parcelas: [],
     orders: [],
     activities: [],
     appointments: [],
     sales: [],
+    proposals: [],
     tasks: [],
+    csat_requests: [],
     webhook_captures: [],
     audit_log_extract: [],
     meeting_deliveries: [
@@ -58,6 +62,8 @@ function payload(): ExportPayload {
     demandas: [],
     campaign_recipients: [],
     campaign_suppressions: [],
+    channel_session_groups: [],
+    group_messages_authored: [],
   appointment_notices: [
       {
         id: "aviso-aberto",

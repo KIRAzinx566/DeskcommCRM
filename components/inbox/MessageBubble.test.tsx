@@ -246,6 +246,43 @@ describe("MessageBubble — rótulo de origem", () => {
     expect(screen.getByText("Sistema")).toBeInTheDocument();
     expect(screen.queryByText("IA")).not.toBeInTheDocument();
   });
+
+  it("em nome de (#1613) nomeia a PESSOA e a integração, em vez de 'Sistema'", () => {
+    // O token é da organização, mas quem decidiu o envio foi uma pessoa no
+    // outro sistema (#1613). Os nomes vêm GRAVADOS em
+    // `metadata.sent_on_behalf` porque o balão não faz join: sem a coluna e
+    // sem os nomes na linha, este caso não teria o que mostrar.
+    render(
+      <MessageBubble
+        message={msg({
+          sent_via: "system",
+          sent_on_behalf_of_user_id: "pessoa-1",
+          metadata: {
+            sent_on_behalf: {
+              user_id: "pessoa-1",
+              user_name: "Fulano da Silva",
+              token_name: "ERP Externo",
+            },
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("Fulano da Silva · via ERP Externo")).toBeInTheDocument();
+    expect(screen.queryByText("Sistema")).not.toBeInTheDocument();
+  });
+
+  it("em nome de sem nome de token não promete a integração que não se sabe", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          sent_via: "system",
+          sent_on_behalf_of_user_id: "pessoa-1",
+          metadata: { sent_on_behalf: { user_id: "pessoa-1", user_name: "Fulano", token_name: null } },
+        })}
+      />,
+    );
+    expect(screen.getByText("Fulano")).toBeInTheDocument();
+  });
 });
 
 describe("MessageBubble — contenção de layout e quebra de palavras (#1451)", () => {
@@ -293,5 +330,51 @@ describe("pino compartilhado pelo cliente", () => {
     render(<MessageBubble message={msg({ direction: "inbound", type: "location", body: "📍 Location" })} />);
     expect(screen.getByText("📍 Location")).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Abrir no mapa/ })).toBeNull();
+  });
+});
+
+/**
+ * O remetente de GRUPO, acima do balão recebido.
+ *
+ * `metadata.group_sender` só é lido por `lerRemetenteDeGrupo`
+ * (`lib/messaging/remetente-de-grupo.ts`, Task 2) — este arquivo não conhece o
+ * formato bruto, só o resultado da leitura. Sem o nome de quem mandou, uma
+ * conversa de grupo lida no CRM mostra toda mensagem como se fosse da mesma
+ * pessoa, e é exatamente o WhatsApp que não faz essa confusão.
+ */
+describe("MessageBubble — remetente de grupo", () => {
+  it("mensagem de grupo mostra quem mandou acima do balão", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "inbound",
+          body: "bom dia",
+          metadata: { group_sender: { name: "Maria", phone: "+5521999990000", lid: null } },
+        })}
+      />,
+    );
+    expect(screen.getByText("Maria · +5521999990000")).toBeInTheDocument();
+  });
+
+  it("mensagem individual não mostra remetente", () => {
+    render(
+      <MessageBubble message={msg({ direction: "inbound", body: "bom dia", metadata: {} })} />,
+    );
+    expect(screen.queryByText(/·/)).toBeNull();
+  });
+
+  it("mensagem outbound não mostra remetente de grupo mesmo com metadata presente", () => {
+    // `lerRemetenteDeGrupo` só é chamado para `inbound` no componente — uma
+    // mensagem que ESTE CRM mandou não tem "quem mandou" a descobrir.
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "outbound",
+          body: "bom dia",
+          metadata: { group_sender: { name: "Maria", phone: "+5521999990000", lid: null } },
+        })}
+      />,
+    );
+    expect(screen.queryByText("Maria · +5521999990000")).toBeNull();
   });
 });

@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { crmSearchProducts } from "./comercio";
+import { crmSearchProducts, crmUpdateProductPrice } from "./comercio";
 import type { McpContext } from "../types";
+
+vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => {}) }));
 
 /** Só o formato do campo que este arquivo mede — não o contrato inteiro. */
 interface RespostaBusca {
@@ -78,5 +80,70 @@ describe("crm_search_products — preço na convenção da moeda", () => {
     )) as RespostaBusca;
 
     expect(semNbsp(resultado.produtos[0]!.preco)).toBe("R$ 249,90");
+  });
+});
+
+describe("crm_update_product_price", () => {
+  function ctxComUpdate(produto: Record<string, unknown> | null) {
+    const eqChamadas: unknown[][] = [];
+    const query = {
+      update: (patch: Record<string, unknown>) => {
+        (query as { _patch?: unknown })._patch = patch;
+        return query;
+      },
+      eq: (...args: unknown[]) => {
+        eqChamadas.push(args);
+        return query;
+      },
+      select: () => query,
+      maybeSingle: async () => ({ data: produto, error: null }),
+    };
+    const ctx = {
+      organizationId: "22222222-2222-4222-8222-222222222222",
+      role: "agent",
+      actor: { type: "ai_agent", id: "run-1", agent_id: "agent-1" },
+      apiTokenId: "33333333-3333-4333-8333-333333333333",
+      requestId: "44444444-4444-4444-8444-444444444444",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: { from: () => query } as any,
+    } as McpContext;
+    return { ctx, eqChamadas, query };
+  }
+
+  it("atualiza o preço e filtra por organização E código, nunca só um dos dois", async () => {
+    const { ctx, eqChamadas } = ctxComUpdate({
+      id: "11111111-1111-4111-8111-111111111111",
+      codigo: "ABC123",
+      nome: "Camiseta",
+      preco_cents: 5990,
+      moeda: "BRL",
+    });
+
+    const resultado = (await crmUpdateProductPrice.handler(
+      { codigo: "ABC123", novo_preco: "59,90" },
+      ctx,
+    )) as { preco_cents: number; produto: { codigo: string } };
+
+    expect(resultado.preco_cents).toBe(5990);
+    expect(resultado.produto.codigo).toBe("ABC123");
+    expect(eqChamadas).toContainEqual(["organization_id", ctx.organizationId]);
+    expect(eqChamadas).toContainEqual(["codigo", "ABC123"]);
+  });
+
+  it("recusa um código que não existe nesta loja", async () => {
+    const { ctx } = ctxComUpdate(null);
+    await expect(
+      crmUpdateProductPrice.handler({ codigo: "NAO-EXISTE", novo_preco: "10" }, ctx),
+    ).rejects.toThrow(/produto_nao_encontrado/);
+  });
+
+  it("recusa um preço que não consegue entender, sem chegar a tocar o banco", async () => {
+    const { ctx, query } = ctxComUpdate({ id: "x", codigo: "ABC123" });
+    const espiaUpdate = vi.spyOn(query, "update");
+
+    await expect(
+      crmUpdateProductPrice.handler({ codigo: "ABC123", novo_preco: "não sei" }, ctx),
+    ).rejects.toThrow(/preco_nao_entendido/);
+    expect(espiaUpdate).not.toHaveBeenCalled();
   });
 });

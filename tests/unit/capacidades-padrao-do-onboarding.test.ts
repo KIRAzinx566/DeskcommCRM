@@ -57,16 +57,26 @@ describe("capacidades padrão do onboarding", () => {
     ).toEqual([]);
   });
 
-  it("liga o pacote INTEIRO — meio pacote é uma lista que ninguém explica", () => {
-    expect(estadoDoPacote(IDS, CATALOGO, PACOTE_PADRAO_DO_ONBOARDING)).toBe("ligado");
+  it("liga o pacote INTEIRO alcançável — meio pacote é uma lista que ninguém explica", () => {
+    // `estadoDoPacote` não conhece o corte de `apenasHumano` (é uma regra só
+    // do DEFAULT, não do toggle geral do pacote — ver o comentário em
+    // `capacidadesPadraoDoOnboarding`), então lê "parcial" aqui de propósito:
+    // falta exatamente a capacidade que o agente publicado nunca alcançaria.
+    // A propriedade que importa é a mesma do nome do caso — nada ficou de fora
+    // por acaso — e quem prova isso é o caso seguinte, que confere a lista
+    // cheia.
+    expect(estadoDoPacote(IDS, CATALOGO, PACOTE_PADRAO_DO_ONBOARDING)).toBe("parcial");
   });
 
   it("acompanha o catálogo em vez de congelar uma cópia", () => {
     // Guarda contra alguém trocar a derivação por uma lista fixa: o conjunto
-    // tem de ser exatamente o que o pacote diz hoje, não o que ele dizia quando
-    // isto foi escrito.
+    // tem de ser exatamente o que o pacote diz hoje (risco não-crítico e
+    // alcançável pelo agente), não o que ele dizia quando isto foi escrito.
     const doPacote = CATALOGO.filter(
-      (c) => c.pacotes.includes(PACOTE_PADRAO_DO_ONBOARDING) && c.risco !== "critico",
+      (c) =>
+        c.pacotes.includes(PACOTE_PADRAO_DO_ONBOARDING) &&
+        c.risco !== "critico" &&
+        c.apenasHumano !== true,
     ).map((c) => c.name);
     expect([...IDS].sort()).toEqual([...doPacote].sort());
   });

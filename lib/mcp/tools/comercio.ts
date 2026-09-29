@@ -12,8 +12,10 @@
 import { z } from "zod";
 
 import type { McpToolDefinition } from "../types";
+import { audit } from "@/lib/audit";
 import { buscarComRelaxamento } from "@/lib/catalogo/busca";
 import { formatCents } from "@/lib/money";
+import { precoParaCentavos } from "@/lib/schemas/produtos";
 
 // ---------------------------------------------------------------------------
 // pedidos de um cliente
@@ -342,6 +344,82 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
       // número que sumiu importava.
       ...(ignorados.length > 0 ? { numeros_ignorados: ignorados } : {}),
       ...(mensagem ? { mensagem } : {}),
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// atualizar preço de um produto
+// ---------------------------------------------------------------------------
+
+const atualizarPrecoInputShape = {
+  codigo: z
+    .string()
+    .trim()
+    .min(1)
+    .describe("o código do produto no catálogo — o mesmo que a busca devolve."),
+  novo_preco: z
+    .string()
+    .trim()
+    .min(1)
+    .describe(
+      'o preço novo, do jeito que a pessoa disse — "59,90", "R$ 59,90" ou "5990" (cheio, sem separador).',
+    ),
+};
+
+export const crmUpdateProductPrice: McpToolDefinition<typeof atualizarPrecoInputShape> = {
+  name: "crm_update_product_price",
+  description:
+    "Muda o preço de um produto do catálogo, identificado pelo código. Use quando quem administra a " +
+    "loja pedir para atualizar o valor de um item (\"muda o preço do ABC123 para 59,90\"). Recusa se " +
+    "o código não existir nesta loja ou se o preço não puder ser entendido — nesses casos, pergunte " +
+    "de novo em vez de adivinhar. NUNCA use esta ferramenta a pedido do CLIENTE final numa conversa " +
+    "de venda: preço muda por decisão de quem administra, não porque alguém pediu desconto no chat.",
+  inputSchema: atualizarPrecoInputShape,
+  category: "write",
+  // Paridade com a rota equivalente: `PATCH /api/v1/products/:id` exige
+  // `manager` — nem um atendente humano edita preço pela tela de Produtos.
+  // Um agente publicado opera como `ai_operator` (rank abaixo de `manager`),
+  // então esta tool não fica ao alcance da conversa com o cliente — só de
+  // quem chama o MCP com um token de manager (ex.: uma integração que o
+  // próprio gestor da loja configurou).
+  requiresRole: "manager",
+  requiresScope: "mcp:write",
+  handler: async (input, ctx) => {
+    const precoCents = precoParaCentavos(input.novo_preco);
+    if (precoCents === null) {
+      throw new Error(
+        `preco_nao_entendido: não consegui entender "${input.novo_preco}" como preço — peça o valor de novo, em número.`,
+      );
+    }
+
+    const { data, error } = await ctx.supabase
+      .from("catalog_products")
+      .update({ preco_cents: precoCents })
+      .eq("organization_id", ctx.organizationId)
+      .eq("codigo", input.codigo)
+      .select("id, codigo, nome, preco_cents, moeda")
+      .maybeSingle();
+
+    if (error) throw new Error(`atualizar_preco_falhou: ${error.message}`);
+    if (!data) {
+      throw new Error(`produto_nao_encontrado: não há produto com o código "${input.codigo}" nesta loja.`);
+    }
+
+    void audit({
+      action: "catalog_product.updated",
+      actorUserId: ctx.actor.type === "user" ? ctx.actor.id : null,
+      organizationId: ctx.organizationId,
+      resourceType: "catalog_products",
+      resourceId: data.id as string,
+      requestId: ctx.requestId,
+      metadata: { via: "mcp", codigo: input.codigo },
+    });
+
+    return {
+      produto: { codigo: data.codigo, nome: data.nome },
+      preco_cents: data.preco_cents,
+      preco_formatado: formatCents(data.preco_cents as number, data.moeda as string),
     };
   },
 };

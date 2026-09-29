@@ -232,7 +232,9 @@ export async function runAutomationForEvent(
 
   for (const rule of applicable) {
     const results: ActionResultDetail[] = [];
-    for (const action of rule.actions ?? []) {
+    // O índice é o da lista INTEIRA — a posição do resultado em
+    // `actions_result` e parte do id da entrega do webhook (#1529).
+    for (const [indiceDaAcao, action] of (rule.actions ?? []).entries()) {
       const executor = getAction(action.type);
       if (!executor) {
         results.push({ type: action.type, status: "failed", error: "unknown_action" });
@@ -244,7 +246,18 @@ export async function runAutomationForEvent(
       const started_at = new Date().toISOString();
       try {
         const result = await executor.execute(
-          { admin, serviceBoundaries, organizationId: row.organization_id, ruleId: rule.id, ruleName: rule.name, event: row, context, requestId: row.id },
+          {
+            admin,
+            serviceBoundaries,
+            organizationId: row.organization_id,
+            ruleId: rule.id,
+            ruleName: rule.name,
+            event: row,
+            context,
+            requestId: row.id,
+            actionIndex: indiceDaAcao,
+            ruleActions: rule.actions ?? [],
+          },
           action.config ?? {},
         );
         results.push({ ...result, started_at, finished_at: new Date().toISOString() });

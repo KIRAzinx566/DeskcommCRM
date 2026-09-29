@@ -261,6 +261,9 @@ describe("GET /api/v1/pipelines/[id]/agent-mapping", () => {
       is_won: false,
       is_lost: false,
       win_probability: null,
+      // Migration 0440: a tela de etapas lê daqui a chave «avisar na Central».
+      // Ausente na fixture = etapa anterior à coluna = desligada.
+      avisar_na_central: false,
       last_change_actor_kind: null,
       last_change_at: null,
     });

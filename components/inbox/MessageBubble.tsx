@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Message } from "@/lib/types/messaging";
+import { lerRemetenteDeGrupo, rotuloDoRemetente } from "@/lib/messaging/remetente-de-grupo";
 import { CitationButton } from "@/components/ai/CitationButton";
 import { MediaRenderer } from "@/components/inbox/media/MediaRenderer";
 import { ContactCard } from "@/components/inbox/media/ContactCard";
@@ -26,6 +27,7 @@ import {
 
 interface Props {
   message: Message;
+  searchMatch?: boolean;
   debugCitations?: boolean;
   /** Escolher esta mensagem para responder "em cima" dela. */
   onResponder?: (m: Message) => void;
@@ -63,6 +65,7 @@ function AckIndicator({ status, t }: { status: string; t: (texto: string) => str
 
 export function MessageBubble({
   message,
+  searchMatch = false,
   debugCitations,
   onResponder,
   citada,
@@ -135,6 +138,23 @@ export function MessageBubble({
   // par é vigiado nas duas direções por tests/unit/rotulo-de-origem-tem-emissor.
   const senderLabel = (() => {
     if (!isOutbound) return null;
+    // #1613: a autoria "em nome de" sobe a MESA. Quem apertou foi o token, mas
+    // quem decidiu foi uma pessoa no outro sistema — sem este ramo a conversa
+    // leria "Sistema" e perderia quem mandou. Os nomes vêm GRAVADOS na própria
+    // linha (`metadata.sent_on_behalf`, escrito pelo handler), porque o balão
+    // não faz join: o que não está na linha não aparece em lugar nenhum.
+    const emNomeDe = message.sent_on_behalf_of_user_id
+      ? (message.metadata?.sent_on_behalf as
+          | { user_name?: string | null; token_name?: string | null }
+          | undefined)
+      : undefined;
+    if (emNomeDe) {
+      const nome = emNomeDe.user_name?.trim() || t("Atendente");
+      // "Fulano · via {token}": só a palavra "via" passa por `t()`; os nomes
+      // são dado do operador e saem como cadastrados — traduzir nome próprio é
+      // o mesmo erro de #1046.
+      return emNomeDe.token_name ? `${nome} · ${t("via")} ${emNomeDe.token_name}` : nome;
+    }
     if (message.sent_via === "ai") return "IA";
     // A REGRA falou, e não a IA: texto fixo de automação, follow-up ou lembrete
     // de agenda (#652). O ramo passou a existir porque o valor passou a ser
@@ -156,6 +176,12 @@ export function MessageBubble({
     }
     return null;
   })();
+  // QUEM MANDOU, num grupo. Só faz sentido em mensagem RECEBIDA: uma mensagem
+  // que ESTE CRM enviou não tem remetente a descobrir, é sempre o atendente (ou
+  // a IA) — e `senderLabel`, acima, já diz quem foi. A leitura do dado bruto é
+  // `lerRemetenteDeGrupo` (Task 2): este componente não conhece o formato de
+  // `metadata.group_sender`, só o resultado já validado.
+  const remetente = !isOutbound ? lerRemetenteDeGrupo(message.metadata) : null;
 
   async function salvarEdicao() {
     const novoTexto = texto.trim();
@@ -171,6 +197,7 @@ export function MessageBubble({
 
   return (
     <div
+      data-search-match={searchMatch || undefined}
       className={cn(
         "group flex w-full min-w-0 items-center gap-1 px-4 py-1",
         isOutbound ? "justify-end" : "justify-start",
@@ -194,6 +221,9 @@ export function MessageBubble({
                   : "rounded-bl-sm bg-muted text-foreground",
               ),
           isFailed && "border border-destructive",
+          // A marca da busca é ANEL, não cor de fundo: o fundo já diz de quem é
+          // a mensagem, e trocá-lo apagaria essa leitura justo na bolha achada.
+          searchMatch && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
           apagada && "opacity-70",
         )}
       >
@@ -289,6 +319,11 @@ export function MessageBubble({
                 : citada.body?.trim() || t("(sem texto)")}
             </div>
           </div>
+        )}
+        {remetente && (
+          <p className="mb-0.5 text-[11px] font-medium text-muted-foreground">
+            {rotuloDoRemetente(remetente)}
+          </p>
         )}
         {senderLabel && (
           <div className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold opacity-80">

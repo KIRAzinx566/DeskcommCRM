@@ -2,8 +2,13 @@
  * O provedor "custom" (API compatível com OpenAI, endereço escolhido por quem
  * administra) — pela tela, nos dois lugares onde ele passou a existir.
  *
- * Bloco 1 (editor de agente, `AgentForm.tsx`): escolher "API customizada" faz
- * aparecer o campo de endereço com a moldura de OBRIGATÓRIO (diferente de
+ * O rótulo na tela é "Provedor personalizado" (renomeado do "API customizada"
+ * original pelo upstream) — o `id: "custom"` e as mensagens de validação
+ * ("Provider customizado exige...") não mudaram, só o texto da opção.
+ *
+ * Bloco 1 (editor de agente, `AgentForm.tsx`): escolher "Provedor
+ * personalizado" faz aparecer o campo de endereço com a moldura de
+ * OBRIGATÓRIO (diferente de
  * OpenRouter/NVIDIA, onde o mesmo campo é opcional); deixá-lo vazio bloqueia o
  * botão de salvar com a mensagem certa; preenchê-lo some com o erro. Também
  * prova que o seletor de credencial reconhece "custom" como provedor real
@@ -27,7 +32,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./helpers/test";
 
 import { lerCreds, loginComoAdmin, type CredsE2E } from "./helpers/login-admin";
 
@@ -76,7 +81,7 @@ test.beforeEach(() => {
 // o login pode disparar uma re-semeadura de credenciais (banco compartilhado).
 test.describe.configure({ timeout: 240_000 });
 
-test.describe("Provedor 'API customizada' no editor de agente", () => {
+test.describe("'Provedor personalizado' no editor de agente", () => {
   test("endereço nasce obrigatório, bloqueia o salvar vazio, e some o erro ao preencher", async ({
     page,
   }) => {
@@ -90,8 +95,8 @@ test.describe("Provedor 'API customizada' no editor de agente", () => {
 
     const provider = page.locator("#provider");
     await provider.click();
-    await page.getByRole("option", { name: /API customizada/i }).click();
-    await expect(provider).toContainText(/API customizada/i);
+    await page.getByRole("option", { name: /Provedor personalizado/i }).click();
+    await expect(provider).toContainText(/Provedor personalizado/i);
 
     // O campo aparece com a moldura de OBRIGATÓRIO — diferente da moldura
     // "opcional" que OpenRouter/NVIDIA usam para o mesmo campo.
@@ -153,7 +158,7 @@ test.describe("Provedor 'API customizada' no editor de agente", () => {
   });
 });
 
-test.describe("Provedor 'API customizada' no painel de Provedores", () => {
+test.describe("'Provedor personalizado' no painel de Provedores", () => {
   let credsPanel: CredsE2E;
 
   test.beforeAll(() => {
@@ -172,7 +177,7 @@ test.describe("Provedor 'API customizada' no painel de Provedores", () => {
     await page.click('[data-testid="avancado-entender"]');
 
     await page.click('[data-testid="provider-sentiment_classify"]');
-    await page.getByRole("option", { name: /API customizada/i }).click();
+    await page.getByRole("option", { name: /Provedor personalizado/i }).click();
 
     // O campo nasce OBRIGATÓRIO — moldura diferente da que OpenRouter/NVIDIA
     // usam para o mesmo campo (lá é "opcional").
@@ -220,14 +225,30 @@ test.describe("Provedor 'API customizada' no painel de Provedores", () => {
 
 /**
  * Regressão de um bug real, achado em produção (não em teste): o diálogo
- * "Adicionar credencial" listava "API customizada" como opção de provider e
- * NÃO tinha campo de endereço nenhum — quem escolhesse "custom" recebia
- * sempre "Provider customizado exige o endereço do endpoint", sem jeito
- * nenhum de preencher o que faltava. AgentForm e o painel de Provedores
+ * "Adicionar credencial" listava o provedor personalizado como opção de
+ * provider e NÃO tinha campo de endereço nenhum — quem escolhesse "custom"
+ * recebia sempre "Provider customizado exige o endereço do endpoint", sem
+ * jeito nenhum de preencher o que faltava. AgentForm e o painel de Provedores
  * ganharam o campo; este terceiro lugar (AddCredentialDialog.tsx) ficou pra
  * trás porque nenhum spec de e2e cobria o cadastro de credencial pela tela.
+ *
+ * O upstream depois reescreveu este diálogo (#1642): o campo passou a se
+ * chamar "Endereço (base URL)" (a moldura "(obrigatório)" virou placeholder,
+ * não mais texto visível separado), a validação de vazio ganhou outra frase,
+ * e "Salvar e validar" passou a TESTAR a conectividade (`POST
+ * /api/v1/ai/credentials/test`, que faz `GET {base}/models` no servidor)
+ * ANTES de gravar — só então existe o segundo POST que grava a credencial.
+ *
+ * A resposta dessa PRIMEIRA chamada é interceptada aqui: `validateCustomKey`
+ * (`lib/ai/provider-validators.ts`) recusa destino de rede interna
+ * (`motivoDaRecusaDeDestino`) por design anti-SSRF, então nenhum endereço
+ * alcançável de dentro deste worktree (loopback incluso) prova esse teste de
+ * verdade — e um domínio de exemplo genuinamente não responde. O que ESTE
+ * caso prova é o resto do fluxo pela tela (campo, validação, gravação real no
+ * banco); o `validateCustomKey`/anti-SSRF tem cobertura própria em
+ * `lib/ai/provider-validators.test.ts`, contra rede de verdade.
  */
-test.describe("Provedor 'API customizada' no diálogo de Adicionar credencial", () => {
+test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", () => {
   let credsCred: CredsE2E;
 
   test.beforeAll(() => {
@@ -243,23 +264,45 @@ test.describe("Provedor 'API customizada' no diálogo de Adicionar credencial", 
     await page.getByRole("button", { name: /Adicionar credencial/i }).click();
 
     await page.locator("#cred-provider").click();
-    await page.getByRole("option", { name: /API customizada/i }).click();
+    await page.getByRole("option", { name: /Provedor personalizado/i }).click();
 
     // O campo existe (o bug era exatamente ele não existir) e nasce
-    // OBRIGATÓRIO — moldura diferente de OpenRouter/NVIDIA, onde é opcional.
+    // obrigatório (o `required` do input — a moldura visível hoje é o
+    // placeholder, não mais um texto "(obrigatório)" separado).
     const baseUrl = page.locator("#cred-base-url");
     await expect(baseUrl).toBeVisible();
-    await expect(page.getByText(/Endereço do endpoint \(obrigatório\)/i)).toBeVisible();
+    // `getByText` bateria também na frase de `quandoUsar` do provedor
+    // personalizado, que reusa "endereço (base URL)" na explicação — por
+    // isso a label pelo `for`, não texto livre.
+    await expect(page.locator('label[for="cred-base-url"]')).toHaveText(/Endereço \(base URL\)/i);
+    await expect(baseUrl).toHaveAttribute("required", "");
 
     await page.locator("#cred-label").fill(`custom e2e ${Date.now()}`);
     await page.locator("#cred-key").fill("sk-teste-0123456789");
 
-    // Vazio: a validação do próprio diálogo barra ANTES de enviar — nunca
-    // chega a bater no servidor pra receber o erro que o bug original dava.
+    // Preenchido mas sem cara de URL: o campo tem `required` nativo do HTML
+    // (deixá-lo REALMENTE vazio faz o navegador barrar o submit sozinho,
+    // antes até do `onSubmit` — não dá pra ver a mensagem da APLICAÇÃO nesse
+    // caso). Com algo digitado, o clique chega ao JS e é a validação da
+    // aplicação (regex `^https?:\/\/`) que recusa.
+    await baseUrl.fill("não é uma url");
     await page.getByRole("button", { name: /Salvar e validar/i }).click();
     await expect(
-      page.getByText(/Provider customizado exige o endereço do endpoint/i),
+      page.getByText(/Informe o endereço \(base URL\) começando com http/i),
     ).toBeVisible();
+
+    // A partir daqui o clique dispara o teste de conectividade real
+    // (`POST /api/v1/ai/credentials/test`) antes de gravar — sem um endpoint
+    // OpenAI-compatível alcançável neste ambiente (e o anti-SSRF recusaria
+    // qualquer loopback de propósito), a resposta é simulada; o POST que
+    // GRAVA a credencial (`/api/v1/ai/credentials`) segue real, sem mock.
+    await page.route("**/api/v1/ai/credentials/test", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { ok: true, models: ["modelo-de-teste"], error: null } }),
+      });
+    });
 
     // Preenchido: o cadastro completa — a mesma tela que sempre falhava agora
     // fecha com sucesso.
