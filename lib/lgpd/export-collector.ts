@@ -251,6 +251,26 @@ export interface TaskRow {
 }
 
 /**
+ * Resposta à pesquisa de satisfação (CSAT) — achada por
+ * `tests/unit/lgpd-exporta-o-que-redige.test.ts`, o mesmo gate que já achou
+ * `calendar_appointments` e `webhook_lead_captures`: o trigger
+ * `trg_redigir_csat_ao_anonimizar` (migration 0485) apaga `raw_reply` quando o
+ * titular pede apagamento, e o que se apaga a pedido dele é o que se entrega
+ * a pedido dele.
+ *
+ * `status`, `score` e os timestamps vão junto porque não são dado da pessoa
+ * (é a métrica de CSAT); só `raw_reply` é o texto que ela escreveu.
+ */
+export interface CsatRequestRow {
+  id: string;
+  status: string;
+  score: number | null;
+  raw_reply: string | null;
+  sent_at: string;
+  answered_at: string | null;
+}
+
+/**
  * Captação por webhook — de onde a pessoa veio.
  *
  * ⚠️ ESTA NÃO É DA ENTREGA DO CALENDÁRIO. Ela apareceu porque o gate novo
@@ -567,6 +587,7 @@ export interface ExportPayload {
   sales: SaleRow[];
   proposals: ProposalRow[];
   tasks: TaskRow[];
+  csat_requests: CsatRequestRow[];
   webhook_captures: CaptureRow[];
   audit_log_extract: AuditRow[];
   meeting_deliveries: MeetingDeliveryRow[];
@@ -1315,6 +1336,30 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     }
   }
 
+  // CSAT — contact_id direto em csat_requests (migration 0485).
+  //
+  // O texto que o titular escreveu ao responder a pesquisa de satisfação é
+  // dado dele — mesma classe de `messages.body`. O trigger de anonimização a
+  // apaga; o pedido de acesso tem de entregá-la.
+  let csat_requests: CsatRequestRow[] = [];
+  if (contactId) {
+    const { data, error } = await admin
+      .from("csat_requests")
+      .select("id, status, score, raw_reply, sent_at, answered_at")
+      .eq("organization_id", organizationId)
+      .eq("contact_id", contactId)
+      .order("sent_at", { ascending: false })
+      .limit(500);
+    if (error) {
+      logger.warn("[lgpd-export-worker] csat_requests load failed", {
+        request_id: requestId,
+        error: error.message,
+      });
+    } else if (data) {
+      csat_requests = data;
+    }
+  }
+
   // Chamadas de voz — `contact_id` direto em `voice_calls` (migration 0232).
   //
   // O que existe aqui é o REGISTRO da ligação, nunca o áudio: gravação está
@@ -1900,6 +1945,7 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     sales,
     proposals,
     tasks,
+    csat_requests,
     webhook_captures,
     audit_log_extract,
     reply_drafts,
@@ -1954,6 +2000,7 @@ function emptyPayload(
     sales: [],
     proposals: [],
     tasks: [],
+    csat_requests: [],
     webhook_captures: [],
     audit_log_extract: [],
     meeting_deliveries: [],
