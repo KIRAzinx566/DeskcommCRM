@@ -44369,3 +44369,40 @@ comment on column public.knowledge_searches.author_kind is
 comment on column public.knowledge_searches.author_user_id is
   'Operador que perguntou no caminho humano. null no caminho do agente, e também quando a pessoa sai do sistema — on delete set null preserva a pergunta, por isso não há check acoplando esta coluna à author_kind.';
 
+
+
+-- ---- CSAT entra na cascata de anonimização, via gatilho (migration 0485) ----
+-- `csat_requests.raw_reply` guarda o que o CLIENTE respondeu à pesquisa de
+-- satisfação — mesma classe de dado que `messages.body` (passo 3 da própria
+-- cascata), numa tabela que `fn_lgpd_cascade_redact_contact` não alcança. Sem
+-- este trigger, anonimizar devolve SUCESSO com o texto ainda legível aqui.
+-- status, score e os timestamps são PRESERVADOS — métrica de CSAT, não dado
+-- da pessoa. Molde de trg_redigir_tarefas_ao_anonimizar (0210).
+create or replace function public.fn_redigir_csat_do_contato_anonimizado()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update public.csat_requests
+     set raw_reply = null
+   where organization_id = new.organization_id
+     and contact_id = new.id
+     and raw_reply is not null;
+  return new;
+end;
+$$;
+
+revoke execute on function public.fn_redigir_csat_do_contato_anonimizado() from public, anon, authenticated;
+grant  execute on function public.fn_redigir_csat_do_contato_anonimizado() to service_role;
+
+drop trigger if exists trg_redigir_csat_ao_anonimizar on public.contacts;
+create trigger trg_redigir_csat_ao_anonimizar
+  after update of is_anonymized on public.contacts
+  for each row
+  when (new.is_anonymized is true and old.is_anonymized is distinct from true)
+  execute function public.fn_redigir_csat_do_contato_anonimizado();
+
+comment on column public.csat_requests.raw_reply is
+  'Resposta em texto livre do cliente à pesquisa de satisfação — mesma classe de dado que messages.body. O trigger trg_redigir_csat_ao_anonimizar a apaga quando o contato é anonimizado. status, score e os timestamps são PRESERVADOS: a métrica de CSAT da organização não é dado da pessoa.';

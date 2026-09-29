@@ -247,6 +247,11 @@ const DECISOES: Record<string, Decisao> = {
     caminho: "gatilho",
     razao: "0174: captured_name/captured_email/captured_phone (o payload cru de captação) zerados por gatilho — a entrada na dívida do invariante irmão é o aviso de que este instrumento não lia gatilho.",
   },
+  csat_requests: {
+    decidida: "redigir",
+    caminho: "gatilho",
+    razao: "0485: raw_reply (o que o CLIENTE respondeu à pesquisa de satisfação) é a mesma classe de dado que messages.body, numa tabela que a função canônica não alcança — lê por contact_id, não por texto de conversa. fn_redigir_csat_do_contato_anonimizado zera raw_reply na virada; status, score e os timestamps ficam, porque são a métrica de CSAT da organização, não dado da pessoa.",
+  },
   // ── manter: a linha e o conteúdo ficam, por decisão ───────────────────────
   ai_agent_runs: {
     decidida: "manter",
@@ -299,6 +304,10 @@ const DECISOES: Record<string, Decisao> = {
   send_ledger: {
     decidida: "manter",
     razao: "body_hash é IRREVERSÍVEL (a própria doutrina do invariante irmão manda `_hash` ficar de fora) e last_error/status são código; é a prova de que a mensagem saiu, sem guardar o que ela dizia.",
+  },
+  billing_charges: {
+    decidida: "manter",
+    razao: "Cobrança (boleto/Pix/cartão) via gateway externo: amount_cents, status, method e datas são o registro fiscal da cobrança, mesma obrigação de guarda de orders/sales. Nenhuma coluna nomeia a pessoa (sem name/email/phone/cpf) — description é rótulo curto que QUEM CRIA a cobrança escreve (não o texto do cliente), e payload é a resposta técnica do gateway (status, ids de transação), não uma cópia de conversa.",
   },
 };
 
