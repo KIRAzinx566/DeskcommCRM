@@ -231,6 +231,22 @@ test.describe("'Provedor personalizado' no painel de Provedores", () => {
  * jeito nenhum de preencher o que faltava. AgentForm e o painel de Provedores
  * ganharam o campo; este terceiro lugar (AddCredentialDialog.tsx) ficou pra
  * trás porque nenhum spec de e2e cobria o cadastro de credencial pela tela.
+ *
+ * O upstream depois reescreveu este diálogo (#1642): o campo passou a se
+ * chamar "Endereço (base URL)" (a moldura "(obrigatório)" virou placeholder,
+ * não mais texto visível separado), a validação de vazio ganhou outra frase,
+ * e "Salvar e validar" passou a TESTAR a conectividade (`POST
+ * /api/v1/ai/credentials/test`, que faz `GET {base}/models` no servidor)
+ * ANTES de gravar — só então existe o segundo POST que grava a credencial.
+ *
+ * A resposta dessa PRIMEIRA chamada é interceptada aqui: `validateCustomKey`
+ * (`lib/ai/provider-validators.ts`) recusa destino de rede interna
+ * (`motivoDaRecusaDeDestino`) por design anti-SSRF, então nenhum endereço
+ * alcançável de dentro deste worktree (loopback incluso) prova esse teste de
+ * verdade — e um domínio de exemplo genuinamente não responde. O que ESTE
+ * caso prova é o resto do fluxo pela tela (campo, validação, gravação real no
+ * banco); o `validateCustomKey`/anti-SSRF tem cobertura própria em
+ * `lib/ai/provider-validators.test.ts`, contra rede de verdade.
  */
 test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", () => {
   let credsCred: CredsE2E;
@@ -251,10 +267,12 @@ test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", ()
     await page.getByRole("option", { name: /Provedor personalizado/i }).click();
 
     // O campo existe (o bug era exatamente ele não existir) e nasce
-    // OBRIGATÓRIO — moldura diferente de OpenRouter/NVIDIA, onde é opcional.
+    // obrigatório (o `required` do input — a moldura visível hoje é o
+    // placeholder, não mais um texto "(obrigatório)" separado).
     const baseUrl = page.locator("#cred-base-url");
     await expect(baseUrl).toBeVisible();
-    await expect(page.getByText(/Endereço do endpoint \(obrigatório\)/i)).toBeVisible();
+    await expect(page.getByText(/Endereço \(base URL\)/i)).toBeVisible();
+    await expect(baseUrl).toHaveAttribute("required", "");
 
     await page.locator("#cred-label").fill(`custom e2e ${Date.now()}`);
     await page.locator("#cred-key").fill("sk-teste-0123456789");
@@ -263,8 +281,21 @@ test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", ()
     // chega a bater no servidor pra receber o erro que o bug original dava.
     await page.getByRole("button", { name: /Salvar e validar/i }).click();
     await expect(
-      page.getByText(/Provider customizado exige o endereço do endpoint/i),
+      page.getByText(/Informe o endereço \(base URL\) começando com http/i),
     ).toBeVisible();
+
+    // A partir daqui o clique dispara o teste de conectividade real
+    // (`POST /api/v1/ai/credentials/test`) antes de gravar — sem um endpoint
+    // OpenAI-compatível alcançável neste ambiente (e o anti-SSRF recusaria
+    // qualquer loopback de propósito), a resposta é simulada; o POST que
+    // GRAVA a credencial (`/api/v1/ai/credentials`) segue real, sem mock.
+    await page.route("**/api/v1/ai/credentials/test", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { ok: true, models: ["modelo-de-teste"], error: null } }),
+      });
+    });
 
     // Preenchido: o cadastro completa — a mesma tela que sempre falhava agora
     // fecha com sucesso.
