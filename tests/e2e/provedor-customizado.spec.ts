@@ -280,8 +280,12 @@ test.describe("'Provedor personalizado' no diálogo de Adicionar credencial", ()
     await page.locator("#cred-label").fill(`custom e2e ${Date.now()}`);
     await page.locator("#cred-key").fill("sk-teste-0123456789");
 
-    // Vazio: a validação do próprio diálogo barra ANTES de enviar — nunca
-    // chega a bater no servidor pra receber o erro que o bug original dava.
+    // Preenchido mas sem cara de URL: o campo tem `required` nativo do HTML
+    // (deixá-lo REALMENTE vazio faz o navegador barrar o submit sozinho,
+    // antes até do `onSubmit` — não dá pra ver a mensagem da APLICAÇÃO nesse
+    // caso). Com algo digitado, o clique chega ao JS e é a validação da
+    // aplicação (regex `^https?:\/\/`) que recusa.
+    await baseUrl.fill("não é uma url");
     await page.getByRole("button", { name: /Salvar e validar/i }).click();
     await expect(
       page.getByText(/Informe o endereço \(base URL\) começando com http/i),
