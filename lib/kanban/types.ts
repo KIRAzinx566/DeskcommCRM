@@ -32,7 +32,15 @@ export interface Stage {
   is_lost: boolean;
   is_archived: boolean;
   expected_duration_hours: number | null;
-  /** Probabilidade de fechar (0-100), migration 0210. `null` = fora do cálculo ponderado. */
+  /**
+   * Probabilidade de fechar/GANHO da etapa, 0–100 (migration 0210, recalibrada
+   * pela 0427). `null` = sem calibração, fora do cálculo ponderado — a coluna
+   * do quadro só mostra a linha "ponderado" quando a etapa tem número, para
+   * não exibir um zero que ninguém calibrou.
+   *
+   * `is_won`/`is_lost` valem 100 e 0 na regra (`lib/leads/previsao.ts` /
+   * `lib/kanban/previsao.ts`).
+   */
   win_probability: number | null;
 }
 

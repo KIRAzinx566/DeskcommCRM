@@ -11,6 +11,14 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
  * Generalizado de uma versão anterior que só reenviava `call_webhook` — e
  * TODAS as ações desse tipo, não só as que tinham falhado. Duas correções
  * no mesmo PR: por tipo→por índice, e "todas"→"só as que falharam/pularam".
+ *
+ * `call_webhook` especificamente preserva a MESMA ENTREGA (#1529): o id da
+ * entrega é recalculado com a posição da ação na lista inteira da regra e
+ * com a própria lista — igual ao do disparo original enquanto as ações não
+ * mudarem; mudaram, sai um id novo, e nunca o de outra ação que o receptor já
+ * processou —, o número da tentativa continua de onde os runs anteriores do
+ * mesmo par (regra, evento) pararam, e o resultado aponta para o run clicado
+ * em `detail.resent_from_run_id`.
  */
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
@@ -22,12 +30,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildContext } from "@/lib/automation/engine";
 import { getAction } from "@/lib/automation/actions";
-// Side-effect: registra os executores. A versão anterior desta rota importava
-// `executeCallWebhook` direto (sem passar pelo registro); a generalização
-// pra `getAction(action.type)` genérico passou a depender do registro estar
-// populado, e precisa do mesmo import que `engine.handler.ts` faz pro
-// caminho de produção — esta rota não passa por ele.
+// Side-effect: registra os executores. A generalização pra `getAction(action.type)`
+// genérico depende do registro estar populado, e precisa do mesmo import que
+// `engine.handler.ts` faz pro caminho de produção — esta rota não passa por ele.
 import "@/lib/automation/actions/register-all";
+import {
+  executeCallWebhook,
+  idDaEntrega,
+  tentativasRegistradas,
+} from "@/lib/automation/actions/call-webhook";
 import { decidirRetomada } from "@/lib/automation/retomar";
 import { agregarStatusDoRun } from "@/lib/automation/agregar-status";
 import type { ActionCtx, ActionResultDetail } from "@/lib/automation/types";
@@ -83,9 +94,30 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
   const ruleActions = (rule.actions ?? []) as RuleAction[];
   const originalResults = (run.actions_result ?? []) as ActionResultDetail[];
 
-  const decisao = decidirRetomada(ruleActions.length, originalResults);
-  if (!decisao.ok) {
-    if (decisao.codigo === "rule_changed") {
+  // `call_webhook` sai da conta de "só o que falhou": Reenviar existe para o
+  // RECEPTOR receber de novo, e o receptor não sabe (nem importa) se o nosso
+  // lado marcou sucesso — é o contrato de entrega do #1529. Por isso toda ação
+  // deste tipo entra pela posição ATUAL da regra, sempre, mesmo quando a regra
+  // mudou de tamanho: o id da entrega é recalculado da lista de hoje, e uma
+  // ação removida nunca herda o id da que saiu (a que assume a posição ganha
+  // id novo). As outras ações seguem a régua genérica — só failed/skipped, e só
+  // quando dá para confiar no índice contra o resultado original.
+  const indicesWebhookAtual = ruleActions
+    .map((a, i) => (a.type === "call_webhook" ? i : -1))
+    .filter((i) => i >= 0);
+
+  const regraMudouDeTamanho = ruleActions.length !== originalResults.length;
+  const decisaoGenerica = regraMudouDeTamanho
+    ? null
+    : decidirRetomada(ruleActions.length, originalResults);
+  const indicesFalhosOuPulados = decisaoGenerica?.ok ? decisaoGenerica.indices : [];
+
+  const indicesParaRetomar = [...new Set([...indicesFalhosOuPulados, ...indicesWebhookAtual])].sort(
+    (a, b) => a - b,
+  );
+
+  if (indicesParaRetomar.length === 0) {
+    if (regraMudouDeTamanho) {
       return fail(
         "rule_changed",
         "Esta automação mudou desde essa execução — não dá para retomar com segurança. Rode a regra de novo (ou teste-a) para gerar um run atual.",
@@ -100,7 +132,6 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
       { requestId },
     );
   }
-  const indicesParaRetomar = decisao.indices;
 
   const { data: eventRow, error: eventErr } = await supabase
     .from("event_log")
@@ -115,6 +146,19 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
 
   const typedEvent = eventRow as unknown as EventRow;
   const context = await buildContext(supabase, typedEvent);
+
+  // Todos os runs do par (regra, evento), não só o clicado: dois Reenviar
+  // seguidos a partir do mesmo run original não podem repetir o Attempt de um
+  // `call_webhook`. Dois cliques SIMULTÂNEOS ainda podem — leitura e escrita
+  // sem trava —, e isso é aceitável: Attempt é informativo, a chave do
+  // receptor é o Delivery.
+  const { data: runsDoPar, error: runsErr } = await supabase
+    .from("automation_rule_runs")
+    .select("actions_result")
+    .eq("organization_id", activeOrg.orgId)
+    .eq("rule_id", rule.id)
+    .eq("event_id", typedEvent.id);
+  if (runsErr) return fail("internal_error", runsErr.message, 500, { requestId });
 
   // Admin real no ctx: mesmo motivo de sempre — algum executor decifra
   // segredo via RPC restrita a service_role (ex.: call_webhook usa
@@ -131,12 +175,7 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
   const merged = [...originalResults];
   for (const i of indicesParaRetomar) {
     const action = ruleActions[i]!;
-    const executor = getAction(action.type);
     const started_at = new Date().toISOString();
-    if (!executor) {
-      merged[i] = { type: action.type, status: "failed", error: "unknown_action", started_at, finished_at: started_at };
-      continue;
-    }
     const actionCtx: ActionCtx = {
       admin: adminForActions,
       organizationId: activeOrg.orgId,
@@ -145,7 +184,38 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
       event: typedEvent,
       context,
       requestId,
+      actionIndex: i,
+      ruleActions,
     };
+
+    // `call_webhook` sai do executor genérico: só ele precisa preservar a
+    // MESMA entrega (#1529) e continuar a contagem de tentativa a partir dos
+    // runs anteriores do mesmo par (regra, evento) — nenhum outro tipo de
+    // ação tem esse contrato de entrega com um receptor de fora.
+    if (action.type === "call_webhook") {
+      const entrega = idDaEntrega(typedEvent.id, rule.id, i, ruleActions);
+      try {
+        const resultado = await executeCallWebhook(actionCtx, action.config ?? {}, {
+          primeiraTentativa: tentativasRegistradas(runsDoPar ?? [], entrega) + 1,
+        });
+        merged[i] = { ...resultado, detail: { ...resultado.detail, resent_from_run_id: runId } };
+      } catch (err) {
+        merged[i] = {
+          type: action.type,
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err),
+          started_at,
+          finished_at: new Date().toISOString(),
+        };
+      }
+      continue;
+    }
+
+    const executor = getAction(action.type);
+    if (!executor) {
+      merged[i] = { type: action.type, status: "failed", error: "unknown_action", started_at, finished_at: started_at };
+      continue;
+    }
     try {
       const result = await executor.execute(actionCtx, action.config ?? {});
       merged[i] = { ...result, started_at, finished_at: new Date().toISOString() };

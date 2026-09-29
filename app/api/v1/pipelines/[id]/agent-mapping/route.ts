@@ -92,6 +92,7 @@ const bodySchema = z.object({
 type EtapaComAutoria = EtapaDoMapa & {
   /** Probabilidade de fechar (0-100), migration 0210. `null` = fora do cálculo ponderado. */
   win_probability: number | null;
+  avisar_na_central?: boolean | null;
   last_change_actor_kind: string | null;
   last_change_at: string | null;
 };
@@ -116,7 +117,7 @@ async function lerFunil(
     // consulta só para ela seria um round-trip por render numa tela de
     // configuração — e um caminho a mais para a lista e a autoria divergirem.
     .select(
-      "id, name, is_won, is_lost, agent_stage_hint, win_probability, last_change_actor_kind, last_change_at",
+      "id, name, is_won, is_lost, agent_stage_hint, win_probability, avisar_na_central, last_change_actor_kind, last_change_at",
     )
     .eq("organization_id", orgId)
     .eq("pipeline_id", pipelineId)
@@ -150,6 +151,7 @@ function corpo(etapas: EtapaComAutoria[]) {
       is_won: e.is_won,
       is_lost: e.is_lost,
       win_probability: e.win_probability ?? null,
+      avisar_na_central: e.avisar_na_central === true,
       last_change_actor_kind: e.last_change_actor_kind ?? null,
       last_change_at: e.last_change_at ?? null,
     })),

@@ -37,6 +37,7 @@ import {
   REQUESTY_ENDPOINT,
 } from "@/lib/agent-engine/edge/llm/providers";
 import { CredentialUnavailableError, loadCredential } from "@/lib/ai/credentials";
+import { fetchParaDestinoDaOrganizacao } from "@/lib/automation/destinos-internos-autorizados";
 import { decidirElegibilidadeDaConversaViaSupabase } from "@/lib/ai/elegibilidade/consulta-supabase";
 import { ttlDaAutorizacaoMs } from "@/lib/ai/elegibilidade/gate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -51,6 +52,7 @@ import { loadHistoryWithBudget } from "./history";
 import { mintEphemeralToken, revokeEphemeralToken } from "./mcp_token";
 import { pickToolsFromMcp, type RuntimeHandoffSignal } from "./tools";
 import { modulosLigados } from "@/lib/instalacao/modulos";
+import { capacidadesDaOrganizacao } from "@/lib/organizacao/capacidades";
 import { serializeSteps } from "./serialize";
 import {
   CHANNEL_SESSION_REF_COLUMNS,
@@ -172,7 +174,7 @@ export function buildModel(
   provider: string,
   apiKey: string,
   modelId: string,
-  baseUrl?: string,
+  baseUrl?: string | null,
 ): LanguageModel {
   switch (provider) {
     case "anthropic":
@@ -212,18 +214,22 @@ export function buildModel(
     // rígido que a produção mente sobre o que está quebrado.
     case "deepseek":
       return createOpenAI({ apiKey, baseURL: DEEPSEEK_ENDPOINT })(modelId);
-    // Sem endpoint canônico, igual ao registry de produção (providers.ts) — um
-    // fallback aqui faria o ensaio "passar" contra um endereço que ninguém
-    // escolheu, e a mensagem real (que exige o campo na rota de versões)
-    // falharia depois, com o ensaio tendo mentido que estava tudo certo.
-    case "custom":
-      if (!baseUrl) {
-        throw new Error("unsupported_provider: custom sem base_url");
-      }
-      return createOpenAI({ apiKey, baseURL: baseUrl }).chat(modelId);
     // Requesty: roteador OpenAI-compatível, pelo mesmo `.chat()` do registry.
     case "requesty":
       return createOpenAI({ apiKey, baseURL: REQUESTY_ENDPOINT }).chat(modelId);
+    // Provedor personalizado (#1642): o endereço vem da credencial, junto da
+    // chave. SEM endereço a chamada é RECUSADA — ensaio que fosse para a
+    // OpenAI com a chave de um gateway privado diria que o produto não
+    // funciona enquanto a produção funcionaria (pelo caminho errado).
+    case "custom":
+      if (!baseUrl) {
+        throw new Error(
+          "custom_provider_sem_base_url: cadastre o endereço (base URL) na credencial do provedor personalizado",
+        );
+      }
+      // Endereço escolhido pela empresa: mesma régua de destino do turno do
+      // agente (`providers.ts`), senão o ensaio seria a porta para a rede interna.
+      return createOpenAI({ apiKey, baseURL: baseUrl, fetch: fetchParaDestinoDaOrganizacao() }).chat(modelId);
     default:
       throw new Error(`unsupported_provider: ${provider}`);
   }
@@ -344,10 +350,13 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
     // Ensaio mais rígido que a produção não é cautela: é dizer que está
     // quebrado o que está funcionando.
     let credentialApiKey: string;
+    /** O endereço do provedor personalizado (#1642) — nasce junto da credencial. */
+    let credentialBaseUrl: string | null = null;
     if (version.credential_id) {
       try {
         const credential = await loadCredential(version.credential_id, run.organization_id);
         credentialApiKey = credential.apiKey;
+        credentialBaseUrl = credential.baseUrl;
       } catch (err) {
         const reason = err instanceof CredentialUnavailableError ? err.reason : "decrypt_failed";
         return await failRun(run, `credential_${reason}`, "credential unavailable", startedAt);
@@ -517,9 +526,11 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
       auth,
       toolIds: version.tool_ids ?? [],
       handoffToolEnabled: version.handoff_tool_enabled,
+      proposalAiDraftEnabled: (version as { proposal_ai_draft_enabled?: boolean }).proposal_ai_draft_enabled ?? true,
       // `?? []` — o clone sem a coluna 0125 nasce FECHADO.
       pipelineIds: (version as { pipeline_ids?: string[] }).pipeline_ids ?? [],
       modulosLigados: await modulosLigados(admin),
+      capacidadesLigadas: await capacidadesDaOrganizacao(admin, run.organization_id),
       handoffSignal,
     });
 
@@ -535,7 +546,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
       : [];
 
     // 9) Build LM directly against the provider (BYOK credential — see buildModel doc).
-    const model = buildModel(version.provider, credentialApiKey, version.model, version.base_url ?? undefined);
+    const model = buildModel(version.provider, credentialApiKey, version.model, credentialBaseUrl);
 
     // 10) Cost/token guard. Fires BEFORE the next step is taken.
     let abortReason: string | null = null;

@@ -113,27 +113,35 @@ async function main(): Promise<void> {
     "crm_get_lead",
     "crm_move_lead_stage",
     "crm_list_leads",
-    // ⚠️ AS CINCO ABAIXO NÃO SÃO ENFEITE: elas existem para o cenário ESTOURAR.
+    // ⚠️ AS OITO ABAIXO NÃO SÃO ENFEITE: elas existem para o cenário ESTOURAR.
     //
-    // A jornada do teto (issue #162) só existe se a soma passar do teto. Depois
-    // da sincronização com o upstream o teto do fork é 26 (não mais 20) e o
-    // pacote "Atender" exige 19 vagas — 19 automáticas, 0 críticas: desde a
-    // issue #528 `crm_send_whatsapp_message` tem `marcavel: false` (calculado em
-    // `lib/mcp/tools/catalogo-servido.ts` a partir de `IDS_DO_HARNESS`, em
-    // `lib/mcp/tools/ferramentas-do-harness.ts`) e por isso não é mais nem
-    // oferecida nem contada — nem como automática, nem como a crítica que
-    // reservava a única vaga do pacote antes disso. Com as 3 originais + estas
-    // 5 dá 8 tools já ligadas; "Atender" ligado soma 27 (19 + 8), 1 acima do
-    // teto de 26, e a tela recusa dizendo "faltam 1 vaga". Desligando
-    // `TOOLS_DO_SEED[2]` sobram 7, a soma cai para 26 — o teto exato — e passa.
+    // A jornada do teto (issue #162) só existe se a soma passar do teto: eram 3
+    // do seed + 18 de "Atender" = 21 contra teto 20, e a tela recusava dizendo
+    // "faltam 1 vaga". Com teto 25 essas mesmas 21 passam, a recusa nunca acontece
+    // e o caso vira um clique que sempre dá certo — verde sem medir nada.
+    //
+    // A cada subida do teto (ou do pacote "Atender") a aritmética ameaçava caber
+    // de novo. O número certo de extras NÃO é uma soma de cabeça — é medido por
+    // `tests/unit/teto-do-atender-bate-com-a-recusa-da-spec.test.ts`, que lê
+    // este mesmo seed do arquivo da spec e cala a conta contra o catálogo REAL
+    // (a tela filtra a crítica do harness, `crm_send_whatsapp_message`, que
+    // nunca é oferecida por clique). Hoje esse teste confirma que estas oito
+    // dão excedente exato de 1; se o catálogo mudar nele mesmo o teste reprova
+    // e diz o N certo — esta rota nunca precisa recontar isto à mão de novo.
     //
     // As escolhidas ficam FORA do pacote "Atender" de propósito — se alguma
     // estivesse dentro, a união seria menor que a soma e a conta acima não valeria.
+    // Quatro são a família de agenda, que é o assunto do defeito que subiu o teto
+    // pela primeira vez; as quatro últimas são leitura pura de outros pacotes,
+    // para a aritmética continuar estourando a cada subida.
     "crm_find_free_slots",
     "crm_list_appointments",
     "crm_book_appointment",
     "crm_reschedule_appointment",
     "crm_list_pipelines",
+    "crm_list_event_types",
+    "crm_list_human_cases",
+    "crm_list_knowledge_sources",
   ];
 
   // REPÕE TODAS AS VERSÕES DRAFT DESTE AGENTE, não só a de maior número.

@@ -30,7 +30,6 @@ import { showApiError } from "@/components/feedback/ApiErrorToast";
 import { credentialsListQueryKey, type CredentialRow } from "@/hooks/ai/useCredentials";
 import {
   IDS_COM_CHAVE,
-  PROVEDORES,
   PROVEDORES_COM_CHAVE,
   type ProvedorComChave,
 } from "@/lib/ai/pontos/provedores";
@@ -44,13 +43,20 @@ const formSchema = z.object({
   // (ver `onSubmit`) — o banco exige um, e a pessoa não precisa inventá-lo.
   label: z.string().trim().max(80),
   api_key: z.string().trim().min(8, "Chave muito curta").max(2048),
-  base_url: z.string().trim().url().optional(),
+  /** Só o provedor personalizado (#1642) tem — vira campo quando ele é escolhido. */
+  base_url: z.string().trim().max(500),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface CreateResponse {
   data: CredentialRow;
+}
+
+interface TestResponse {
+  ok: boolean;
+  models: string[];
+  error: string | null;
 }
 
 interface Props {
@@ -69,19 +75,22 @@ export function AddCredentialDialog({ open, onOpenChange, providerInicial = "ant
   const [provider, setProvider] = useState<ProvedorComChave>(providerInicial);
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  /** O endereço da API compatível com a OpenAI — só o provedor personalizado tem. */
   const [baseUrl, setBaseUrl] = useState("");
+  /** O resultado do teste de conectividade que roda ANTES de salvar. */
+  const [conexao, setConexao] = useState<{ ok: boolean; modelos: number; erro: string | null } | null>(
+    null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const provedor = PROVEDORES_COM_CHAVE.find((p) => p.id === provider) ?? PROVEDORES_COM_CHAVE[0];
-
-  const aceitaEndpointProprio =
-    PROVEDORES.find((p) => p.id === provider)?.aceitaEndpointProprio === true;
 
   const reset = () => {
     setProvider(providerInicial);
     setLabel("");
     setApiKey("");
     setBaseUrl("");
+    setConexao(null);
     setErrors({});
   };
 
@@ -89,13 +98,14 @@ export function AddCredentialDialog({ open, onOpenChange, providerInicial = "ant
     e.preventDefault();
     setErrors({});
 
-    const baseUrlAplicavel = aceitaEndpointProprio && baseUrl.trim() !== "" ? baseUrl.trim() : undefined;
-    const parsed = formSchema.safeParse({
-      provider,
-      label,
-      api_key: apiKey,
-      base_url: baseUrlAplicavel,
-    });
+    if (provider === "custom" && !/^https?:\/\/\S+$/.test(baseUrl.trim())) {
+      setErrors({
+        base_url: t("Informe o endereço (base URL) começando com http:// ou https://."),
+      });
+      return;
+    }
+
+    const parsed = formSchema.safeParse({ provider, label, api_key: apiKey, base_url: baseUrl });
     if (!parsed.success) {
       const flat = parsed.error.flatten().fieldErrors;
       setErrors({
@@ -106,26 +116,47 @@ export function AddCredentialDialog({ open, onOpenChange, providerInicial = "ant
       });
       return;
     }
-    // "custom" não tem endpoint canônico — a mesma exigência que a rota aplica,
-    // aqui ANTES do clique: sem isto, o envio chegava ao servidor sem endereço
-    // e o "Salvar e validar" sempre falhava, mesmo com o campo preenchido, se
-    // ele nunca existisse na tela (era exatamente o caso: este diálogo listava
-    // "API customizada" como opção e não tinha o campo nenhum).
-    if (provider === "custom" && !baseUrlAplicavel) {
-      setErrors({
-        base_url: t(
-          "Provider customizado exige o endereço do endpoint (compatível com a API da OpenAI).",
-        ),
-      });
-      return;
+
+    // O provedor personalizado é o único em que o ENDEREÇO é escolha do
+    // operador, então há algo a provar antes de gravar: sem a rede falando,
+    // salvar seria prometer uma integração que ninguém viu funcionar. Os
+    // nativos passam por aqui sem nada — o deles é intrínseco e já é provado
+    // pela validação em segundo plano.
+    if (provider === "custom") {
+      setConexao(null);
+      const testando = toast.loading(t("Testando a conexão com o provedor…"));
+      try {
+        const teste = await apiClient.post<{ data: TestResponse }>("/api/v1/ai/credentials/test", {
+          base_url: baseUrl.trim(),
+          api_key: apiKey,
+        });
+        toast.dismiss(testando);
+        if (!teste.data.ok) {
+          // A tela fica ABERTA com a frase do código, e nada é gravado: o
+          // conserto é o campo que está ali, em cima do erro.
+          setConexao({ ok: false, modelos: 0, erro: teste.data.error });
+          toast.error(t("Não consegui falar com este endereço. Confira a base URL e a chave."));
+          return;
+        }
+        setConexao({ ok: true, modelos: teste.data.models.length, erro: null });
+        toast.success(t("Conexão confirmada com o provedor."));
+      } catch (err) {
+        toast.dismiss(testando);
+        showApiError(err);
+        return;
+      }
     }
 
     setSubmitting(true);
     const validatingToast = toast.loading(t("Credencial salva. Validando…"));
     try {
+      const { base_url, ...semEndereco } = parsed.data;
       const res = await apiClient.post<CreateResponse>("/api/v1/ai/credentials", {
-        ...parsed.data,
+        ...semEndereco,
         label: parsed.data.label || provedor.rotulo,
+        // Só quando é do provedor personalizado: os nativos continuam mandando
+        // exatamente o corpo de antes.
+        ...(base_url.trim() !== "" ? { base_url: base_url.trim() } : {}),
       });
       toast.dismiss(validatingToast);
       toast.success(t("Credencial salva. Validação em segundo plano."));
@@ -204,21 +235,37 @@ export function AddCredentialDialog({ open, onOpenChange, providerInicial = "ant
             )}
           </div>
 
-          {aceitaEndpointProprio && (
+          {provider === "custom" && (
             <div className="space-y-2">
-              <Label htmlFor="cred-base-url">
-                {provider === "custom"
-                  ? t("Endereço do endpoint (obrigatório)")
-                  : t("Endereço próprio (opcional)")}
-              </Label>
+              <Label htmlFor="cred-base-url">{t("Endereço (base URL)")}</Label>
               <Input
                 id="cred-base-url"
                 value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://meu-gateway.exemplo.com/v1"
+                onChange={(e) => {
+                  setBaseUrl(e.target.value);
+                  setConexao(null);
+                }}
+                placeholder={t("Obrigatório — ex.: https://seu-gateway.example/v1")}
+                autoComplete="off"
+                required
               />
-              {errors.base_url && (
-                <p className="text-xs text-destructive">{errors.base_url}</p>
+              {errors.base_url && <p className="text-xs text-destructive">{errors.base_url}</p>}
+              {conexao && !conexao.ok && (
+                <p className="text-xs text-destructive">
+                  {conexao.erro === null
+                    ? ""
+                    : (() => {
+                        const descrito = descreverErroDeValidacao(conexao.erro, provider);
+                        return descrito.generico
+                          ? `${t("Falha na validação")} (${conexao.erro}).`
+                          : t(descrito.frase);
+                      })()}
+                </p>
+              )}
+              {conexao?.ok && (
+                <p className="text-xs text-muted-foreground">
+                  {`${t("Conexão OK")} — ${conexao.modelos} ${t("modelos disponíveis.")}`}
+                </p>
               )}
             </div>
           )}
@@ -238,14 +285,19 @@ export function AddCredentialDialog({ open, onOpenChange, providerInicial = "ant
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <Label htmlFor="cred-key">{t("Chave")}</Label>
-              <a
-                className="text-xs underline underline-offset-4"
-                href={provedor.ondePegarAChave}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("Onde pegar a chave")}
-              </a>
+              {/* Provedor personalizado não tem portal de chave: quem emite é o
+                  gateway do próprio operador. O link sumiria com um endereço que
+                  não leva a lugar nenhum. */}
+              {provider !== "custom" && (
+                <a
+                  className="text-xs underline underline-offset-4"
+                  href={provedor.ondePegarAChave}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("Onde pegar a chave")}
+                </a>
+              )}
             </div>
             <Input
               id="cred-key"

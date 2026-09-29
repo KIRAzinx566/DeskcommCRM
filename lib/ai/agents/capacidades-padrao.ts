@@ -41,8 +41,16 @@ export function catalogoComHandler() {
 
 export function capacidadesPadraoDoOnboarding(): string[] {
   const catalogo = catalogoComHandler();
-  // `ligarPacote` já respeita as duas regras que importam: capacidade de risco
-  // crítico nunca entra por pacote, e a ordem é a do catálogo (para o diff de
-  // versão do agente ser legível).
-  return ligarPacote([], catalogo, PACOTE_PADRAO_DO_ONBOARDING);
+  // `ligarPacote` já respeita a regra que importa para a TELA: capacidade de
+  // risco crítico nunca entra por pacote, e a ordem é a do catálogo (para o
+  // diff de versão do agente ser legível). Mas o TOGGLE do pacote continua
+  // ligando `apenasHumano` automaticamente (é comportamento aceito lá —
+  // `crm_update_stage` em "organizar" já convive assim) — um default que
+  // ninguém revisa não pode herdar essa folga: gastaria vaga do teto com uma
+  // ferramenta que o agente publicado nunca alcança (`requiresRole` acima do
+  // papel dele), sem ninguém ter decidido isso.
+  const porNome = new Map(catalogo.map((c) => [c.name, c]));
+  return ligarPacote([], catalogo, PACOTE_PADRAO_DO_ONBOARDING).filter(
+    (id) => porNome.get(id)?.apenasHumano !== true,
+  );
 }

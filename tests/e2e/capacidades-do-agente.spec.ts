@@ -20,7 +20,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./helpers/test";
 
 import { TETO_TOOLS_POR_AGENTE } from "@/lib/mcp/tools/selecao-por-pacote";
 
@@ -69,27 +69,35 @@ const TOOLS_DO_SEED = [
   "crm_get_lead",
   "crm_move_lead_stage",
   "crm_list_leads",
-  // ⚠️ AS CINCO ABAIXO NÃO SÃO ENFEITE: elas existem para o cenário ESTOURAR.
+  // ⚠️ AS OITO ABAIXO NÃO SÃO ENFEITE: elas existem para o cenário ESTOURAR.
   //
-  // A jornada do teto (issue #162) só existe se a soma passar do teto. Depois
-  // da sincronização com o upstream o teto do fork é 26 (não mais 20) e o
-  // pacote "Atender" exige 19 vagas — 19 automáticas, 0 críticas: desde a
-  // issue #528 `crm_send_whatsapp_message` tem `marcavel: false` (calculado em
-  // `lib/mcp/tools/catalogo-servido.ts` a partir de `IDS_DO_HARNESS`, em
-  // `lib/mcp/tools/ferramentas-do-harness.ts`) e por isso não é mais nem
-  // oferecida nem contada — nem como automática, nem como a crítica que
-  // reservava a única vaga do pacote antes disso. Com as 3 originais + estas
-  // 5 dá 8 tools já ligadas; "Atender" ligado soma 27 (19 + 8), 1 acima do
-  // teto de 26, e a tela recusa dizendo "faltam 1 vaga". Desligando
-  // `TOOLS_DO_SEED[2]` sobram 7, a soma cai para 26 — o teto exato — e passa.
+  // A jornada do teto (issue #162) só existe se a soma passar do teto: eram 3
+  // do seed + 18 de "Atender" = 21 contra teto 20, e a tela recusava dizendo
+  // "faltam 1 vaga". Com teto 25 essas mesmas 21 passam, a recusa nunca acontece
+  // e o caso vira um clique que sempre dá certo — verde sem medir nada.
+  //
+  // A cada subida do teto (ou do pacote "Atender") a aritmética ameaçava caber
+  // de novo. O número certo de extras NÃO é uma soma de cabeça — é medido por
+  // `tests/unit/teto-do-atender-bate-com-a-recusa-da-spec.test.ts`, que lê
+  // este mesmo seed direto deste arquivo e cala a conta contra o catálogo REAL
+  // (a tela filtra a crítica do harness, `crm_send_whatsapp_message`, que
+  // nunca é oferecida por clique). Hoje esse teste confirma que estas oito dão
+  // excedente exato de 1; se o catálogo mudar de novo, ele reprova e diz o N
+  // certo — esta spec nunca precisa recontar isto à mão.
   //
   // As escolhidas ficam FORA do pacote "Atender" de propósito — se alguma
   // estivesse dentro, a união seria menor que a soma e a conta acima não valeria.
+  // Quatro são a família de agenda, que é o assunto do defeito que subiu o teto
+  // pela primeira vez; as quatro últimas são leitura pura de outros pacotes,
+  // para a aritmética continuar estourando a cada subida.
   "crm_find_free_slots",
   "crm_list_appointments",
   "crm_book_appointment",
   "crm_reschedule_appointment",
   "crm_list_pipelines",
+  "crm_list_event_types",
+  "crm_list_human_cases",
+  "crm_list_knowledge_sources",
 ];
 
 /**
@@ -219,11 +227,25 @@ test.describe("Configurar o que o agente pode fazer", () => {
 
     // O TETO ENTRA NA JORNADA (issue #162), e entra antes do clique.
     //
-    // "Atender" exige 19 vagas — 19 automáticas, 0 críticas (a issue #528 tirou
-    // `crm_send_whatsapp_message` da conta inteira, não só do teste: ela nem é
-    // mais oferecida por clique, então não sobra crítica nenhuma a reservar).
-    // As 8 capacidades do seed (TOOLS_DO_SEED) já ligadas somam 27 com o pacote
-    // — 1 acima do teto de 26 — e é isso que a tela recusa a seguir.
+    // "Atender" na TELA (sem a crítica do harness, `crm_send_whatsapp_message`
+    // — nunca oferecida por clique) exige 19 vagas automáticas — o número
+    // cresce com o catálogo, e já foi 18. Com os 3 originais do seed, ligar
+    // "Atender" soma 22; cada uma das 8 extras abaixo soma mais 1. O número
+    // certo de extras não é conta de cabeça — é medido por
+    // `tests/unit/teto-do-atender-bate-com-a-recusa-da-spec.test.ts`, que lê
+    // este mesmo seed do arquivo e reprova (dizendo o N certo) se o catálogo
+    // mudar de novo.
+    //
+    // ⚠️ AS 8 EXTRAS SÃO O QUE MANTÉM ESTE CASO VIVO. Eram 3, e 3 + 18 = 21
+    // estourava o teto de 20. A cada subida do teto (20 → 25 → 27 → 29) e a
+    // cada mudança do pacote "Atender", a mesma soma ameaçava caber de novo —
+    // e cada vez que isso acontece a recusa deixa de existir e o caso vira um
+    // clique que sempre dá certo, verde sem medir nada, o pior desfecho para
+    // um teste de recusa. As 8 (4 de agenda + 4 de leitura pura) estão FORA de
+    // "Atender", senão a união seria menor que a soma.
+    //
+    // Aritmética atual: 11 (3 + 8) + 19 = 30 > 29, recusa por 1 vaga; desligar
+    // uma das oito (ou um dos três originais) deixa 29, o teto exato.
     //
     // Antes da correção a tela aceitava o pacote, chegava a 20 exatas e deixava
     // o checkbox da crítica DESABILITADO — prometia uma escolha que o produto

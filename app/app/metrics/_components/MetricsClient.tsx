@@ -6,7 +6,8 @@ import { useState } from "react";
 import { useAttendantMetrics, type AttendantMetric } from "@/hooks/metrics/useAttendantMetrics";
 import { AtritoPanel } from "./AtritoPanel";
 import { CsatPanel } from "./CsatPanel";
-import { ForecastPanel } from "./ForecastPanel";
+import { PerdasPanel } from "./PerdasPanel";
+import { PrevisaoPanel } from "./PrevisaoPanel";
 import { useTeamMembers } from "@/hooks/team/useTeamMembers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -124,6 +125,10 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
           por pessoa convida a otimização local que degrada o todo. */}
         <AtritoPanel podeEditarRegua={canCompare} />
 
+        {/* Relatório "Perdas" (#1537): manager+, porque é o funil inteiro — o
+            mesmo critério do /metrics para quem compara. */}
+        {canCompare ? <PerdasPanel /> : null}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -209,7 +214,7 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
 
       {canCompare ? (
         <TabsContent value="previsao">
-          <ForecastPanel />
+          <PrevisaoPanel />
         </TabsContent>
       ) : null}
     </Tabs>

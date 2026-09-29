@@ -246,11 +246,15 @@ describe("a corrente inteira: lista × execução × tela", () => {
     const recusados: string[] = [];
     for (const id of IDS_DE_PROVEDOR) {
       try {
-        // "custom" não tem endpoint canônico — o teto do que este caso mede
-        // é "a lista inteira roda no ensaio", não "sem endereço nenhum". O
-        // caso abaixo ("recusa provedor…") cobre a ausência de propósito.
-        const baseUrl = id === "custom" ? "https://gateway.exemplo/v1" : undefined;
-        buildModel(id, "chave-de-teste", "modelo/qualquer", baseUrl);
+        // `custom` nasce com o ENDEREÇO na credencial (base_url): sem ele o
+        // ensaio é recusado de propósito — provar contra o endpoint da OpenAI
+        // com a chave de um gateway privado seria mentir nos dois sentidos.
+        buildModel(
+          id,
+          "chave-de-teste",
+          "modelo/qualquer",
+          id === "custom" ? "https://gateway.exemplo/v1" : undefined,
+        );
       } catch {
         recusados.push(id);
       }
@@ -280,7 +284,7 @@ describe("a corrente inteira: lista × execução × tela", () => {
 
   it("'custom' recusa o ensaio sem endereço — não existe canônico para cair", async () => {
     const { buildModel } = await import("@/lib/ai/runtime/agent");
-    expect(() => buildModel("custom", "k", "qualquer/modelo")).toThrow(/unsupported_provider/);
+    expect(() => buildModel("custom", "k", "qualquer/modelo")).toThrow(/custom_provider_sem_base_url/);
   });
 
   it("e continua recusando provedor que ninguém declarou (a catraca não virou peneira)", async () => {

@@ -63,7 +63,7 @@ function trecho(inicio: string, fim: string): string {
 
 describe("os classificadores auxiliares (em paralelo) não derrubam o turno num erro de provedor", () => {
   const bloco = trecho(
-    "try {\n      const [stageResultado, jailbreakVerdict] = await Promise.all([",
+    "try {\n      const [stageResultado, jailbreakVerdict, manipulacaoDoJev] = await Promise.all([",
     "// Spec 16 §4: a projeção arma",
   );
 
@@ -101,7 +101,7 @@ describe("controle negativo: a sonda acusa a volta do defeito", () => {
     // por um `throw err;` incondicional — exatamente o defeito original (um 429
     // comum derrubando o turno como se fosse orçamento esgotado).
     const original = trecho(
-      "try {\n      const [stageResultado, jailbreakVerdict] = await Promise.all([",
+      "try {\n      const [stageResultado, jailbreakVerdict, manipulacaoDoJev] = await Promise.all([",
       "// Spec 16 §4: a projeção arma",
     );
     const catchOriginal = original.slice(original.indexOf("} catch (err) {"));

@@ -43,31 +43,52 @@ import { entraPorPacote, type ToolBundle, type ToolRisk } from "./pacotes";
  *    default de hoje NENHUM segundo pacote cabia: evoluir exigia 21, reter 22,
  *    escalar 28, atender 30, organizar 32.
  *
- * 25 era o MENOR passo que resolvia naquele momento: dava a um agente cheio as
- * 5 vagas da família de agenda e mantinha `vender` inteiro com folga real. Não
- * era número redondo escolhido no olho — subir mais teria apostado contra um
- * argumento que só se sustenta enquanto ninguém o mede.
- *
- * ═══ Por que 26, e não mais os 25 de antes ══════════════════════════════════
- *
- * A sincronização com o upstream de 2026-09-17 trouxe capacidade nova ao
- * catálogo (v1.29.0/v1.30.0), e `tests/unit/pacote-reserva-vaga-da-critica.test.ts`
- * voltou a medir o mesmo defeito D3: a partir do agente que nasce hoje (21
- * capacidades do onboarding), evoluir passou a exigir 26, reter 27, escalar 33,
- * atender 37, organizar 37 — de novo NENHUM segundo pacote cabia em 25.
- *
- * 26 é de novo o MENOR passo que resolve: só destrava `evoluir`, e é
- * exatamente por isso que continua sendo o número certo — não um redondo
- * escolhido para "dar folga". Quem acrescentar capacidade ao catálogo e
- * quebrar este teto de novo mede antes de escolher o próximo número, pela
- * mesma regra.
+ * 25 ERA o MENOR passo que resolvia naquele catálogo. Não é número redondo
+ * escolhido no olho — subir mais seria apostar contra um argumento que continua
+ * de pé só porque ninguém o mediu.
  *
  * ⚠️ O QUE FALTA, e é honesto dizer: não há instrumento para observar a
  * degradação que a heurística prevê. O lugar de observá-la é
  * `app/api/v1/ai/agents/[id]/tool-usage` e o log de invocação do run, com
  * "ferramenta errada escolhida" como sinal. Quem for subir de novo mede antes.
+ *
+ * ═══ 25 → 27: a proposta comercial entrou no pacote `vender` ═══════════════════
+ *
+ * Duas capacidades de proposta comercial (`crm_draft_proposal` e
+ * `crm_preparar_proposta`) entraram no pacote `vender`, e a régua de "menor passo
+ * que resolve" foi medida de novo a partir do agente que NASCE — o `vender`
+ * inteiro, que é o default do onboarding (`lib/ai/agents/capacidades-padrao.ts`).
+ *
+ * O que a medição diz agora (catálogo 68 → 70, default 20 → 22 capacidades):
+ *
+ *  - NO TETO 25 NENHUM segundo pacote cabe mais. O menor passou a exigir 27:
+ *    evoluir 27, reter 30, escalar 34, atender 35, organizar 41. Antes da
+ *    proposta comercial o menor era o `evoluir` com 25 exatas — era por ele que
+ *    25 tinha sido escolhido;
+ *  - `vender` sozinho passou a exigir 24 vagas (22 automáticas + 2 críticas), e o
+ *    default do onboarding já é o `vender` inteiro — a jornada com que todo
+ *    agente nasce. No teto 25 a folga que sobra depois de ligar `vender` cai de
+ *    3 vagas para 1. Eram 3 as que o teto 25 existia para deixar, e a proposta
+ *    comercial comeu uma por capacidade.
+ *
+ * 27 era o MENOR passo que resolvia naquele catálogo, um degrau adiante e por
+ * um degrau: cada capacidade nova que entra no `vender` consome uma vaga de
+ * folga. Passar de 27 deixava de ser restaurar a mesma folga e virava escolher
+ * QUAL pacote ganha a vaga — duas perguntas diferentes.
+ *
+ * ═══ 27 → 29: `crm_update_product_price` entrou no `vender` ═══════════════════
+ *
+ * Nova capacidade de escrita no catálogo (mudar o preço de um produto pelo
+ * código, sem abrir a tela) — e o `vender` é o pacote do onboarding, então todo
+ * agente novo nasce com ela. A régua de novo é medida a partir do agente que
+ * NASCE: no teto 27, evoluir passou a exigir 29 — 1 acima do teto — e nenhum
+ * segundo pacote cabia.
+ *
+ * 29 é o MENOR passo que resolve de novo: só destrava `evoluir`. Subir mais
+ * seria escolher QUAL outro pacote ganha a vaga, contra o mesmo argumento
+ * (a heurística de degradação) que o bloco ⚠️ acima diz que ninguém mediu.
  */
-export const TETO_TOOLS_POR_AGENTE = 26;
+export const TETO_TOOLS_POR_AGENTE = 29;
 
 /** O mínimo que a regra precisa saber de uma capacidade. */
 export interface CapacidadeSelecionavel {

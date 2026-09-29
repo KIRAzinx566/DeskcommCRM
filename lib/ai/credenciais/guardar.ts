@@ -58,9 +58,10 @@ export interface PedidoDeGuardar {
   /** Plaintext. Vive só no escopo desta chamada — nunca persistido nem logado. */
   apiKey: string;
   /**
-   * Endpoint compatível com a API da OpenAI — obrigatório para `provider:
-   * "custom"` (o chamador já validou isso antes de chegar aqui), `undefined`
-   * para todo provider com endpoint canônico.
+   * O endereço do provedor personalizado (#1642), GRAVADO na mesma linha da
+   * chave — sem ele a validação em segundo plano lê `base_url` nulo e a
+   * credencial nasce `base_url_ausente`. `undefined` para os nativos: o
+   * endereço deles é intrínseco e esta coluna não é deles.
    */
   baseUrl?: string;
   requestId?: string;
@@ -102,7 +103,7 @@ export async function guardarCredencial(p: PedidoDeGuardar): Promise<ResultadoDe
       api_key_iv: cifrada.api_key_iv,
       api_key_tag: cifrada.api_key_tag,
       api_key_last4: cifrada.api_key_last4,
-      base_url: p.baseUrl ?? null,
+      ...(p.baseUrl !== undefined ? { base_url: p.baseUrl } : {}),
       is_active: true,
       created_by: p.userId,
     })
@@ -130,7 +131,7 @@ export async function guardarCredencial(p: PedidoDeGuardar): Promise<ResultadoDe
   // espera uma ida ao provedor. Guardar a chave e validá-la são coisas
   // diferentes — a segunda pode falhar por rede sem que a primeira precise ser
   // desfeita.
-  void validarEmSegundoPlano(p.admin, id, p.orgId, p.provider, p.apiKey, p.baseUrl);
+  void validarEmSegundoPlano(p.admin, id, p.orgId, p.provider, p.apiKey);
 
   return { ok: true, id, last4: cifrada.last4 };
 }
@@ -230,15 +231,40 @@ export async function rotacionarCredencial(
   return { ok: true, id: p.credentialId, last4, trocouChave: p.apiKey !== undefined };
 }
 
+/**
+ * O `base_url` gravado do provedor personalizado — e só dele.
+ *
+ * Coluna nova (migration 0413): a leitura devolve erro em vez de lançar, e o
+ * `undefined` faz o validador responder `base_url_ausente` — a tela diz qual
+ * endereço falta em vez de marcar "validada" uma credencial que ninguém testou.
+ */
+export async function lerBaseUrlDaCredencial(
+  admin: ReturnType<typeof createAdminClient>,
+  credentialId: string,
+): Promise<string | undefined> {
+  const { data, error } = await admin
+    .from("ai_provider_credentials")
+    .select("base_url")
+    .eq("id", credentialId)
+    .maybeSingle();
+  if (error) return undefined;
+  const url = typeof data?.base_url === "string" ? data.base_url.trim() : "";
+  return url === "" ? undefined : url;
+}
+
 async function validarEmSegundoPlano(
   admin: ReturnType<typeof createAdminClient>,
   credentialId: string,
   organizationId: string,
   provider: ProvedorComChave,
   apiKey: string,
-  baseUrl?: string,
 ): Promise<void> {
   try {
+    // O endereço do provedor personalizado vem DA LINHA gravada, nunca do
+    // chamador: cadastrar e revalidar testam exatamente o que o runtime vai
+    // usar, e a rotação (que não mexe no endereço) continua revalidando com ele.
+    const baseUrl =
+      provider === "custom" ? await lerBaseUrlDaCredencial(admin, credentialId) : undefined;
     const r = await validateProviderKey(provider, apiKey, baseUrl);
     await admin
       .from("ai_provider_credentials")

@@ -28,6 +28,43 @@ export const TOOLS_COMERCIO = declararTools([
     pacotes: ["vender", "atender"],
   },
   {
+    name: "crm_update_product_price",
+    category: "write",
+    rotulo: "Atualizar preço do produto",
+    explicacao:
+      "Muda o preço de um produto do catálogo pelo código dele, para quem atualiza preços todo dia não precisar abrir a tela a cada mudança.",
+    oQueToca: "Catálogo da loja",
+    risco: "atencao",
+    pacotes: ["vender"],
+    // Paridade com `PATCH /api/v1/products/:id`, que exige `manager` — nem um
+    // atendente humano edita preço pela tela de Produtos. Deliberado, não
+    // acidente de ranking: `tests/unit/capacidade-alcancavel-pelo-agente.test.ts`
+    // cobra a marca.
+    apenasHumano: true,
+  },
+  {
+    name: "crm_draft_proposal",
+    category: "write",
+    rotulo: "Rascunhar proposta comercial",
+    explicacao:
+      "Cria um rascunho de proposta a partir do que foi combinado na conversa — uma pessoa sempre revisa e envia depois, e pode editar antes de despachar.",
+    oQueToca: "Propostas comerciais",
+    risco: "atencao",
+    pacotes: ["vender"],
+    capacidade: "propostas",
+  },
+  {
+    name: "crm_preparar_proposta",
+    category: "read",
+    rotulo: "Preparar a proposta com o cliente",
+    explicacao:
+      "Mostra os modelos de proposta da empresa, diz o que perguntar ao cliente antes de rascunhar e lista os campos que o modelo escolhido pede, para a proposta nascer completa.",
+    oQueToca: "Propostas comerciais",
+    risco: "seguro",
+    pacotes: ["vender"],
+    capacidade: "propostas",
+  },
+  {
     name: "crm_list_privacy_requests",
     category: "read",
     rotulo: "Ver pedidos de privacidade",

@@ -36,9 +36,14 @@ const createSchema = z.object({
   provider: z.enum(IDS_COM_CHAVE),
   label: z.string().trim().min(1).max(80),
   api_key: z.string().trim().min(8).max(2048),
-  // Só "custom" exige — a checagem cruzada mora abaixo do parse (schema valida
-  // FORMA, não a obrigatoriedade por provider).
-  base_url: z.string().trim().url().optional(),
+  /**
+   * Só o provedor personalizado (#1642): o endereço da API compatível com a
+   * OpenAI que vai RECEBER a chave. A obrigatoriedade (e a recusa para os
+   * nativos) é checada depois do parse, porque aí a resposta é a frase que
+   * diz o que falta — `z.string().min(1)` devolveria "Campos inválidos.",
+   * que manda a pessoa adivinhar qual campo.
+   */
+  base_url: z.string().trim().max(500).optional(),
 });
 
 export async function GET(): Promise<Response> {
@@ -87,10 +92,33 @@ export async function POST(req: NextRequest): Promise<Response> {
   const input = parsed.data;
   const provider = input.provider;
 
-  if (provider === "custom" && !input.base_url) {
+  // Barra final removida antes de gravar, como `lib/webhooks/url-publica.ts`
+  // decidiu para o mesmo formato: `base + "/" + caminho` viraria `.../v1//models`.
+  const baseUrl = (input.base_url ?? "").trim().replace(/\/+$/, "");
+  if (provider === "custom" && baseUrl === "") {
     return fail(
       "validation_failed",
-      "Provider 'custom' exige o endereço do endpoint (compatível com a API da OpenAI).",
+      t("Informe o endereço (base URL) do provedor personalizado."),
+      422,
+      { requestId },
+    );
+  }
+  if (baseUrl !== "" && !/^https?:\/\//i.test(baseUrl)) {
+    return fail(
+      "validation_failed",
+      t("O endereço (base URL) precisa começar com http:// ou https://."),
+      422,
+      { requestId },
+    );
+  }
+  // Os quatro nativos continuam 100% iguais: o endpoint deles é intrínseco, e
+  // gravar endereço ao lado de uma chave da OpenAI seria configuração que o
+  // runtime lê e ninguém preencheu pela tela. Quem quer endpoint próprio num
+  // nativo aponta o BINDING no painel de provedores — caminho que já existe.
+  if (provider !== "custom" && baseUrl !== "") {
+    return fail(
+      "validation_failed",
+      t("Só o provedor personalizado aceita um endereço (base URL) próprio."),
       422,
       { requestId },
     );
@@ -107,7 +135,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     provider,
     label: input.label,
     apiKey: input.api_key,
-    ...(input.base_url !== undefined ? { baseUrl: input.base_url } : {}),
+    baseUrl: baseUrl === "" ? undefined : baseUrl,
     requestId,
   });
 
