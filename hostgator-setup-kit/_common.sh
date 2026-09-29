@@ -17,6 +17,16 @@ COMPOSE_NPM="docker-compose.npm.yml"
 # publicadas (ver construir_aqui_e_subir, abaixo).
 COMPOSE_BUILD="docker-compose.build.yml"
 
+# Preenchida por `construir_aqui_e_subir` depois que o build local funciona:
+# TODA chamada de `dc` DAQUI EM DIANTE (force-recreate, recarga do proxy,
+# checagem de saúde) precisa continuar apontando para o overlay. Sem isto, a
+# PRIMEIRA chamada seguinte (o force-recreate logo depois do retorno) voltava
+# a referenciar só o compose base — cujo `image:` é a publicada, sem manifest
+# para esta arquitetura — e falhava do mesmo jeito que o `up -d` original,
+# só que sem a recuperação por perto para tentar de novo. Vazia sempre que a
+# recuperação nunca entrou (o caminho normal, x86_64).
+EXTRA_COMPOSE_FILES=""
+
 # ── Arquitetura das imagens publicadas ───────────────────────────────────────
 # O registry publica hoje somente linux/amd64. Sem esta guarda, ARM64 chega até
 # o pull e morre com "no matching manifest"; o update.sh traduzia isso como
@@ -220,13 +230,13 @@ unset _deskcomm_chamador
 # o override subiria o Caddy e ele iria bater de frente com o proxy da hospedagem.
 dc() {
   if [ "${SINGLE_SERVER:-0}" = "1" ]; then
-    docker compose -f "$COMPOSE" -f docker-compose.single-server.yml "$@"
+    docker compose -f "$COMPOSE" -f docker-compose.single-server.yml ${EXTRA_COMPOSE_FILES:+$EXTRA_COMPOSE_FILES} "$@"
     return
   fi
   case "${REVERSE_PROXY:-caddy}" in
-  traefik) docker compose -f "$COMPOSE" -f "$COMPOSE_TRAEFIK" "$@" ;;
-  npm)     docker compose -f "$COMPOSE" -f "$COMPOSE_NPM" "$@" ;;
-  *)       docker compose -f "$COMPOSE" "$@" ;;
+  traefik) docker compose -f "$COMPOSE" -f "$COMPOSE_TRAEFIK" ${EXTRA_COMPOSE_FILES:+$EXTRA_COMPOSE_FILES} "$@" ;;
+  npm)     docker compose -f "$COMPOSE" -f "$COMPOSE_NPM" ${EXTRA_COMPOSE_FILES:+$EXTRA_COMPOSE_FILES} "$@" ;;
+  *)       docker compose -f "$COMPOSE" ${EXTRA_COMPOSE_FILES:+$EXTRA_COMPOSE_FILES} "$@" ;;
   esac
 }
 
@@ -235,13 +245,13 @@ dc() {
 # próprio dono derrubaria o site seguindo a instrução do kit.
 dc_files() {
   if [ "${SINGLE_SERVER:-0}" = "1" ]; then
-    printf -- '-f %s -f %s' "$COMPOSE" docker-compose.single-server.yml
+    printf -- '-f %s -f %s%s' "$COMPOSE" docker-compose.single-server.yml "${EXTRA_COMPOSE_FILES:+ $EXTRA_COMPOSE_FILES}"
     return
   fi
   case "${REVERSE_PROXY:-caddy}" in
-  traefik) printf -- '-f %s -f %s' "$COMPOSE" "$COMPOSE_TRAEFIK" ;;
-  npm)     printf -- '-f %s -f %s' "$COMPOSE" "$COMPOSE_NPM" ;;
-  *)       printf -- '-f %s' "$COMPOSE" ;;
+  traefik) printf -- '-f %s -f %s%s' "$COMPOSE" "$COMPOSE_TRAEFIK" "${EXTRA_COMPOSE_FILES:+ $EXTRA_COMPOSE_FILES}" ;;
+  npm)     printf -- '-f %s -f %s%s' "$COMPOSE" "$COMPOSE_NPM" "${EXTRA_COMPOSE_FILES:+ $EXTRA_COMPOSE_FILES}" ;;
+  *)       printf -- '-f %s%s' "$COMPOSE" "${EXTRA_COMPOSE_FILES:+ $EXTRA_COMPOSE_FILES}" ;;
   esac
 }
 
@@ -698,6 +708,11 @@ construir_aqui_e_subir() {  # construir_aqui_e_subir [versão alvo] → 0 se sub
     c_red "$(t "✖ As imagens foram construídas, mas os serviços não subiram.")"
     return 1
   fi
+  # Ver o comentário de EXTRA_COMPOSE_FILES, acima: sem isto, a PRÓXIMA
+  # chamada de `dc` (o force-recreate que update.sh faz logo depois de
+  # `construir_aqui_e_subir` retornar) voltaria a referenciar só o compose
+  # base — cujo `image:` é a publicada, sem manifest para esta arquitetura.
+  EXTRA_COMPOSE_FILES="-f $COMPOSE_BUILD"
   return 0
 }
 

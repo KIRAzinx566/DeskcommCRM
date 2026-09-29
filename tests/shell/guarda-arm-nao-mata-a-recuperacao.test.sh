@@ -78,6 +78,15 @@ mkdir -p "$WORK/bin"
 cat > "$WORK/bin/docker" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$DOCKER_LOG"
+# O `exec` do probe de saúde vem PRIMEIRO e sozinho, antes de qualquer outro
+# caso: depois da recuperação, update.sh passa a mandar `-f
+# docker-compose.build.yml` em TODO `dc` (EXTRA_COMPOSE_FILES em _common.sh) —
+# inclusive neste exec —, e ele não pode cair no `exit 0` mudo do caso do
+# overlay, ou o probe nunca vê "healthy" e o update morre esperando o app
+# ficar saudável.
+case " $* " in
+  *" exec "*) printf 'healthy\n{"data":{"status":"healthy","version":"0.9.0","checks":{"supabase":{"status":"ok","latency_ms":12}}}}\n'; exit 0 ;;
+esac
 case " $* " in
   # O overlay de build local: build e up são sucesso por definição aqui, e é a
   # diferença entre as DUAS chamadas de `up -d` que o update.sh faz.
@@ -91,9 +100,6 @@ if [ "${ARM_SEM_IMAGEM:-0}" = 1 ]; then
     *" pull"*|*" up -d"*) exit 1 ;;
   esac
 fi
-case " $* " in
-  *" exec "*) printf 'healthy\n{"data":{"status":"healthy","version":"0.9.0","checks":{"supabase":{"status":"ok","latency_ms":12}}}}\n' ;;
-esac
 exit 0
 STUB
 # `crontab` guarda a tabela num arquivo: o update.sh instala a linha do agente
