@@ -407,6 +407,34 @@ if [ -f supabase/baseline.sql ]; then
     END { for (k in estado) if (estado[k] == "create") print k }
   ' supabase/baseline.sql | LC_ALL=C sort -u)"
 
+  # ── SÓ CONTA QUEM TEM TABELA DE VERDADE — MÓDULO OPCIONAL NÃO É ISOLAMENTO
+  #    AUSENTE ─────────────────────────────────────────────────────────────
+  #
+  # Desde o ADR-0002 (primeiro módulo oficial: Honorários, migration 0480), o
+  # baseline pode ter `create policy ... on public.honorarios_contratos` cujo
+  # `create table` mora dentro do CORPO de uma função provisionadora
+  # (`fn_honorarios_provisionar`) — aplicar o baseline cria a FUNÇÃO, nunca
+  # executa o corpo dela. A tabela (e a regra) só nascem quando um
+  # administrador da instalação chama `fn_modulo_instalar('honorarios', ...)`.
+  #
+  # A régua acima ("toda `create policy` do arquivo") não sabia disso e tratava
+  # módulo nunca instalado como isolamento ausente: MEDIDO numa VPS real,
+  # 30/09/2026 — `honorarios_contratos`/`honorarios_parcelas` reprovadas com
+  # `relation "public.honorarios_contratos" does not exist`, atualização parada,
+  # CRM fora do ar por um módulo que ninguém tinha ligado. Tabela que não existe
+  # não tem o que vazar; o filtro certo é "a tabela está de pé", não "o arquivo
+  # menciona uma regra para ela" — e vale para este módulo e para qualquer outro
+  # que o ADR-0002 trouxer depois, sem precisar nomear nenhum aqui.
+  tabelas_existentes_arq="$(mktemp)"
+  pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -c \
+    "select tablename from pg_tables where schemaname='public';" 2>/dev/null \
+    | LC_ALL=C sort -u > "$tabelas_existentes_arq"
+  esperadas="$(printf '%s\n' "$esperadas" | awk -F'|' '
+    NR == FNR { existe[$0] = 1; next }
+    ($2 in existe)
+  ' "$tabelas_existentes_arq" -)"
+  rm -f "$tabelas_existentes_arq"
+
   existentes="$(pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -F'|' -c \
     "select p.polname, c.relname from pg_policy p join pg_class c on c.oid=p.polrelid
        join pg_namespace n on n.oid=c.relnamespace where n.nspname='public';" 2>/dev/null | LC_ALL=C sort -u)"
