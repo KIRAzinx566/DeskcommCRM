@@ -8,6 +8,244 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.26.0] — 2026-09-29
+
+### Adicionado
+
+- **A conversa pode abrir com um texto sugerido por outro sistema, pronto para revisar**
+
+- **A empresa passa a ter proposta comercial, do rascunho da IA ao PDF que o cliente recebe no WhatsApp**
+
+- **A etapa do funil pode avisar a equipe na Central quando um negócio entra nela**
+
+- **A ferramenta de agenda lê um período inteiro, no fuso da empresa e em páginas**
+
+- **A integração que repete o pedido não cria dois textos sugeridos**
+
+- **A retenção de mídia passa a ser cumprida — arquivos vencidos e órfãos saem do armazenamento**
+
+- **A tela de credenciais ganha o provedor personalizado compatível com OpenAI**
+
+- **A transcrição de áudio aceita idioma declarado e modelo melhor sem copiar a chave**
+
+- **A venda que veio de anúncio pode ir para a Meta pelo próprio canal intermediado, atrás de uma chave que vem desligada**
+
+- **Aba Graph (Datafy): editar e apagar um modelo sem levar as outras traduções**
+
+- **Perguntar ao acervo direto da conversa, e a busca do atendente ganha gráfico próprio em Evolução**
+
+- **Acompanhe e reprocesse conversões de anúncios pelo CRM**
+
+- **Anexo de imagem, arquivo, áudio ou vídeo dentro de nota interna**
+
+- **As respostas prontas chegam à integração com as variáveis do próprio integrador**
+
+- **Automação e follow-up ganham o lembrete interno, que cria tarefa para a equipe sem mandar mensagem ao cliente, e os gatilhos por tempo**
+
+- **A base de conhecimento pode ser preparada pelo Google (Gemini), não só pela OpenAI**
+
+- **Busca dentro da conversa, nas mensagens já carregadas**
+
+- **Chance de fechamento por etapa e previsão ponderada do funil**
+
+- **Configure a captura Google e o envio de leads qualificados**
+
+- **Conversões do Google Ads por etapa do funil, venda sem valor e telefone criptografado**
+
+- **Dá para trocar entre tema claro e escuro dentro do Modo Plataforma**
+
+- **Data de nascimento na ficha do contato e no agente**
+
+- **Filtre a lista por várias etiquetas de uma vez — todas (E) ou qualquer uma (OU)**
+
+- **Funis podem exigir campos ao entrar numa etapa ou ao encerrar, e o motivo de ganho vira campo próprio**
+
+- **Grupos de clientes no chat, com resposta dos atendentes**
+
+- **Histórico e diagnóstico das conversões de anúncios**
+
+- **Instale o rastreio de origem nos botões de WhatsApp do site**
+
+- **Links rastreáveis por campanha e instalação do script no site**
+
+- **Módulo opcional de Honorários para escritórios de advocacia**
+
+- **Módulo opcional para quem vende para empresas — Empresas, Pessoas que decidem e importação de planilha**
+
+- **Motivos de perda com categoria, filtro por motivo e relatório de perdas**
+
+- **Mudar a etapa do negócio pela conversa, sem abrir o quadro do funil**
+
+- **Nome da etapa editável direto no cabeçalho do quadro**
+
+- **O aviso de compromisso por webhook traz horário, situação, tipo, local e negócios, e comparecimento e falta viram gatilho**
+
+- **O canal oficial pode apontar para um servidor de testes próprio**
+
+- **O caso aberto pela IA aparece no sino na hora, e sai quando é fechado**
+
+- **O dono pode impedir que um agente marque novos retornos sem desligar os acompanhamentos configurados**
+
+- **O envio de mensagem pela API aceita chave de idempotência e registra o atendente em nome de quem a integração enviou**
+
+- **O follow-up manda modelo aprovado do WhatsApp e respeita o retorno combinado**
+
+- **O ícone da aba do navegador pode ser uma imagem sua**
+
+- **O ícone enviado em Marca também identifica o aplicativo instalado**
+
+- **O instalador pergunta em que idioma ele mesmo fala — português ou español**
+
+- **O Jev passa a observar qual agente deve atender, ao lado do seu roteador de intenção**
+
+- **O Jev passa a observar tentativas de manipular o agente, ao lado da sua IA de sempre**
+
+- **O rascunho sugerido por integração passa a ser apagado 30 dias depois de vencer**
+
+- **O servidor pode falar com o Supabase por um endereço só dele**
+
+- **O webhook de saída passa a levar id de entrega, número da tentativa e assinatura com carimbo de tempo**
+
+- **Os avisos que pedem gente chegam ao celular**
+
+- **Os avisos que pedem gente tocam o som que a organização escolher**
+
+- **Os modelos do provedor intermediado se editam e se apagam pela tela, com prévia como no WhatsApp**
+
+- **Uma área só mostra todos os recursos opcionais, se estão ligados e onde se ajustam**
+
+- **Retomada de negócio perdido como novo negócio, por funil**
+
+- **Confira a senha ao entrar ou criar sua conta**
+
+- **Use uma chave OpenRouter para preparar o acervo de conhecimento**
+
+### Corrigido
+
+- **A Agenda lembra o tipo de compromisso escolhido depois de recarregar a página**
+
+- **A anotação interna do compromisso aparece no painel de detalhe da Agenda**
+
+- **A atualização não acusa mais regra de isolamento que sempre esteve no banco**
+
+- **A conexão do dono do banco não entra mais no processo do CRM**
+
+- **A fila de remoção de mídia avisa quantas linhas ela expurgou**
+
+- **A nota interna chega na hora para quem pode ver a conversa, e deixa de aparecer para quem não pode**
+
+- **A poda do arquivo de webhooks passa a ordenar o lote e a dizer quando falha**
+
+- **A poda do histórico de captação passa a ordenar o lote e a dizer quando falha**
+
+- **A previsão em Métricas mostra o valor certo em moeda sem centavos**
+
+- **A resposta enviada pelo CRM não aparece mais duas vezes na conversa**
+
+- **A verificação em duas etapas não é dispensada quando a leitura dos fatores falha**
+
+- **Aba ativa da Inbox visível em colunas estreitas**
+
+- **As telas de convite, de erro e as páginas legais declaram o idioma em que estão escritas**
+
+- **Numa VPS ARM, a atualização não para mais logo depois de construir as imagens localmente**
+
+- **O caminho de um arquivo enviado não sai mais da pasta da conversa por `..`**
+
+- **Candidato a golden set não grava o texto do cliente como ele chegou**
+
+- **Com "responder em várias mensagens curtas" ligado, cada parágrafo vira uma bolha, na ordem certa**
+
+- **Corrige convites filtrados por identificação SMTP local em instalações Docker**
+
+- **A resposta da pesquisa de satisfação (CSAT) é apagada quando o contato é anonimizado**
+
+- **Em "Cadastro apenas por convite", ninguém mais cria conta direto pelo Supabase**
+
+- **Em espanhol, a tela de rastreio e conversões do Google Ads passa a tratar por "tú", e o painel de perdas escreve cada moeda na convenção dela**
+
+- **Em espanhol, os gatilhos e ações de Webhooks, o papel de assistente com autonomia e a gravidade "informativo" dos avisos da IA deixam de aparecer em português**
+
+- **Entrar com Google entra no CRM direto, em vez de voltar para a tela de login com a sessão já criada**
+
+- **Entrar com Google numa instalação sem o Google ligado mostra o aviso na tela de login, em vez de uma página de erro fora do CRM**
+
+- **O assistente não grava mais no negócio de outro cliente**
+
+- **Follow-up de silêncio para de mandar mensagem a cada poucos minutos para o mesmo contato**
+
+- **Host da Graph em `http` externo deixa de ser aceito em produção**
+
+- **Instalar pela primeira vez numa VPS ARM volta a ser recusado, mesmo com o .env já preenchido**
+
+- **Levar o negócio para outro funil passa a respeitar os campos exigidos pela etapa de destino**
+
+- **Mídia já removida pode ser enfileirada de novo e a fila deixa de crescer sem teto**
+
+- **Mover um negócio para a etapa em que ele já está não é mais barrado por campos obrigatórios**
+
+- **"Não me contate mais", "não entre mais em contato" e "pode me remover da lista" passam a descadastrar o contato**
+
+- **No faturamento, cada moeda tem o seu bloco em vez de uma soma entre moedas**
+
+- **No modo assistido, o pedido para parar e o pedido de falar com uma pessoa passam a valer na hora**
+
+- **No número oficial intermediado, a caixa de entrada só recebe o que é do próprio número**
+
+- **No número oficial intermediado, evento sem conta não entra e o estado do número só vale para o próprio número**
+
+- **No número oficial intermediado, o cliente que chega por anúncio fica marcado — e a hora de entrega e de leitura passa a ser gravada**
+
+- **No número oficial intermediado, o lugar escolhido no mapa chega com o link do mapa**
+
+- **No quadro do funil, o total da etapa separa as moedas em vez de somá-las**
+
+- **O agente com o provedor personalizado passa a publicar**
+
+- **O app instalado usa o nome configurado na marca da instalação**
+
+- **O aviso ao cliente e o título na Central saem no idioma da organização quando a IA passa a conversa**
+
+- **O aviso de caso não sai mais para um número que virou de uma conexão da própria conta**
+
+- **O aviso "já acionei o time" só vai ao cliente se a IA (ou o agente conectado) atendia a conversa — e uma vez por dia**
+
+- **O botão "Anonimizar contato" da ficha passa a apagar tudo o que o pedido formal de LGPD apaga**
+
+- **O candidato ao golden set sai do disco e vira linha sem texto de cliente**
+
+- **O controle Confidence threshold sai do editor de agente — ele não controlava nada**
+
+- **O fuso da organização vira o padrão no horário do agente e do atendente, e faltavam textos em espanhol**
+
+- **O inbox não abre mais barra de rolagem lateral com texto longo na memória do contato**
+
+- **O número de uma conexão removida volta a poder receber os avisos**
+
+- **O quadro do funil cabe na tela, e o total da etapa em moeda sem centavos soma certo**
+
+- **O relatório de acesso do titular passa a incluir o que a anonimização apaga**
+
+- **O seletor de modelo do atendente não oferece mais modelo de busca, e o fim do onboarding só diz que o atendente está no ar quando ele está**
+
+- **O servidor do app segura a conexão ociosa por mais tempo que o proxy na frente**
+
+- **O Testar do agente consulta o catálogo e o acervo de conhecimento**
+
+- **O vigia de saúde ignora a sessão de teste do e2e em vez de vigiá-la como conexão**
+
+- **Onboarding com OpenAI não diz mais que uma chave boa falhou no teste de crédito**
+
+- **Quando a conta de IA fica sem saldo, as respostas esperam a recarga em vez de se perder**
+
+- **Quem já tinha o DeskcommCRM rodando em ARM (VPS aarch64) volta a conseguir atualizar**
+
+- **Repetir uma marcação devolve o compromisso já criado**
+
+- **"Sair da lista de espera" e "meu filho não me liga mais" deixam de virar bloqueio**
+
+- **Skills antigas deixam de derrubar a tela de habilidades da IA**
+
 ## [1.25.0] — 2026-09-25
 
 ### Adicionado
@@ -8561,7 +8799,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.25.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.0...HEAD
+[1.26.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.25.0...v1.26.0
 [1.25.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.22.0...v1.23.0
