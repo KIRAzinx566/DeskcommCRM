@@ -425,10 +425,28 @@ if [ -f supabase/baseline.sql ]; then
   # não tem o que vazar; o filtro certo é "a tabela está de pé", não "o arquivo
   # menciona uma regra para ela" — e vale para este módulo e para qualquer outro
   # que o ADR-0002 trouxer depois, sem precisar nomear nenhum aqui.
+  # MEDIDO numa VPS real, 30/09/2026, logo depois de um apply pesado do
+  # baseline (pooler Supabase): o MESMO comando, repetido sem nenhuma mudança
+  # no banco entre uma vez e outra, produziu o alarme falso deste bloco numa
+  # rodada e não na seguinte — sintoma de disputa/timing na conexão, não de
+  # lógica. A causa exata dentro do pooler NÃO FOI DETERMINADA (fica escrito
+  # como está, em vez de inventar uma). Isolado (sem o resto da atualização
+  # em volta) a consulta sempre respondeu de primeira, o que não prova nada
+  # sobre a janela real — só que reproduzir a corrida de propósito é difícil.
+  # Repetir a consulta quando ela vier VAZIA é a única rede de segurança que
+  # não arrisca inventar régua contra instalação legitimamente pequena; não é
+  # garantia contra uma resposta incompleta-mas-não-vazia, que também não foi
+  # capturada a tempo de confirmar a forma exata. Mesmo espírito das
+  # "passadas" da aplicação do baseline logo acima: banco que ainda está se
+  # acalmando, não comando errado.
   tabelas_existentes_arq="$(mktemp)"
-  pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -c \
-    "select tablename from pg_tables where schemaname='public';" 2>/dev/null \
-    | LC_ALL=C sort -u > "$tabelas_existentes_arq"
+  for _tentativa_tabelas in 1 2; do
+    pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -c \
+      "select tablename from pg_tables where schemaname='public';" 2>/dev/null \
+      | LC_ALL=C sort -u > "$tabelas_existentes_arq"
+    [ -s "$tabelas_existentes_arq" ] && break
+    sleep 2
+  done
   esperadas="$(printf '%s\n' "$esperadas" | awk -F'|' '
     NR == FNR { existe[$0] = 1; next }
     ($2 in existe)
