@@ -98,6 +98,21 @@ case " $* " in
   *" ps "*) [ "${AVISO_PRESO:-0}" = "1" ] && printf 'deskcomm-manutencao\n' ;;
   *" image inspect "*) [ "${IMAGEM_EM_DIA:-0}" = "1" ] && printf 'x@sha256:aaa\n' ;;
   *" imagetools inspect "*) [ "${IMAGEM_EM_DIA:-0}" = "1" ] && printf 'Digest: sha256:aaa\n' ;;
+  # A conferência das regras de isolamento passou a perguntar que TABELAS
+  # existem DE VERDADE (fix: policy de módulo opcional nunca instalado não é
+  # isolamento ausente — ver `update.sh`, bloco logo após extrair `esperadas`).
+  # Por padrão aqui TODAS as tabelas que `esperadas` menciona respondem
+  # "existe", preservando o comportamento dos casos deste arquivo que não
+  # tocam nisto; só com TABELAS_AUSENTES no ambiente a lista exclui alguma —
+  # o gatilho do caso "módulo opcional nunca instalado" mais abaixo.
+  *"pg_tables"*)
+    awk '
+      match($0, /create policy "?[a-zA-Z0-9_]+"? on public\.[a-zA-Z0-9_]+/) {
+        t = substr($0, RSTART, RLENGTH); sub(/.* on public\./, "", t); print t
+      }
+    ' "${PROJECT_DIR:-.}/supabase/baseline.sql" 2>/dev/null | sort -u | \
+      { if [ -n "${TABELAS_AUSENTES:-}" ]; then grep -vxF -f <(printf '%s\n' $TABELAS_AUSENTES); else cat; fi; }
+    ;;
   # Aplicação do baseline. Só com BASELINE_ROTEIRO no ambiente (caso 4c): cada
   # chamada imprime a próxima passada do roteiro. Fora dele, sai limpa como antes.
   *" -f /b.sql "*)
@@ -409,6 +424,41 @@ check "  para com 1" test "$RC" -eq 1
 check "  a conferência das regras rodou e acusou a ausente" grep -q "REGRAS DE ISOLAMENTO AUSENTES" "$OUTFILE"
 check "  e o CRM NÃO subiu depois do banco" \
   test -z "$(awk '/-f \/b.sql/ {b=1} b && / up -d/' "$DOCKER_LOG")"
+git -C "$PROJ" checkout --quiet -- supabase/baseline.sql
+
+# ── Regra de módulo opcional NUNCA instalado não é isolamento ausente ────────
+#
+# Achado numa VPS real, 30/09/2026, atualizando para v1.26.0 (o primeiro
+# release com um módulo oficial via ADR-0002: Honorários, migration 0480). O
+# `create table`/`create policy` das tabelas do módulo mora dentro do CORPO da
+# função provisionadora (`fn_honorarios_provisionar`) — aplicar o baseline cria
+# a FUNÇÃO, nunca executa o corpo. A tabela só nasce quando um administrador
+# da instalação chama `fn_modulo_instalar('honorarios', ...)`.
+#
+# A régua antiga ("toda `create policy` que o arquivo menciona") não sabia
+# disso: tratava módulo nunca ligado como isolamento ausente, a atualização
+# parava e o CRM ficava fora do ar por um módulo que ninguém tinha instalado —
+# medido: `relation "public.honorarios_contratos" does not exist`.
+printf 'create policy "leitura_modulo" on public.modulo_teste_tabela using (true);\n' \
+  > "$PROJ/supabase/baseline.sql"
+: > "$DOCKER_LOG"
+TABELAS_AUSENTES="modulo_teste_tabela" run_update --to v1.1.0 --force
+check "tabela de módulo nunca instalado não bloqueia a atualização" test "$RC" -eq 0
+check "  sem o alarme de isolamento ausente" test -z "$(grep 'REGRAS DE ISOLAMENTO AUSENTES' "$OUTFILE" || true)"
+check "  a conferência roda e reporta sucesso (não virou passo mudo)" \
+  grep -q "regras de isolamento conferidas" "$OUTFILE"
+check "  e o CRM sobe depois do banco" \
+  test -n "$(awk '/-f \/b.sql/ {b=1} b && / up -d/' "$DOCKER_LOG")"
+
+# Controle: a MESMA tabela de módulo, agora com TABELAS_AUSENTES vazio (o
+# padrão do dublê responde que ela existe) — sem a regra criada de verdade,
+# isto tem que continuar acusando ausência. Prova que o caso acima passa
+# porque a tabela não existe, não porque o filtro parou de checar qualquer
+# coisa.
+: > "$DOCKER_LOG"
+run_update --to v1.1.0 --force
+check "  controle: a MESMA tabela 'existindo' e sem a regra ainda acusa ausência" \
+  grep -q "REGRAS DE ISOLAMENTO AUSENTES" "$OUTFILE"
 git -C "$PROJ" checkout --quiet -- supabase/baseline.sql
 
 # ── Clone RASO: a topologia que o install.sh realmente entrega ───────────────
