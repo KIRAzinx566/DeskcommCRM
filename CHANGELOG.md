@@ -8,6 +8,22 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [1.26.2] — 2026-09-30
+
+### Corrigido
+
+- **A consulta de tabelas existentes do update.sh repete quando vem vazia** Acompanha o conserto anterior (a atualização não travar mais achando
+  isolamento ausente num módulo opcional nunca instalado): numa VPS real, logo
+  depois de um apply pesado do baseline, a mesma consulta produziu o alarme
+  falso numa rodada e não na seguinte, com o banco idêntico nas duas — sintoma
+  de timing na conexão com o pooler, não de lógica errada. A causa exata dentro
+  do pooler não foi determinada.
+
+  Agora, se a consulta vier vazia, o `update.sh` repete uma vez antes de
+  seguir — mesmo espírito das "passadas" que a aplicação do baseline já usa
+  para banco que ainda está se acalmando. Quem nunca bate nesta janela não
+  nota diferença nenhuma.
+
 ## [1.26.1] — 2026-09-30
 
 ### Corrigido
@@ -8819,7 +8835,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.1...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.2...HEAD
+[1.26.2]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.1...v1.26.2
 [1.26.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.0...v1.26.1
 [1.26.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.25.0...v1.26.0
 [1.25.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.24.0...v1.25.0
