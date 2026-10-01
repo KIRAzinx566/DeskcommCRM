@@ -41,7 +41,7 @@ function migracao(numero: string): string {
 }
 
 const MIG_0480 = migracao("0480");
-const MIG_0485 = migracao("0485");
+const MIG_0504 = migracao("0504");
 
 /** Bloco de `create or replace function ...` até a próxima função — o que o Postgres executa. */
 function blocoDaFuncao(sql: string, nome: string): string {
@@ -206,7 +206,7 @@ describe("D7 — a cadeia de funções do módulo não depende das tabelas", () 
 // ---------------------------------------------------------------------------
 describe("D8 — a anonimização alcança as seções de módulo declaradas", () => {
   it("a tabela do registro e a função do gatilho existem nas DUAS origens (tripla)", () => {
-    for (const origem of [BASELINE, MIG_0485]) {
+    for (const origem of [BASELINE, MIG_0504]) {
       expect(origem).toContain("create table if not exists public.modulo_secoes_lgpd");
       expect(origem).toContain("create or replace function public.fn_lgpd_redigir_secoes_de_modulo()");
       expect(origem).toContain("create trigger trg_lgpd_secoes_de_modulo");
@@ -215,13 +215,13 @@ describe("D8 — a anonimização alcança as seções de módulo declaradas", (
       );
     }
     const man = fs.readFileSync(path.join(DIR_MIGRACOES, "MANIFEST.md"), "utf8");
-    expect(man).toMatch(/\|\s*`20260928214705`\s*\|\s*`0485_lgpd_alcanca_secoes_de_modulo`/);
+    expect(man).toMatch(/\|\s*`20261001020956`\s*\|\s*`0504_lgpd_alcanca_secoes_de_modulo`/);
   });
 
   it("cada seção passa por to_regclass ANTES de qualquer comando — módulo ausente pula", () => {
     // É o coração da D8: uma cascata que citasse a tabela pelo nome abortaria a
     // anonimização inteira em toda instalação sem o módulo.
-    for (const origem of [BASELINE, MIG_0485]) {
+    for (const origem of [BASELINE, MIG_0504]) {
       const corpo = blocoDaFuncao(origem, "fn_lgpd_redigir_secoes_de_modulo");
       expect(corpo, "corpo da função não encontrado").not.toBe("");
       expect(corpo).toContain("to_regclass(");
@@ -235,7 +235,7 @@ describe("D8 — a anonimização alcança as seções de módulo declaradas", (
   });
 
   it("o gatilho é a virada de is_anonymized em contacts, e sem parâmetro (D4)", () => {
-    for (const origem of [BASELINE, MIG_0485]) {
+    for (const origem of [BASELINE, MIG_0504]) {
       const gatilho = /create trigger trg_lgpd_secoes_de_modulo[\s\S]{0,400}?fn_lgpd_redigir_secoes_de_modulo/.exec(
         origem,
       )?.[0];
