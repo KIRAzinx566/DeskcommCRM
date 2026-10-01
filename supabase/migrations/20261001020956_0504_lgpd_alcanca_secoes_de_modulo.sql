@@ -1,4 +1,4 @@
--- 0485 — A anonimização de LGPD alcança as SEÇÕES DE MÓDULO declaradas (D8 da ADR-0002, #1114)
+-- 0504 — A anonimização de LGPD alcança as SEÇÕES DE MÓDULO declaradas (D8 da ADR-0002, #1114)
 --
 -- Lei: `docs/adr/0002-tabelas-de-modulo-num-banco-so.md`, D8:
 --   "Anonimização e retenção alcançam as tabelas do módulo por SQL dinâmico protegido por

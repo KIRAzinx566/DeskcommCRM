@@ -250,7 +250,7 @@ const DECISOES: Record<string, Decisao> = {
   csat_requests: {
     decidida: "redigir",
     caminho: "gatilho",
-    razao: "0501: raw_reply (o que o CLIENTE respondeu à pesquisa de satisfação) é a mesma classe de dado que messages.body, numa tabela que a função canônica não alcança — lê por contact_id, não por texto de conversa. fn_redigir_csat_do_contato_anonimizado zera raw_reply na virada; status, score e os timestamps ficam, porque são a métrica de CSAT da organização, não dado da pessoa.",
+    razao: "0485: raw_reply (o que o CLIENTE respondeu à pesquisa de satisfação) é a mesma classe de dado que messages.body, numa tabela que a função canônica não alcança — lê por contact_id, não por texto de conversa. fn_redigir_csat_do_contato_anonimizado zera raw_reply na virada; status, score e os timestamps ficam, porque são a métrica de CSAT da organização, não dado da pessoa.",
   },
   // ── manter: a linha e o conteúdo ficam, por decisão ───────────────────────
   ai_agent_runs: {

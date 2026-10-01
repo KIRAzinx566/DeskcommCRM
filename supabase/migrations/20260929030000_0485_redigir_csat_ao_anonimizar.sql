@@ -1,4 +1,4 @@
--- 0501 — CSAT entra na cascata de anonimização, via gatilho (issue #1504).
+-- 0485 — CSAT entra na cascata de anonimização, via gatilho (issue #1504).
 --
 -- `csat_requests.raw_reply` guarda o que o CLIENTE respondeu à pesquisa de
 -- satisfação — a mesma classe de dado que `messages.body` (o passo 3 da

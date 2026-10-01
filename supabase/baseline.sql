@@ -43168,7 +43168,7 @@ $$;
 revoke all on function public.fn_lgpd_cascade_redact_contact(uuid,uuid,uuid) from public, anon, authenticated;
 grant execute on function public.fn_lgpd_cascade_redact_contact(uuid,uuid,uuid) to service_role;
 
--- ---- CSAT entra na cascata de anonimização, via gatilho (migration 0501) ----
+-- ---- CSAT entra na cascata de anonimização, via gatilho (migration 0485) ----
 -- `csat_requests.raw_reply` guarda o que o CLIENTE respondeu à pesquisa de
 -- satisfação — mesma classe de dado que `messages.body` (passo 3 da própria
 -- cascata), numa tabela que `fn_lgpd_cascade_redact_contact` não alcança. Sem
@@ -43204,11 +43204,11 @@ create trigger trg_redigir_csat_ao_anonimizar
 comment on column public.csat_requests.raw_reply is
   'Resposta em texto livre do cliente à pesquisa de satisfação — mesma classe de dado que messages.body. O trigger trg_redigir_csat_ao_anonimizar a apaga quando o contato é anonimizado. status, score e os timestamps são PRESERVADOS: a métrica de CSAT da organização não é dado da pessoa.';
 
--- ---- as seções de módulo que a anonimização alcança (migration 0485) ----
+-- ---- as seções de módulo que a anonimização alcança (migration 0504) ----
 -- ⚠️ ENTRA ANTES do bloco da VARREDURA anon: cria função. Corpo IDÊNTICO ao da migration
--- 0485 (gate `apendice-do-baseline-nao-diverge-da-cadeia` compara o que o Postgres executa).
+-- 0504 (gate `apendice-do-baseline-nao-diverge-da-cadeia` compara o que o Postgres executa).
 -- Idempotente: `if not exists`, `create or replace`, `drop trigger if exists`.
--- 0485 — A anonimização de LGPD alcança as SEÇÕES DE MÓDULO declaradas (D8 da ADR-0002, #1114)
+-- 0504 — A anonimização de LGPD alcança as SEÇÕES DE MÓDULO declaradas (D8 da ADR-0002, #1114)
 --
 -- Lei: `docs/adr/0002-tabelas-de-modulo-num-banco-so.md`, D8:
 --   "Anonimização e retenção alcançam as tabelas do módulo por SQL dinâmico protegido por
