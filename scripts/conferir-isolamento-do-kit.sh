@@ -79,17 +79,30 @@ esac
 # O arquivo de cada release. No CI o checkout é raso e sem tags: busca só a tag,
 # rasa também. Numa árvore completa, busca sem --depth — com ele o git marcaria o
 # repositório de quem roda como raso.
-ANTES_DO_FILTRO="v1.63.0"
+#
+# ⚠️ `v1.63.0` É A TAG DO MELGARAFAEL/DESKCOMMCRM — não existe num fork cuja
+# numeração de release é própria. `CONFERENCIA_KIT_ANTES_DO_FILTRO` existe pra
+# isso — mas um fork não necessariamente TEM uma tag equivalente: este aqui, por
+# exemplo, pulou do estado "sem o recurso de conferência" (v1.26.0, sem os
+# marcadores) direto pro estado "com o recurso e já com o filtro" (v1.26.1), num
+# único merge em massa do upstream — nenhuma tag própria passou pelo estado
+# intermediário "com o recurso, sem o filtro" que este controle negativo precisa.
+# Nesse caso o fork aponta pra tag REAL do upstream, e `CONFERENCIA_KIT_ANTES_DO_FILTRO_REMOTO`
+# diz de onde buscá-la (default: `origin`, que só funciona quando o fork tem a
+# tag equivalente de verdade).
+ANTES_DO_FILTRO="${CONFERENCIA_KIT_ANTES_DO_FILTRO:-v1.63.0}"
+ANTES_DO_FILTRO_REMOTO="${CONFERENCIA_KIT_ANTES_DO_FILTRO_REMOTO:-origin}"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/deskcomm-update-sh.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
-update_sh_da() {  # update_sh_da <tag> — caminho de uma cópia do update.sh da tag
-  if ! git -C "$ROOT" rev-parse -q --verify "refs/tags/$1^{commit}" >/dev/null; then
+update_sh_da() {  # update_sh_da <tag> [remoto] — caminho de uma cópia do update.sh da tag
+  local tag="$1" remoto="${2:-origin}"
+  if ! git -C "$ROOT" rev-parse -q --verify "refs/tags/$tag^{commit}" >/dev/null; then
     local profundidade=""
     [ "$(git -C "$ROOT" rev-parse --is-shallow-repository)" = true ] && profundidade="--depth=1"
-    git -C "$ROOT" fetch -q --no-tags $profundidade origin "+refs/tags/$1:refs/tags/$1"
+    git -C "$ROOT" fetch -q --no-tags $profundidade "$remoto" "+refs/tags/$tag:refs/tags/$tag"
   fi
-  git -C "$ROOT" show "$1:hostgator-setup-kit/update.sh" > "$TMP/$1"
-  printf '%s' "$TMP/$1"
+  git -C "$ROOT" show "$tag:hostgator-setup-kit/update.sh" > "$TMP/$tag"
+  printf '%s' "$TMP/$tag"
 }
 
 # conferir <rótulo> <update.sh> — 0 se nenhuma regra falta, 1 se falta.
@@ -141,6 +154,6 @@ falhas=0
 conferir "update.sh deste checkout" "$KIT/update.sh" || falhas=$((falhas + 1))
 conferir "update.sh da última release ($release)" "$(update_sh_da "$release")" || falhas=$((falhas + 1))
 if [ "$release" != "$ANTES_DO_FILTRO" ]; then
-  conferir "update.sh da $ANTES_DO_FILTRO (sem filtro por tabela)" "$(update_sh_da "$ANTES_DO_FILTRO")" || falhas=$((falhas + 1))
+  conferir "update.sh da $ANTES_DO_FILTRO (sem filtro por tabela)" "$(update_sh_da "$ANTES_DO_FILTRO" "$ANTES_DO_FILTRO_REMOTO")" || falhas=$((falhas + 1))
 fi
 [ "$falhas" -eq 0 ] || exit 1
