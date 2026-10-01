@@ -8,6 +8,86 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.0.0] — 2026-10-01
+
+### ⚠️ Requer atenção
+
+- **Com OpenRouter, o custo das respostas da IA volta a ser contado — e o limite de gasto passa a valer** Se alguma organização sua tem limite de gasto configurado para interromper o atendimento, esse limite passa a valer de verdade a partir desta atualização: ao chegar nele vem primeiro o aviso na Central e, depois, a IA para de responder e as conversas vão para a fila humana. Confira o limite configurado em Uso de IA › Orçamento antes de atualizar, se você usa OpenRouter. Aumentar o limite evita paradas novas, mas não devolve a IA às conversas que já pararam — cada uma é retomada na própria conversa. A parada de emergência da instalação inteira fica em Administração › Recursos opcionais › Comportamento ("Proteção de gasto de IA"), com `AI_BUDGET_ENFORCEMENT=off` no `.env` como alternativa.
+
+### Adicionado
+
+- **Instalação em VPS ARM64** O instalador agora atende VPS ARM64/aarch64, como Oracle Ampere A1, AWS Graviton e Hetzner CAX, inclusive no modo com Supabase na mesma VPS. As imagens do DeskcommCRM são construídas em máquina ARM nativa e publicadas na mesma tag das de amd64, e o WAHA usa a variante oficial NOWEB ARM64.
+
+  Nada é compilado na VPS. Quem já roda em ARM passa a atualizar pelas imagens publicadas, e o `update.sh` troca no `.env` o WAHA amd64 antigo pela variante ARM (um valor escolhido à mão fica intacto). Em amd64 nada muda.
+
+- **Cada número ganha uma janela de resposta separada da janela de disparo** Até aqui, a proteção de envio de cada número tinha um único horário (7h às 22h por padrão), e ele valia para tudo: a resposta do agente a quem escreveu, os disparos em massa e as mensagens que retomam conversa parada. Para o agente responder de madrugada, era preciso abrir o horário inteiro, e com ele os disparos.
+
+  Agora há duas janelas por número, em Conexões › Proteção de envio. A janela de resposta vale quando o cliente escreveu e o agente responde. A janela de disparo vale para disparos em massa, prospecção e mensagens que retomam conversa parada. Para o agente responder a qualquer hora, use 0 e 24 na janela de resposta.
+
+  Nada muda ao atualizar: enquanto a janela de resposta estiver em branco, ela segue a janela de disparo, como antes. O teto diário, o aquecimento do número e o intervalo entre envios continuam valendo para os dois tipos de envio.
+
+- **O Jev passa a perceber quando o cliente pede para falar com uma pessoa ou para parar de receber mensagens, e pode avisar a equipe na Central** O Jev ganha duas tarefas: **Perceber pedido para falar com uma pessoa** e **Perceber pedido para parar de receber mensagens**. Hoje quem percebe esses pedidos é uma regra sem IA: ela passa a conversa a uma pessoa quando o cliente escreve "quero falar com um atendente" (ou uma das palavras de passagem do agente) e bloqueia o contato quando ele manda "PARAR". Ela é precisa, mas estreita: "quero falar com alguém de verdade, não com robô" passa por ela sem ser visto.
+
+  O Jev só é perguntado **onde a regra de hoje disse não** — a mensagem que ela já pegou nem sai para a TypeSafe, e a regra olha todas as mensagens do cliente ainda sem resposta, como o atendimento automático olha. Pedido mandado por áudio não é perguntado. As duas tarefas **começam só observando**: o cartão do Jev, em IA › Provedores, mostra em quantas mensagens o Jev percebeu um pedido que a regra de hoje não reconheceu, com links para as conversas. Em nenhum estado o Jev passa a conversa, bloqueia alguém, cala o agente ou responde o cliente: quem passa a conversa continua sendo a regra de hoje ou uma pessoa, e quem bloqueia o contato é só a regra de hoje, quando o próprio cliente manda "PARAR".
+
+  Quando quiser, clique em **"Avisar a equipe"** na tarefa. A partir daí, cada pedido que o Jev perceber abre um aviso na Central de avisos, um por conversa, com o botão "Abrir a conversa". O aviso não repete o que o cliente escreveu — a mensagem fica na conversa, para quem pode vê-la.
+
+  Quem já tem o Jev ligado vê as duas tarefas com o selo "Nova", já observando — isso é uma chamada a mais ao Jev por mensagem em que a regra de hoje não viu algum dos pedidos (uma fração de centavo de dólar, cobrada na sua conta da TypeSafe). Para não usar, clique em "Pausar esta tarefa" no cartão. Nada precisa ser editado para atualizar.
+
+- **O Jev passa a ler, só observando, a resposta do cliente ao follow-up e comparar com a escolha da sua IA** O Jev ganha a tarefa **Ler a resposta ao follow-up**. Num fluxo de follow-up com o passo "Classificar (IA)", a sua IA de sempre lê a resposta do cliente à mensagem do fluxo e escolhe por qual das saídas que você criou no passo o fluxo segue. Com o Jev ligado, ele responde a mesma pergunta, entre as mesmas saídas e ao mesmo tempo, recebendo só o que o cliente digitou — sem CPF, telefone e e-mail — e as saídas e a dica do passo. Resposta em áudio, imagem ou documento não é enviada ao Jev.
+
+  Nesta versão a tarefa só observa: quem escolhe a saída do fluxo é sempre a sua IA de sempre, e o follow-up não espera pelo Jev. O cartão do Jev, em IA › Provedores, mostra em quantas mensagens dos últimos 30 dias os dois puseram a resposta do cliente na mesma saída, e diz por que não há o botão "Deixar o Jev decidir" nela: primeiro se mede, com respostas de verdade, o quanto os dois concordam. Passos "Classificar (IA)" com uma saída só não são enviados ao Jev. Onde nenhum follow-up publicado tem o passo com duas saídas ou mais, o cartão mostra a tarefa como "Não roda", com o motivo e o link para Follow-ups.
+
+  Quem já tem o Jev ligado vê a tarefa com o selo "Nova", já observando — uma chamada a mais ao Jev a cada vez que a sua IA de sempre lê uma resposta digitada pelo cliente (uma fração de centavo de dólar, cobrada na sua conta da TypeSafe). Para não usar, clique em "Pausar esta tarefa" no cartão. A política de privacidade passa a listar essa finalidade. Nada precisa ser editado para atualizar.
+
+- **Módulos opcionais passam a poder declarar o que a anonimização de LGPD apaga neles** Um módulo opcional passa a ter como fazer a exclusão de dados de LGPD alcançar as tabelas dele, sem que a instalação precise lembrar de nada: o módulo declara uma vez, na própria migration, quais colunas guardam texto livre sobre a pessoa e como a linha se liga a ele, e a anonimização passa a redigir essas colunas junto com as do resto do sistema.
+
+  Hoje nenhum módulo oficial declara seção (honorários não guarda texto livre sobre a pessoa), então nada muda na sua instalação até um módulo declarar. Quem não instalou o módulo não muda de comportamento — a seção declarada para uma tabela que não existe é pulada na hora, sem erro, e a exclusão do contato segue funcionando igualzinho.
+
+  A declaração errada (coluna que não existe) falha alto, dizendo qual módulo e qual tabela, em vez de redigir pela metade e devolver sucesso — porque entregar um pedido de exclusão como cumprido com dado legível é pior do que ele falhar e ser repetido. Não exige ação de quem já está rodando: o `update.sh` cria a tabela do registro (vazia) e o gatilho, sem nenhuma mudança de tela.
+
+- **Relatório por etiqueta — volume, espera e desfecho de cada assunto no período** Quem opera agora pode perguntar à API qual assunto ocupou a operação em um período e quanto tempo o cliente esperou. `GET /api/v1/reports/tags` devolve, para cada etiqueta em uso, quantos atendimentos começaram no período, quantos ainda estão abertos e quantos foram encerrados, a espera média pela resposta e a fatia de cada etiqueta sobre o total.
+
+  A lista de etiquetas vem das que existem de fato nas conversas: uma etiqueta sem atendimento no período aparece com zero em vez de sumir, e um período sem dado nenhum diz isso na resposta em vez de devolver uma tabela de zeros. O pedido aceita `de`, `ate` (datas válidas, até 90 dias) e `tz`, porque a janela é contada no fuso de quem lê. Quando a janela tem mais conversas do que a leitura alcança, a resposta avisa que está cortada.
+
+  É só leitura, sem migration e ainda sem tela própria — a tela vem depois.
+
+- **A cópia de um playbook do catálogo avisa quando sai versão nova, mostra o que mudou e deixa adotar** Quando a plataforma publica uma versão nova de um playbook do catálogo que a organização instalou, o painel de Skills passa a mostrar um aviso nessa skill com o botão "Adotar versão nova". Ao ver o aviso, o operador agora vê o que mudou em relação à cópia que a organização tem em uso — descrição, palavras-chave de ativação e as linhas adicionadas/removidas do procedimento — antes de decidir adotar.
+
+  Nada é trocado sozinho: adotar é um clique de quem é gerente, a versão nova passa a ser a ativa e a que estava em uso continua no Histórico de versões, de onde pode ser restaurada. Skills importadas por arquivo .zip nunca mostram o aviso.
+
+  Antes desta sincronização, a primeira edição de um playbook copiado do catálogo desligava de vez o aviso de versão nova: a cópia editada passava a aparecer como "manual" e nunca mais era avisada, justamente na empresa que mais precisa saber da atualização. Agora a cópia editada continua ligada à versão do catálogo de onde veio e mostra o aviso quando a plataforma publica versão nova, com o texto deixando claro que adotar torna ativa a versão do catálogo e deixa as alterações só no Histórico de versões. Uma cópia editada antes desta versão já tinha perdido o vínculo e continua sem o aviso.
+
+- **O tempo de "pensar" antes de responder, e a janela de rajada, passam a ser ajustáveis por número e por agente** A proteção de envio de cada número (em Conexões › Proteção de envio) ganhou quatro campos para o "tempo de pensar" do agente antes da primeira mensagem da resposta: o tempo para ver a notificação, o tempo por caractere digitado, o mínimo e o máximo. Campo vazio mantém exatamente o ritmo de antes (0,9 s + 22 ms por caractere, entre 1,2 s e 7,5 s). Um mínimo acima do máximo é recusado na hora, com a explicação na tela. Quando a resposta sai em várias mensagens, o intervalo entre elas passa a seguir o "intervalo entre mensagens" configurado para o número, em vez de um valor fixo.
+
+  No cadastro do agente, em "Freios de segurança", agora dá para ajustar quanto tempo o agente espera antes de responder mensagens do mesmo contato que chegam em partes (ex.: "Obrigada" e, 14 s depois, "Tem piscina?"). Deixar o campo vazio usa a janela padrão da instalação (8 s), e o valor máximo é 60 segundos.
+
+  Quem não mudou esses campos não nota diferença nenhuma — os dois continuam opcionais e usam o comportamento de antes quando vazios. Não é preciso fazer nada na instalação: a atualização acrescenta as colunas sozinha.
+
+### Corrigido
+
+- **O agente não envia mais a resposta que ficou desatualizada porque o cliente escreveu de novo enquanto ele pensava** Cliente que escreve em várias mensagens ("Oi", "Boa tarde", depois a pergunta) recebia duas ou mais respostas seguidas. A primeira saía desatualizada ("Como posso te ajudar?" com a pergunta já na conversa) porque o agente leu a conversa antes de a pergunta chegar e levou alguns segundos para escrever. Numa instalação real, 39% das respostas de um agente saíram a menos de 3 minutos de outra resposta ao mesmo cliente.
+
+  Agora, se chega mensagem nova do cliente enquanto a resposta está sendo escrita, ela não é enviada: o turno seguinte lê a conversa inteira e responde a tudo de uma vez. Para quem escreve sem parar não ficar sem resposta, a regra vale só enquanto a mensagem mais antiga sem resposta tiver menos de 2 minutos — depois disso, a resposta sai mesmo assim. O tempo é ajustável por `RESPOSTA_OBSOLETA_TETO_MS`, e `0` desliga.
+
+  Nenhuma configuração ou ação é necessária.
+
+- **A exportação de dados do titular (LGPD) passa a incluir a memória e os registros da IA sobre ele** O direito de acesso entregava conversas, leads, atividades e a ficha do titular, mas não três fontes que a cascata de anonimização já limpa a pedido dele: as notas de memória da IA (`lead_notes`), os argumentos passados às ferramentas (`ai_agent_runs.tool_calls`) e a próxima ação e a qualificação do funil (`lead_state`). O que se apaga a pedido do titular agora é, também, o que se entrega a pedido dele.
+
+  A exportação coleta as três, filtradas por organização e contato, e as entrega no arquivo que o titular recebe (`data.json`), com a qualificação íntegra e, de cada execução da IA, o nome e os argumentos de cada ferramenta. O resultado das ferramentas e o texto intermediário do modelo ficam de fora, para não vazar dado de terceiros que o agente tenha consultado.
+
+  Quem já usa o produto recebe o relatório mais completo sem precisar fazer nada na instalação.
+
+- **Anonimizar um contato passa a apagar também a transcrição de áudio, o texto lido de imagem/documento, as notas do agente, os argumentos de ferramentas da IA, a próxima ação e a identidade social** Quando um contato era anonimizado (LGPD), o texto das mensagens virava "[mensagem anonimizada]", mas várias outras fontes que o agente de IA escreve continuavam guardadas e legíveis sobre a pessoa: a transcrição automática dos áudios, o texto lido das imagens e documentos, as notas de memória da IA (`lead_notes`), o registro de execução com os argumentos passados às ferramentas (`ai_agent_runs.tool_calls`), a próxima ação e a qualificação do funil (`lead_state`) e a identidade social do contato (`contacts.social_identity`).
+
+  Agora a cascata de anonimização, disparada quando o contato vira anonimizado, redige todas essas fontes na mesma transação. No registro de execução fica só o nome das ferramentas que rodaram, para a trilha do que o agente fez continuar legível; o texto do modelo, os argumentos e os resultados são apagados. A operação é idempotente, então a varredura diária de retenção não reescreve o que já foi limpo, e também limpa os contatos que já tinham sido anonimizados antes desta sincronização.
+
+  Não é preciso fazer nada na instalação.
+
+- **Com OpenRouter, o custo das respostas da IA volta a ser contado — e o limite de gasto passa a valer** Com o provedor OpenRouter (ou qualquer gateway que nomeie o modelo como `anthropic/claude-…` ou `openai/gpt-…`), o custo das respostas do agente, das guardas e da classificação de etapa ficava em branco: a tela Uso de IA mostrava gasto zero e o limite de gasto da organização nunca era alcançado. A busca de preço agora entende esse formato. Modelo que não está na tabela de preços continua sem custo — nunca com o preço de outro.
+
+  A tela Uso de IA passa a mostrar o gasto das chamadas feitas a partir da atualização (as anteriores seguem sem custo, então o total deste mês começa a contar do dia em que você atualizou).
+
 ## [1.26.2] — 2026-09-30
 
 ### Corrigido
@@ -9270,7 +9350,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.2...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.2...v2.0.0
 [1.26.2]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.1...v1.26.2
 [1.26.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.0...v1.26.1
 [1.26.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.25.0...v1.26.0
