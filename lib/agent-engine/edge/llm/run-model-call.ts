@@ -873,7 +873,7 @@ export function normalizarErro(err: unknown): {
     codigo = 'modelo_inexistente';
   } else if (
     status === 429 ||
-    /rate.?limit|quota|insufficient.*credit|too many requests|credit balance is too low/i.test(bruto)
+    /rate.?limit|quota|insufficient.*credit|too many requests|credit balance is too low|no credits remaining/i.test(bruto)
   ) {
     // A Anthropic diz "sem crédito" com 400 ("Your credit balance is too low…"),
     // o mesmo status de um pedido malformado — só a frase distingue. Sem ela a

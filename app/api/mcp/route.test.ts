@@ -28,6 +28,13 @@ const connect = vi.fn(async () => {});
 const createMcpServer = vi.fn(() => ({ connect }));
 vi.mock("@/lib/mcp/server", () => ({ createMcpServer }));
 
+// A rota passou a resolver módulos ligados e capacidades da organização
+// ANTES de criar o server MCP — sem mock, cada teste batia na rede real
+// (Supabase de verdade, via createAdminClient) e travava.
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+vi.mock("@/lib/instalacao/modulos", () => ({ modulosLigados: vi.fn(async () => []) }));
+vi.mock("@/lib/organizacao/capacidades", () => ({ capacidadesDaOrganizacao: vi.fn(async () => []) }));
+
 function fakeRequest(): { headers: { get: (k: string) => string | null } } {
   return { headers: { get: (k: string) => (k.toLowerCase() === "authorization" ? "Bearer dsk_x" : null) } };
 }

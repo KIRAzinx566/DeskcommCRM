@@ -73,6 +73,9 @@ async function propsDaPagina(): Promise<Props> {
 }
 
 describe("/admin/email — o que a página entrega ao navegador", () => {
+  // 30s, não os 15s padrão: `Page()` varre `CATALOGO_DA_INSTALACAO` (bem maior
+  // depois da área de recursos opcionais) a cada chamada, e qualquer um dos
+  // casos — não sempre o mesmo — já estourou o padrão neste ambiente.
   it("⭐ com senha gravada, a senha NÃO atravessa — só o fato de existir", async () => {
     const props = await propsDaPagina();
 
@@ -86,7 +89,7 @@ describe("/admin/email — o que a página entrega ao navegador", () => {
       origem: "database",
       transporte: "smtp",
     });
-  });
+  }, 30_000);
 
   it("instalação que nunca configurou: sem senha, e o SMTP não está em vigor", async () => {
     config = {
@@ -103,7 +106,7 @@ describe("/admin/email — o que a página entrega ao navegador", () => {
     const props = await propsDaPagina();
 
     expect(props).toMatchObject({ temSenhaSalva: false, transporte: "nenhum", origem: "none" });
-  });
+  }, 30_000);
 
   it("host sem remetente não conta como em vigor — meia configuração não entrega e-mail", async () => {
     // É o mesmo corte do roteador: com `fromEmail` vazio não há remetente, e
@@ -112,7 +115,7 @@ describe("/admin/email — o que a página entrega ao navegador", () => {
     config = { ...config, fromEmail: "" };
 
     expect((await propsDaPagina()).transporte).toBe("nenhum");
-  });
+  }, 30_000);
 
   it("instalação que já manda e-mail pelo serviço externo lê isso, não 'não está em uso'", async () => {
     // A leitura errada que esta linha evita: quem tem Resend abriria a única
@@ -121,11 +124,11 @@ describe("/admin/email — o que a página entrega ao navegador", () => {
     resendLigada = true;
 
     expect((await propsDaPagina()).transporte).toBe("resend");
-  });
+  }, 30_000);
 
   it("quem não é dono da instalação não vê a tela", async () => {
     usuario = { is_platform_admin: false, idioma: "pt-BR" };
 
     await expect(propsDaPagina()).rejects.toThrow("NEXT_NOT_FOUND");
-  });
+  }, 30_000);
 });
