@@ -38,6 +38,7 @@ function lead(over: Partial<Lead> & { id: string; stage_id: string }): Lead {
     status: "open",
     assigned_at: null,
     last_activity_at: null,
+    stage_changed_at: null,
     expected_close_date: null,
     closed_at: null,
     source: "manual",

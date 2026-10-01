@@ -407,51 +407,51 @@ if [ -f supabase/baseline.sql ]; then
     END { for (k in estado) if (estado[k] == "create") print k }
   ' supabase/baseline.sql | LC_ALL=C sort -u)"
 
-  # ── SÓ CONTA QUEM TEM TABELA DE VERDADE — MÓDULO OPCIONAL NÃO É ISOLAMENTO
-  #    AUSENTE ─────────────────────────────────────────────────────────────
+  # ── E SÓ SE COBRE QUEM TEM A RELAÇÃO NO BANCO ──────────────────────────────
   #
-  # Desde o ADR-0002 (primeiro módulo oficial: Honorários, migration 0480), o
-  # baseline pode ter `create policy ... on public.honorarios_contratos` cujo
-  # `create table` mora dentro do CORPO de uma função provisionadora
-  # (`fn_honorarios_provisionar`) — aplicar o baseline cria a FUNÇÃO, nunca
-  # executa o corpo dela. A tabela (e a regra) só nascem quando um
-  # administrador da instalação chama `fn_modulo_instalar('honorarios', ...)`.
+  # MEDIDO na issue #1897 (e de novo, de forma independente, numa VPS real
+  # deste fork em 30/09/2026): as 8 regras de honorários moram DENTRO do corpo
+  # de public.fn_honorarios_provisionar() (supabase/baseline.sql, primeira
+  # policy logo depois do `create table`), e essa função só executa quando um
+  # administrador chama fn_modulo_instalar('honorarios', …) — criar a função
+  # não cria tabela nenhuma, como a própria migration 0480 / ADR-0002 avisa.
+  # Num VPS SEM o módulo, honorarios_contratos e honorarios_parcelas não
+  # existem: o awk de cima enxerga o `create policy` no TEXTO do arquivo, a
+  # recriação responde `relation does not exist`, a segunda conferência acusa
+  # as MESMAS 8 e o script sai em 1 com o CRM parado — era a atualização
+  # inteira de toda instalação sem o módulo de honorários (a tela mostrava as
+  # 8 e mais nada).
   #
-  # A régua acima ("toda `create policy` do arquivo") não sabia disso e tratava
-  # módulo nunca instalado como isolamento ausente: MEDIDO numa VPS real,
-  # 30/09/2026 — `honorarios_contratos`/`honorarios_parcelas` reprovadas com
-  # `relation "public.honorarios_contratos" does not exist`, atualização parada,
-  # CRM fora do ar por um módulo que ninguém tinha ligado. Tabela que não existe
-  # não tem o que vazar; o filtro certo é "a tabela está de pé", não "o arquivo
-  # menciona uma regra para ela" — e vale para este módulo e para qualquer outro
-  # que o ADR-0002 trouxer depois, sem precisar nomear nenhum aqui.
-  # MEDIDO numa VPS real, 30/09/2026, logo depois de um apply pesado do
-  # baseline (pooler Supabase): o MESMO comando, repetido sem nenhuma mudança
-  # no banco entre uma vez e outra, produziu o alarme falso deste bloco numa
-  # rodada e não na seguinte — sintoma de disputa/timing na conexão, não de
-  # lógica. A causa exata dentro do pooler NÃO FOI DETERMINADA (fica escrito
-  # como está, em vez de inventar uma). Isolado (sem o resto da atualização
-  # em volta) a consulta sempre respondeu de primeira, o que não prova nada
-  # sobre a janela real — só que reproduzir a corrida de propósito é difícil.
-  # Repetir a consulta quando ela vier VAZIA é a única rede de segurança que
-  # não arrisca inventar régua contra instalação legitimamente pequena; não é
-  # garantia contra uma resposta incompleta-mas-não-vazia, que também não foi
-  # capturada a tempo de confirmar a forma exata. Mesmo espírito das
-  # "passadas" da aplicação do baseline logo acima: banco que ainda está se
-  # acalmando, não comando errado.
-  tabelas_existentes_arq="$(mktemp)"
-  for _tentativa_tabelas in 1 2; do
-    pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -c \
-      "select tablename from pg_tables where schemaname='public';" 2>/dev/null \
-      | LC_ALL=C sort -u > "$tabelas_existentes_arq"
-    [ -s "$tabelas_existentes_arq" ] && break
-    sleep 2
-  done
-  esperadas="$(printf '%s\n' "$esperadas" | awk -F'|' '
-    NR == FNR { existe[$0] = 1; next }
-    ($2 in existe)
-  ' "$tabelas_existentes_arq" -)"
-  rm -f "$tabelas_existentes_arq"
+  # A régua passa a cobrir só policy cuja RELAÇÃO já existe em `public`. É mais
+  # genérico do que caçar `$f$`/`$$` no texto: cobre os próximos módulos da
+  # ADR-0002, venham eles por corpo de função, por migration ou por qualquer
+  # outra forma de escrever o baseline. E NÃO afrouxa nada: policy de tabela que
+  # EXISTE continua sendo cobrada, que é o caso para o qual o aviso existe — a
+  # regra que some do banco com a tabela de pé continua derrubando a atualização.
+  #
+  # ⚠️ Se a consulta vier VAZIA (banco fora do ar, URL trocada, ou um soluço de
+  # timing do pooler logo depois de um apply pesado — MEDIDO neste fork: o
+  # MESMO comando, sem nenhuma mudança no banco entre uma vez e outra,
+  # respondeu diferente em rodadas consecutivas, causa exata não determinada),
+  # NÃO se filtra. Sem a lista de relações, filtrar derrubaria `esperadas`
+  # inteira e o ✓ sairia com "0 declaradas" — o aviso viraria mudo exatamente
+  # quando ninguém consegue ler o banco (ou quando o pooler está de mau
+  # humor). Vale o comportamento antigo, que é barulhento: tudo é cobrado e a
+  # conferência para. Surdo nunca — mesmo às custas de, na janela rara em que
+  # isto reaparecer, pedir mais uma rodada de `--force`.
+  tabelas="$(pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -c \
+    "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+       where n.nspname='public';" 2>/dev/null | LC_ALL=C sort -u)"
+
+  if [ -n "$tabelas" ]; then
+    # `esperadas` é `regra|tabela`; o filtro olha só a tabela. A saída do awk
+    # segue a ordem do SEGUNDO arquivo (o `esperadas` já ordenado), e o
+    # segundo `sort` reforça o MESMO pino de antes (LC_ALL=C): o `comm` logo
+    # abaixo lê em `LC_ALL=C` e não perdoa entrada fora de ordem.
+    esperadas="$(awk 'NR == FNR { existe[$0] = 1; next }
+      { split($0, par, "[|]"); if (existe[par[2]]) print }' \
+      <(printf '%s\n' "$tabelas") <(printf '%s\n' "$esperadas") | LC_ALL=C sort -u)"
+  fi
 
   existentes="$(pg_container -i postgres:17-alpine psql "$(url_do_schema)" -t -A -F'|' -c \
     "select p.polname, c.relname from pg_policy p join pg_class c on c.oid=p.polrelid
@@ -746,11 +746,11 @@ step "Conferindo se o app voltou no ar"
 ok=""
 wait_app_healthy 20 3 >/dev/null && ok=1
 if [ -n "$ok" ]; then
-  # O marcador que a guarda de ARM lê (#1778). Instalação ARM nova é recusada,
-  # então toda instalação ARM que existe veio de antes do marcador e só seria
-  # reconhecida pelo contêiner — que um `down` sem `-v` apaga. Gravar aqui, com
-  # o app saudável, fecha esse caso a partir desta atualização. Falhar em
-  # gravar não desfaz nada: a guarda segue caindo no sinal do contêiner.
+  # O marcador que a guarda de arquitetura lê (#1778). Instalações antigas só
+  # seriam reconhecidas pelo contêiner — que um `down` sem `-v` apaga. Gravar
+  # aqui, com o app saudável, fecha esse caso a partir desta atualização.
+  # Falhar em gravar não desfaz nada: a guarda segue caindo no sinal do
+  # contêiner para arquiteturas que ainda não têm imagens publicadas.
   marcar_instalacao_feita "$TARGET_TAG" || true
   if [ -n "$BANCO_INCOMPLETO" ]; then
     c_ylw "⚠ App no ar e saudável, mas o banco NÃO terminou limpo — o que fazer está no fim desta saída."

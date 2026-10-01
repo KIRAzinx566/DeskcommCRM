@@ -87,7 +87,13 @@ beforeEach(async () => {
       <ThemeToggle />
     </ThemeProvider>
   );
-});
+  // 20s, não os 10s padrão: SÓ o `it` mais cedo no arquivo paga a transformação
+  // FRIA do grafo de dependências inteiro (ícones, dicionário de i18n — hoje
+  // bem maior do que quando este teto foi escolhido); o cache de transformação
+  // do Vite (não limpo por `resetModules`, que só zera o REGISTRO de módulos)
+  // deixa os `beforeEach` seguintes rápidos. Medido: estoura os 10s padrão só
+  // no primeiro `it`, de forma determinística, não por carga da máquina.
+}, 20_000);
 
 afterEach(() => {
   document.body.innerHTML = "";
