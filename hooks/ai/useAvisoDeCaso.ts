@@ -42,6 +42,9 @@ export interface ConfigDoAvisoNaTela {
   rotulo: string | null;
   ligado: boolean;
   atualizado_em: string;
+  canal_direto_ligado: boolean;
+  canal_direto_agente_id: string | null;
+  canal_direto_agente_nome: string | null;
 }
 
 export interface EstadoDoAviso {
@@ -110,6 +113,8 @@ export interface EntradaDoSalvar {
   ligado: boolean;
   /** `true` = "eu sei que esse número é um cliente meu, e quero mesmo assim". */
   confirma_contato?: boolean;
+  /** Ausente = não mexer no canal direto. */
+  canal_direto_ligado?: boolean;
 }
 
 export function useSalvarAvisoDeCaso() {

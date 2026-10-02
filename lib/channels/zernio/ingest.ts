@@ -38,6 +38,9 @@ import {
   ehNumeroInternoDeAviso,
   registrarMensagemIgnorada,
 } from "@/lib/escalacao/numero-interno-de-aviso";
+import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
+import { processarMensagemDoCanalDireto } from "@/lib/escalacao/canal-direto/entrada";
+import { criarEnviadorDoCanal } from "@/lib/escalacao/canal-direto/transporte";
 
 import { aplicarEfeitosPosEntrada } from "../pos-entrada";
 
@@ -130,6 +133,28 @@ export async function ingestZernioInbound(
       lid: null,
     }))
   ) {
+    const configCanalDireto = await lerConfigCanalDireto(admin, input.organizationId);
+    if (configCanalDireto?.ligado && configCanalDireto.telefoneDestino) {
+      const enviar = await criarEnviadorDoCanal(admin, {
+        channelSessionId: input.channelSessionId,
+        telefoneDestino: configCanalDireto.telefoneDestino,
+      });
+      if (enviar) {
+        await processarMensagemDoCanalDireto(admin, {
+          organizationId: input.organizationId,
+          channelSessionId: input.channelSessionId,
+          corpo: msg.text ?? "",
+          externalId: msg.externalId,
+          agenteIdSelecionado: configCanalDireto.agenteId,
+          selecionadoEm: configCanalDireto.selecionadoEm,
+          enviar,
+        });
+        return { status: "ignored", reason: "numero_interno_de_aviso" };
+      }
+      logger.warn("[canal-direto] canal indisponível para responder — mensagem descartada como aviso comum", {
+        organizationId: input.organizationId,
+      });
+    }
     await registrarMensagemIgnorada(admin, input.organizationId, {
       direction: "inbound",
       sessionId: input.channelSessionId,

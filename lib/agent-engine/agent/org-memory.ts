@@ -20,7 +20,13 @@ export interface LoadedOrgMemory {
   entries: OrgMemoryEntry[];
 }
 
-export async function loadOrgMemory(db: pg.Pool, tenantId: string): Promise<LoadedOrgMemory> {
+/**
+ * `agentId` (migration 0507): escopa as ENTRIES — nunca o doc-mãe, que
+ * continua sempre org-wide. `agent_id is null` cobre toda linha de antes
+ * desta coluna existir (regressão zero); `agent_id = $2` acrescenta as
+ * correções do canal direto só para o agente que foi corrigido.
+ */
+export async function loadOrgMemory(db: pg.Pool, tenantId: string, agentId?: string | null): Promise<LoadedOrgMemory> {
   const { rows: docRows } = await db.query<{ content: string }>(
     `select v.content
      from org_memory_pointers p join org_memory_versions v on v.id = p.version_id
@@ -30,9 +36,9 @@ export async function loadOrgMemory(db: pg.Pool, tenantId: string): Promise<Load
   const { rows: entryRows } = await db.query<OrgMemoryEntry>(
     `select id, title, body
      from org_memory_entries
-     where organization_id = $1 and status = 'active'
+     where organization_id = $1 and status = 'active' and (agent_id is null or agent_id = $2)
      order by created_at asc, id asc`,
-    [tenantId],
+    [tenantId, agentId ?? null],
   );
   return { content: docRows[0]?.content ?? null, entries: entryRows };
 }

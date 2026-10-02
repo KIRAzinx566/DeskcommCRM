@@ -26,6 +26,7 @@ import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
 import { csatSurveyHandler } from "@/lib/csat/enviar-pesquisa";
 import { csatReplyHandler } from "@/lib/csat/capturar-resposta";
+import { canalDiretoHandler } from "@/workers/canal-direto-worker.handler";
 import { conversaoDeQualificacaoHandler } from "@/lib/conversoes/qualificacao.handler";
 import { conversaoDeVendaHandler } from "@/lib/conversoes/envio.handler";
 import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
@@ -67,6 +68,7 @@ export function ensureHandlersRegistered(): void {
   registerHandler(casoNaCentralHandler);
   registerHandler(followupGatilhoPresencaHandler);
   registerHandler(mediaPersistHandler);
+  registerHandler(canalDiretoHandler);
   registerHandler(mediaDeriveHandler);
   registerHandler(webPushInboundHandler);
   registerHandler(billingChargeStatusChangedHandler);

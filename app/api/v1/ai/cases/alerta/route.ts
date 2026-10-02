@@ -76,6 +76,12 @@ const corpo = z
     ligado: z.boolean(),
     /** `true` = "eu sei que este número é um cliente meu, e quero mesmo assim". */
     confirma_contato: z.boolean().optional(),
+    /**
+     * Ausente/undefined = "não mexer" (o RPC trata como `null`). Capacidade
+     * SEPARADA de `ligado`: reescreve memória de agente sem revisão humana,
+     * default `false` no banco — nunca ligada por quem só queria avisos.
+     */
+    canal_direto_ligado: z.boolean().optional(),
   })
   .strict();
 
@@ -176,6 +182,7 @@ export async function PUT(req: NextRequest): Promise<Response> {
       p_rotulo: dados.rotulo ?? null,
       p_ligado: dados.ligado,
       p_confirma_contato: dados.confirma_contato ?? false,
+      p_canal_direto_ligado: dados.canal_direto_ligado ?? null,
     } as never,
   );
 
@@ -209,6 +216,17 @@ export async function PUT(req: NextRequest): Promise<Response> {
       confirmou_contato: dados.confirma_contato ?? false,
     },
   });
+
+  if (dados.canal_direto_ligado !== undefined) {
+    void audit({
+      action: "ai.canal_direto_settings_changed",
+      organizationId: authz.org.orgId,
+      actorUserId: authz.user.id,
+      resourceType: "config_aviso_de_caso",
+      resourceId: authz.org.orgId,
+      metadata: { depois_ligado: dados.canal_direto_ligado },
+    });
+  }
 
   // A resposta é o ESTADO inteiro recalculado, e não um `{ ok: true }`: salvar
   // pode mudar os alertas da tela (trocar de conexão muda o aquecimento, ligar

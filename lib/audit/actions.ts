@@ -837,6 +837,16 @@ export const AUDIT_ACTIONS = [
   "ai.case_alert_failed",
   "ai.case_alert_settings_changed",
   /**
+   * Canal direto do dono com o agente de IA (migration 0507) — mesmo número
+   * do aviso de caso, correção/aprendizado em tempo real. `correcao_aplicada`
+   * NUNCA leva o corpo da correção (só `agent_id`/`memory_entry_id`/`titulo`):
+   * `api_audit_log` é append-only e sem expurgo nenhum.
+   */
+  "ai.canal_direto_settings_changed",
+  "ai.canal_direto_agente_selecionado",
+  "ai.canal_direto_correcao_aplicada",
+  "ai.canal_direto_mensagem_rejeitada",
+  /**
    * O botão "enviar aviso de teste" (onda 8) — e ele é um QUARTO código, não
    * `ai.case_alert_sent` com um `teste: true` no metadata.
    *
