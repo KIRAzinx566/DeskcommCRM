@@ -70,7 +70,7 @@ const FRASE_EXTRA_DO_TESTE = {
     "Este número mandou uma mensagem agora há pouco. O WhatsApp exige um intervalo entre elas — tente de novo em alguns segundos.",
 } as const;
 
-const RASCUNHO_VAZIO = { canal: "", telefone: "", rotulo: "", ligado: false };
+const RASCUNHO_VAZIO = { canal: "", telefone: "", rotulo: "", ligado: false, canalDireto: false };
 type Rascunho = typeof RASCUNHO_VAZIO;
 
 function rascunhoDoEstado(estado: EstadoDoAviso | undefined): Rascunho {
@@ -80,6 +80,7 @@ function rascunhoDoEstado(estado: EstadoDoAviso | undefined): Rascunho {
     telefone: estado.config.telefone,
     rotulo: estado.config.rotulo ?? "",
     ligado: estado.config.ligado,
+    canalDireto: estado.config.canal_direto_ligado,
   };
 }
 
@@ -177,6 +178,7 @@ function FormularioDoAviso({ estado }: { estado: EstadoDoAviso }) {
         telefone: rascunho.telefone,
         rotulo: rascunho.rotulo.trim() === "" ? null : rascunho.rotulo.trim(),
         ligado: rascunho.ligado,
+        canal_direto_ligado: rascunho.canalDireto,
         ...(confirma ? { confirma_contato: true } : {}),
       });
       setConfirmarContato(null);
@@ -293,6 +295,33 @@ function FormularioDoAviso({ estado }: { estado: EstadoDoAviso }) {
               "O aviso sai na hora, inclusive fora do horário comercial — sua equipe não é cliente.",
             )}
           </p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-lg border p-3" data-testid="canal-direto">
+        <Switch
+          id="canal-direto"
+          checked={rascunho.canalDireto}
+          disabled={!jaSalvo}
+          onCheckedChange={(v) => setRascunho((r) => ({ ...r, canalDireto: v }))}
+          aria-label={t("Corrigir o agente pelo canal direto")}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="canal-direto" className="text-sm font-medium">
+            {t("Corrigir o agente pelo canal direto")}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "Mande mensagem para este mesmo número (pelo seu celular) para corrigir um agente em tempo real. Mande #agentes para ver a lista, ou #agente <nome> para escolher. A correção vale no próximo atendimento daquele agente, sem precisar publicar nada. Funciona só quando a conexão dos avisos é pelo QR Code.",
+            )}
+          </p>
+          {estado.config?.canal_direto_ligado ? (
+            <p className="text-xs text-muted-foreground" data-testid="canal-direto-selecao">
+              {estado.config.canal_direto_agente_nome
+                ? `${t("Falando agora com")}: ${estado.config.canal_direto_agente_nome}`
+                : t("Nenhum agente selecionado ainda — mande #agentes pelo WhatsApp.")}
+            </p>
+          ) : null}
         </div>
       </div>
 

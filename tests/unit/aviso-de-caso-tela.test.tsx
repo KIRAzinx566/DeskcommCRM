@@ -50,6 +50,9 @@ function estado(patch: Partial<EstadoDoAviso> = {}): EstadoDoAviso {
       rotulo: "Plantão da Ana",
       ligado: true,
       atualizado_em: "2026-09-18T12:00:00.000Z",
+      canal_direto_ligado: false,
+      canal_direto_agente_id: null,
+      canal_direto_agente_nome: null,
     },
     conexoes: [
       { id: CANAL_QR, nome: "Plantão", status: "WORKING", aceitaMensagemLivre: true, atendeClientes: false },
@@ -160,7 +163,7 @@ describe("os avisos de estado viram frase", () => {
 describe("o switch e o botão de teste", () => {
   it("o switch fica travado quando a regra diz que não dá para ligar", () => {
     montar(estado({ pode_ligar: false, config: null }));
-    expect(screen.getByRole("switch")).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Receber avisos no WhatsApp" })).toBeDisabled();
   });
 
   it("sem endereço público o switch fica travado MESMO com conexão e número salvos", () => {
@@ -172,12 +175,12 @@ describe("o switch e o botão de teste", () => {
         avisos: [{ codigo: "sem_endereco_publico", bloqueia: true }],
       }),
     );
-    expect(screen.getByRole("switch")).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Receber avisos no WhatsApp" })).toBeDisabled();
   });
 
   it("com tudo em ordem o switch destrava", () => {
     montar(estado());
-    expect(screen.getByRole("switch")).toBeEnabled();
+    expect(screen.getByRole("switch", { name: "Receber avisos no WhatsApp" })).toBeEnabled();
   });
 
   it("o botão de teste só fica ativo com configuração SALVA", () => {
