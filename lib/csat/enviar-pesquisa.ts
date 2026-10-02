@@ -27,6 +27,8 @@ interface Payload {
 export const csatSurveyHandler: EventHandler = {
   key: CSAT_SURVEY_HANDLER_KEY,
   events: ["conversation.closed"],
+  // Sai pra fora (WhatsApp) — custa dinheiro: pula na organização parada.
+  naOrgParada: "pula",
   async handle(row): Promise<HandlerResult> {
     const p = row.payload as unknown as Payload;
     if (!row.entity_id) {
