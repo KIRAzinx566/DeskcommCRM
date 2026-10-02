@@ -3498,6 +3498,7 @@ export const DICIONARIO: Traducoes = {
   "a maioria responde em": { es: "la mayoría responde en" },
   "agora usa": { es: "ahora usa" },
   "anotado pelo agente": { es: "anotado por el agente" },
+  "corrigido pelo canal direto": { es: "corregido por el canal directo" },
   "aprendido automaticamente": { es: "aprendido automáticamente" },
   ativa: { es: "activa" },
   "atualizada em": { es: "actualizada el" },
@@ -12564,6 +12565,10 @@ export const DICIONARIO: Traducoes = {
     { es: "Recibir avisos por WhatsApp" },
   "Corrigir o agente pelo canal direto":
     { es: "Corregir al agente por el canal directo" },
+  "Lê a correção que o dono mandou pelo WhatsApp (número cadastrado em Avisos de caso) para o agente escolhido, confirma o que entendeu e, quando a correção é durável, grava um aprendizado que vale para os próximos atendimentos daquele agente. Nunca fala com cliente nem com outro agente.":
+    { es: "Lee la corrección que el dueño envió por WhatsApp (número registrado en Avisos de caso) para el agente elegido, confirma lo que entendió y, cuando la corrección es duradera, guarda un aprendizaje que vale para las próximas atenciones de ese agente. Nunca habla con un cliente ni con otro agente." },
+  "O dono manda a correção e o agente continua repetindo o mesmo erro no próximo atendimento.":
+    { es: "El dueño envía la corrección y el agente sigue repitiendo el mismo error en la próxima atención." },
   "Mande mensagem para este mesmo número (pelo seu celular) para corrigir um agente em tempo real. Mande #agentes para ver a lista, ou #agente <nome> para escolher. A correção vale no próximo atendimento daquele agente, sem precisar publicar nada.":
     { es: "Envía un mensaje a este mismo número (desde tu celular) para corregir a un agente en tiempo real. Envía #agentes para ver la lista, o #agente <nombre> para elegir. La corrección vale desde la próxima atención de ese agente, sin publicar nada." },
   "Falando agora com":

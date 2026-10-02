@@ -44990,6 +44990,13 @@ begin
     end if;
   end if;
 
+  -- O NÚMERO DE AVISO NÃO PODE SER UM NÚMERO DA PRÓPRIA ORGANIZAÇÃO. É o laço
+  -- robô-com-robô: a conexão de avisos manda para o número oficial, o agente
+  -- dele responde, e as duas pontas se alimentam sem fim.
+  -- A conexão ARQUIVADA fica FORA da conta. Ela não envia nem recebe, então o
+  -- laço não acontece por ela — e contá-la bloqueia o número PARA SEMPRE, porque
+  -- a conexão que já teve agente publicado não pode ser apagada (as versões a
+  -- seguram) e o número nunca mais poderia receber aviso.
   if exists (
        select 1 from public.channel_sessions s
         where s.organization_id = p_org
@@ -44999,6 +45006,10 @@ begin
     raise exception 'aviso_de_caso_numero_da_propria_org' using errcode = '22023';
   end if;
 
+  -- O número de aviso vira INTERNO: tudo o que chegar dele deixa de virar
+  -- contato, conversa, lead e despacho do agente. Se ele já é um CLIENTE desta
+  -- organização, as mensagens dessa pessoa param de chegar ao CRM — e isso não
+  -- pode acontecer por engano. A tela pergunta e reenvia com `p_confirma_contato`.
   if not coalesce(p_confirma_contato, false) and exists (
        select 1 from public.contacts c
         where c.organization_id = p_org
