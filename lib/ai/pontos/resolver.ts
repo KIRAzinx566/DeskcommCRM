@@ -193,6 +193,11 @@ export const PONTOS_QUE_HERDAM_DO_AGENTE: ReadonlySet<string> = new Set([
   // `PONTOS_DO_AGENTE_PUBLICADO`: lá a escolha pertence à versão publicada, o
   // painel vira somente leitura, e "configurável por organização" morreria.
   "case_chat",
+  // migration 0507 — o canal direto fala com a PERSONA do agente que o dono
+  // escolheu corrigir (`lib/agent-engine/agent/canal-direto.ts`), pelo mesmo
+  // motivo do case_chat: é o comportamento daquele agente que está sendo
+  // ajustado, não um padrão da organização.
+  "canal_direto",
 ]);
 
 export function decidirBinding(entrada: EntradaDaDecisao): DecisaoDeBinding {

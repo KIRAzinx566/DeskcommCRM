@@ -42,6 +42,9 @@ import {
   ehNumeroInternoDeAviso,
   registrarMensagemIgnorada,
 } from "@/lib/escalacao/numero-interno-de-aviso";
+import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
+import { processarMensagemDoCanalDireto } from "@/lib/escalacao/canal-direto/entrada";
+import { criarEnviadorWaha } from "@/lib/escalacao/canal-direto/transporte";
 
 export type Admin = ReturnType<typeof createAdminClient>;
 
@@ -771,6 +774,25 @@ async function handleInbound(
   // contato, conversa e uma "conversa do suporte" na fila de um atendente — e o
   // "cancelar" que alguém da equipe digitasse bloquearia esse contato.
   if (await ehNumeroInternoDeAviso(admin, session.organization_id, parsed)) {
+    const configCanalDireto = await lerConfigCanalDireto(admin, session.organization_id);
+    if (configCanalDireto?.ligado) {
+      const enviar = await criarEnviadorWaha(admin, { channelSessionId: session.id, chatId });
+      if (enviar) {
+        await processarMensagemDoCanalDireto(admin, {
+          organizationId: session.organization_id,
+          channelSessionId: session.id,
+          corpo: texto ?? "",
+          externalId: p.id ?? null,
+          agenteIdSelecionado: configCanalDireto.agenteId,
+          selecionadoEm: configCanalDireto.selecionadoEm,
+          enviar,
+        });
+        return;
+      }
+      logger.warn("[canal-direto] WAHA indisponível para responder — mensagem descartada como aviso comum", {
+        organizationId: session.organization_id,
+      });
+    }
     await registrarMensagemIgnorada(admin, session.organization_id, {
       direction: "inbound",
       sessionId: session.id,

@@ -326,6 +326,22 @@ export const PONTOS_DE_IA: readonly PontoDeIa[] = [
     registraEm: "llm_calls",
   },
   {
+    id: "canal_direto",
+    rotulo: "Corrigir o agente pelo canal direto",
+    oQueFaz:
+      "Lê a correção que o dono mandou pelo WhatsApp (número cadastrado em Avisos de caso) para o " +
+      "agente escolhido, confirma o que entendeu e, quando a correção é durável, grava um aprendizado " +
+      "que vale para os próximos atendimentos daquele agente. Nunca fala com cliente nem com outro agente.",
+    papel: "melhorar",
+    // Sem ferramenta: o servidor decide se grava a memória lendo a resposta
+    // estruturada do modelo, nunca uma tool de efeito direto no banco.
+    exige: {},
+    emissor: "lib/agent-engine/agent/canal-direto.ts",
+    sintomaDeFalha:
+      "O dono manda a correção e o agente continua repetindo o mesmo erro no próximo atendimento.",
+    registraEm: "llm_calls",
+  },
+  {
     id: "case_chat",
     rotulo: "Conversar sobre o caso com a equipe",
     oQueFaz:
