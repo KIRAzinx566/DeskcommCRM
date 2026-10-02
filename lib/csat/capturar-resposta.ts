@@ -23,6 +23,8 @@ interface Payload {
 export const csatReplyHandler: EventHandler = {
   key: CSAT_REPLY_HANDLER_KEY,
   events: ["message.received"],
+  // Entrada: só lê/escreve csat_requests a partir de mensagem recebida.
+  naOrgParada: "roda",
   async handle(row): Promise<HandlerResult> {
     const p = row.payload as unknown as Payload;
     if (!p.contact_id || typeof p.body_preview !== "string") {
