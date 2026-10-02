@@ -39,6 +39,9 @@ import { followupReactivityHandler } from "@/lib/followup/reactivity.handler";
 import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { avisoDePropostaNoWhatsAppHandler } from "@/lib/propostas/aviso-no-whatsapp.handler";
+import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
+import { csatReplyHandler } from "@/lib/csat/capturar-resposta";
+import { csatSurveyHandler } from "@/lib/csat/enviar-pesquisa";
 import { aiHandoffFromSentimentHandler } from "@/workers/ai-handoff-from-sentiment.handler";
 import { aiResponseHandler } from "@/workers/ai-response-worker.handler";
 import { aiSentimentHandler } from "@/workers/ai-sentiment-worker.handler";
@@ -56,6 +59,8 @@ const RODA: EventHandler[] = [
   mediaPersistHandler,
   lgpdExportHandler,
   lgpdRedactHandler,
+  billingChargeStatusChangedHandler,
+  csatReplyHandler,
 ];
 
 const PULA: EventHandler[] = [
@@ -75,6 +80,7 @@ const PULA: EventHandler[] = [
   avisoDePropostaNoWhatsAppHandler,
   conversaoDeVendaHandler,
   conversaoDeQualificacaoHandler,
+  csatSurveyHandler,
 ];
 
 const PREFIXO_DE_TESTE = "teste-org-parada";
