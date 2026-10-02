@@ -44844,11 +44844,12 @@ alter table public.org_memory_entries
 comment on column public.org_memory_entries.agent_id is
   'NULL = vale para toda a organização (comportamento histórico, preservado). Preenchido = vale só para este agente. ON DELETE CASCADE: uma correção que só faz sentido para o Agente X morre com o Agente X — SET NULL faria ela "escapar" e voltar a valer para a org inteira.';
 
-alter table public.org_memory_entries
-  drop constraint if exists org_memory_entries_source_check;
-alter table public.org_memory_entries
-  add constraint org_memory_entries_source_check
-  check (source in ('manual', 'flywheel', 'agent', 'canal_direto'));
+-- `'canal_direto'` entra no BLOCO ÚNICO existente da constraint (migration
+-- 0394, mais abaixo neste arquivo) — doutrina de migrations: "cada constraint
+-- tem UM bloco só". Um segundo bloco aqui seria sobrescrito por aquele, que
+-- vem DEPOIS no arquivo (o Postgres aplica o arquivo inteiro em ordem, e quem
+-- vale é o ÚLTIMO `drop/add constraint`). Ver o bloco "a memória da
+-- organização aceita a origem 'agent'" para o conjunto final.
 
 alter table public.org_memory_versions  enable row level security;
 alter table public.org_memory_pointers  enable row level security;
@@ -44864,23 +44865,24 @@ grant  all    on public.org_memory_versions  to service_role;
 grant  all    on public.org_memory_pointers  to service_role;
 grant  all    on public.org_memory_entries   to service_role;
 
+-- Leitura: qualquer MEMBRO da organização (mesmo piso de `csat_requests`) —
+-- não o piso `agent` da rota GET /api/v1/ai/memory. A rota é quem decide o
+-- piso fino de verdade (ela usa client admin, filtrando à mão); a RLS aqui é
+-- a REDE DE SEGURANÇA que fecha o buraco de isolamento entre organizações
+-- (o achado de segurança desta migration), não uma segunda cópia do piso de
+-- papel da rota — duas réguas do mesmo limite divergem no dia em que uma
+-- muda e a outra não.
 drop policy if exists leitura_org_memory_entries on public.org_memory_entries;
 create policy leitura_org_memory_entries
   on public.org_memory_entries
   for select to authenticated
-  using (
-    organization_id in (select public.fn_user_org_ids())
-    and public.fn_role_at_least(organization_id, 'agent')
-  );
+  using (organization_id in (select public.fn_user_org_ids()));
 
 drop policy if exists leitura_org_memory_pointers on public.org_memory_pointers;
 create policy leitura_org_memory_pointers
   on public.org_memory_pointers
   for select to authenticated
-  using (
-    organization_id in (select public.fn_user_org_ids())
-    and public.fn_role_at_least(organization_id, 'agent')
-  );
+  using (organization_id in (select public.fn_user_org_ids()));
 
 drop policy if exists leitura_org_memory_versions on public.org_memory_versions;
 create policy leitura_org_memory_versions
@@ -44891,7 +44893,6 @@ create policy leitura_org_memory_versions
       select 1 from public.org_memory_pointers p
        where p.version_id = org_memory_versions.id
          and p.organization_id in (select public.fn_user_org_ids())
-         and public.fn_role_at_least(p.organization_id, 'agent')
     )
   );
 
@@ -45781,11 +45782,13 @@ on conflict (chave) do nothing;
 -- `flywheel`: toda chamada da ferramenta falhava com 23514 (diagnóstico de
 -- @vgamkt, #1130). Bloco ÚNICO desta constraint, com o conjunto final; as linhas
 -- existentes cabem nele, então reaplicar no `update.sh` não viola nada.
+--
+-- `'canal_direto'` entrou na migration 0507 — mesmo bloco, nunca um segundo.
 alter table public.org_memory_entries
   drop constraint if exists org_memory_entries_source_check;
 alter table public.org_memory_entries
   add constraint org_memory_entries_source_check
-  check (source in ('manual', 'flywheel', 'agent'));
+  check (source in ('manual', 'flywheel', 'agent', 'canal_direto'));
 
 -- ---- o produto ganha foto (migration 0390, ideia de @vgamkt, #1130) ----
 -- Caminhos em storage/catalog-photos (<org>/<produto>/<uuid>.<jpg|png>); a ordem

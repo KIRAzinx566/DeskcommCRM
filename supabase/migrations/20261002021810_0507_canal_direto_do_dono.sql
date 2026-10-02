@@ -45,6 +45,11 @@ alter table public.org_memory_entries
 comment on column public.org_memory_entries.agent_id is
   'NULL = vale para toda a organização (comportamento histórico, preservado). Preenchido = vale só para este agente. ON DELETE CASCADE: uma correção que só faz sentido para o Agente X morre com o Agente X — SET NULL faria ela "escapar" e voltar a valer para a org inteira.';
 
+-- ⚠️ No `baseline.sql` (dump + apêndices concatenados) este drop/add NÃO
+-- entra como um bloco novo — ele ESTENDE o bloco único já existente da
+-- migration 0394, porque "quem vale é o ÚLTIMO bloco no arquivo" (doutrina
+-- de migrations). Aqui, migration por migration via Supabase CLI, não há
+-- esse risco: cada arquivo roda uma vez, em ordem.
 alter table public.org_memory_entries
   drop constraint if exists org_memory_entries_source_check;
 alter table public.org_memory_entries
@@ -66,28 +71,22 @@ grant  all    on public.org_memory_versions  to service_role;
 grant  all    on public.org_memory_pointers  to service_role;
 grant  all    on public.org_memory_entries   to service_role;
 
--- Leitura: `agent` — a rota equivalente (GET /api/v1/ai/memory) já exige esse
--- piso. org_memory_versions/pointers não têm organization_id DIRETO na linha
--- de pointers (tem) mas versions não tem organization_id — versions é um
--- doc-mãe sem dono de organização na própria linha; a leitura segura é só
--- pelo pointer, então versions fica com policy via join.
+-- Leitura: qualquer MEMBRO da organização (mesmo piso de `csat_requests`) —
+-- não o piso `agent` da rota GET /api/v1/ai/memory. A rota é quem decide o
+-- piso fino de verdade (client admin, filtrando à mão); a RLS aqui é a REDE
+-- DE SEGURANÇA que fecha o isolamento entre organizações (o achado desta
+-- migration), não uma segunda cópia do piso de papel da rota.
 drop policy if exists leitura_org_memory_entries on public.org_memory_entries;
 create policy leitura_org_memory_entries
   on public.org_memory_entries
   for select to authenticated
-  using (
-    organization_id in (select public.fn_user_org_ids())
-    and public.fn_role_at_least(organization_id, 'agent')
-  );
+  using (organization_id in (select public.fn_user_org_ids()));
 
 drop policy if exists leitura_org_memory_pointers on public.org_memory_pointers;
 create policy leitura_org_memory_pointers
   on public.org_memory_pointers
   for select to authenticated
-  using (
-    organization_id in (select public.fn_user_org_ids())
-    and public.fn_role_at_least(organization_id, 'agent')
-  );
+  using (organization_id in (select public.fn_user_org_ids()));
 
 drop policy if exists leitura_org_memory_versions on public.org_memory_versions;
 create policy leitura_org_memory_versions
@@ -98,7 +97,6 @@ create policy leitura_org_memory_versions
       select 1 from public.org_memory_pointers p
        where p.version_id = org_memory_versions.id
          and p.organization_id in (select public.fn_user_org_ids())
-         and public.fn_role_at_least(p.organization_id, 'agent')
     )
   );
 

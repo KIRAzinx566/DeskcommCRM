@@ -190,16 +190,16 @@ describe("0507 — org_memory_entries: a RLS isola por organização (authentica
     `);
   });
 
-  it("CONTROLE POSITIVO: manager de A (acima do piso 'agent') lê a entry de A", () => {
+  it("CONTROLE POSITIVO: manager de A lê a entry de A", () => {
     expect(
       contaComoMembro(GESTOR_A, `select count(*) from public.org_memory_entries where id = '${ENTRY_A}'`),
     ).toBe(1);
   });
 
-  it("`viewer` (abaixo do piso 'agent') não lê — mesmo piso da rota GET /api/v1/ai/memory", () => {
+  it("`viewer` da MESMA organização também lê — a RLS aqui é 'qualquer membro' (o piso 'agent' é da ROTA, não desta rede de segurança)", () => {
     expect(
       contaComoMembro(LEITOR_A, `select count(*) from public.org_memory_entries where id = '${ENTRY_A}'`),
-    ).toBe(0);
+    ).toBe(1);
   });
 
   it("o admin do VIZINHO não lê a entry de A", () => {
