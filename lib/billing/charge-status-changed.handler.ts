@@ -24,6 +24,8 @@ interface Payload {
 export const billingChargeStatusChangedHandler: EventHandler = {
   key: BILLING_CHARGE_STATUS_CHANGED_HANDLER_KEY,
   events: ["billing.charge_status_changed"],
+  // Escrita interna de timeline (lead activity) — nenhum envio, nenhum custo.
+  naOrgParada: "roda",
   async handle(row): Promise<HandlerResult> {
     const p = row.payload as unknown as Payload;
 
