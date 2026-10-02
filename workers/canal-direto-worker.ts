@@ -33,7 +33,7 @@ import { logger } from "@/lib/logger";
 
 import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
 import { avaliarSelecao } from "@/lib/escalacao/canal-direto/selecao";
-import { criarEnviadorWaha } from "@/lib/escalacao/canal-direto/transporte";
+import { criarEnviadorDoCanal } from "@/lib/escalacao/canal-direto/transporte";
 import { registrarMensagemDoCanalDireto } from "@/lib/escalacao/canal-direto/log";
 
 export const CANAL_DIRETO_CONSUMER_KEY = "canal_direto_worker_v1";
@@ -43,7 +43,6 @@ interface PayloadDoEvento {
   corpo?: string;
   external_id?: string | null;
   channel_session_id?: string | null;
-  chat_id?: string | null;
 }
 
 export async function consumirMensagemDoCanalDireto(row: EventRow): Promise<HandlerResult> {
@@ -51,8 +50,7 @@ export async function consumirMensagemDoCanalDireto(row: EventRow): Promise<Hand
   const payload = row.payload as unknown as PayloadDoEvento;
   const corpo = payload.corpo;
   const channelSessionId = payload.channel_session_id ?? null;
-  const chatId = payload.chat_id ?? null;
-  if (!corpo || !channelSessionId || !chatId) {
+  if (!corpo || !channelSessionId) {
     return { consumer_key, status: "skipped", detail: "payload_incompleto" };
   }
 
@@ -89,10 +87,17 @@ export async function consumirMensagemDoCanalDireto(row: EventRow): Promise<Hand
       .limit(HISTORICO_TAMANHO);
     const historico = ((historicoRows ?? []) as Array<{ autor: "dono" | "ia"; corpo: string }>).reverse();
 
-    const enviar = await criarEnviadorWaha(admin, { channelSessionId, chatId });
+    if (!config?.telefoneDestino) {
+      await client.query("commit");
+      return { consumer_key, status: "error", detail: "sem_telefone_destino" };
+    }
+    const enviar = await criarEnviadorDoCanal(admin, {
+      channelSessionId,
+      telefoneDestino: config.telefoneDestino,
+    });
     if (!enviar) {
       await client.query("commit");
-      return { consumer_key, status: "error", detail: "waha_indisponivel" };
+      return { consumer_key, status: "error", detail: "canal_indisponivel" };
     }
 
     const resposta = await responderNoCanalDireto(pool, requestTurnDeps().llmCfg, {

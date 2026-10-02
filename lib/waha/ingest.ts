@@ -44,7 +44,7 @@ import {
 } from "@/lib/escalacao/numero-interno-de-aviso";
 import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
 import { processarMensagemDoCanalDireto } from "@/lib/escalacao/canal-direto/entrada";
-import { criarEnviadorWaha } from "@/lib/escalacao/canal-direto/transporte";
+import { criarEnviadorDoCanal } from "@/lib/escalacao/canal-direto/transporte";
 
 export type Admin = ReturnType<typeof createAdminClient>;
 
@@ -775,8 +775,11 @@ async function handleInbound(
   // "cancelar" que alguém da equipe digitasse bloquearia esse contato.
   if (await ehNumeroInternoDeAviso(admin, session.organization_id, parsed)) {
     const configCanalDireto = await lerConfigCanalDireto(admin, session.organization_id);
-    if (configCanalDireto?.ligado) {
-      const enviar = await criarEnviadorWaha(admin, { channelSessionId: session.id, chatId });
+    if (configCanalDireto?.ligado && configCanalDireto.telefoneDestino) {
+      const enviar = await criarEnviadorDoCanal(admin, {
+        channelSessionId: session.id,
+        telefoneDestino: configCanalDireto.telefoneDestino,
+      });
       if (enviar) {
         await processarMensagemDoCanalDireto(admin, {
           organizationId: session.organization_id,
@@ -789,7 +792,7 @@ async function handleInbound(
         });
         return;
       }
-      logger.warn("[canal-direto] WAHA indisponível para responder — mensagem descartada como aviso comum", {
+      logger.warn("[canal-direto] canal indisponível para responder — mensagem descartada como aviso comum", {
         organizationId: session.organization_id,
       });
     }

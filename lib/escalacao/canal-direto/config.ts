@@ -23,6 +23,8 @@ export interface ConfigCanalDireto {
   agenteId: string | null;
   selecionadoEm: string | null;
   channelSessionId: string | null;
+  /** E.164 — é o que `resolveRecipient` usa para achar o endereço de envio no canal. */
+  telefoneDestino: string | null;
 }
 
 /** `null` = sem configuração nenhuma de aviso de caso (nem destino cadastrado). */
@@ -34,7 +36,9 @@ export async function lerConfigCanalDireto(
   try {
     const r = await db
       .from("config_aviso_de_caso")
-      .select("canal_direto_ligado, canal_direto_agente_id, canal_direto_selecionado_em, channel_session_id")
+      .select(
+        "canal_direto_ligado, canal_direto_agente_id, canal_direto_selecionado_em, channel_session_id, telefone_destino",
+      )
       .eq("organization_id", organizationId)
       .maybeSingle();
     if (r.error) throw new Error(r.error.message);
@@ -55,11 +59,13 @@ export async function lerConfigCanalDireto(
     canal_direto_agente_id?: string | null;
     canal_direto_selecionado_em?: string | null;
     channel_session_id?: string | null;
+    telefone_destino?: string | null;
   };
   return {
     ligado: linha.canal_direto_ligado === true,
     agenteId: linha.canal_direto_agente_id ?? null,
     selecionadoEm: linha.canal_direto_selecionado_em ?? null,
     channelSessionId: linha.channel_session_id ?? null,
+    telefoneDestino: linha.telefone_destino ?? null,
   };
 }

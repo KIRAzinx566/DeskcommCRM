@@ -8,4 +8,4 @@ Quem administra o negócio passa a poder corrigir um agente de IA mandando mensa
 
 Para usar, ligue "Corrigir o agente pelo canal direto" na tela de Avisos (desligado por padrão). Pelo WhatsApp, mande `#agentes` para ver a lista de agentes, `#agente <nome>` para escolher qual você quer corrigir, e depois qualquer mensagem normal para ensinar algo a ele ("pare de oferecer desconto sem perguntar"). A correção entra como aprendizado do agente escolhido e já vale no próximo atendimento dele — sem precisar publicar nada.
 
-Funciona só quando a conexão vinculada aos avisos é pelo QR Code (WhatsApp local). Nada muda para quem não liga o recurso.
+Nada muda para quem não liga o recurso.

@@ -312,7 +312,7 @@ function FormularioDoAviso({ estado }: { estado: EstadoDoAviso }) {
           </Label>
           <p className="text-xs text-muted-foreground">
             {t(
-              "Mande mensagem para este mesmo número (pelo seu celular) para corrigir um agente em tempo real. Mande #agentes para ver a lista, ou #agente <nome> para escolher. A correção vale no próximo atendimento daquele agente, sem precisar publicar nada. Funciona só quando a conexão dos avisos é pelo QR Code.",
+              "Mande mensagem para este mesmo número (pelo seu celular) para corrigir um agente em tempo real. Mande #agentes para ver a lista, ou #agente <nome> para escolher. A correção vale no próximo atendimento daquele agente, sem precisar publicar nada.",
             )}
           </p>
           {estado.config?.canal_direto_ligado ? (

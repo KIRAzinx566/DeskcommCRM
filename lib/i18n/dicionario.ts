@@ -12564,8 +12564,8 @@ export const DICIONARIO: Traducoes = {
     { es: "Recibir avisos por WhatsApp" },
   "Corrigir o agente pelo canal direto":
     { es: "Corregir al agente por el canal directo" },
-  "Mande mensagem para este mesmo número (pelo seu celular) para corrigir um agente em tempo real. Mande #agentes para ver a lista, ou #agente <nome> para escolher. A correção vale no próximo atendimento daquele agente, sem precisar publicar nada. Funciona só quando a conexão dos avisos é pelo QR Code.":
-    { es: "Envía un mensaje a este mismo número (desde tu celular) para corregir a un agente en tiempo real. Envía #agentes para ver la lista, o #agente <nombre> para elegir. La corrección vale desde la próxima atención de ese agente, sin publicar nada. Funciona solo cuando la conexión de los avisos es por código QR." },
+  "Mande mensagem para este mesmo número (pelo seu celular) para corrigir um agente em tempo real. Mande #agentes para ver a lista, ou #agente <nome> para escolher. A correção vale no próximo atendimento daquele agente, sem precisar publicar nada.":
+    { es: "Envía un mensaje a este mismo número (desde tu celular) para corregir a un agente en tiempo real. Envía #agentes para ver la lista, o #agente <nombre> para elegir. La corrección vale desde la próxima atención de ese agente, sin publicar nada." },
   "Falando agora com":
     { es: "Hablando ahora con" },
   "Nenhum agente selecionado ainda — mande #agentes pelo WhatsApp.":
