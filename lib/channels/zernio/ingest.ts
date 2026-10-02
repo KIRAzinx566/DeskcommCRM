@@ -38,6 +38,7 @@ import {
   ehNumeroInternoDeAviso,
   registrarMensagemIgnorada,
 } from "@/lib/escalacao/numero-interno-de-aviso";
+import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
 
 import { aplicarEfeitosPosEntrada } from "../pos-entrada";
 
@@ -130,6 +131,14 @@ export async function ingestZernioInbound(
       lid: null,
     }))
   ) {
+    // Canal direto (migration 0507) é só WAHA — ver o mesmo comentário em
+    // lib/channels/meta/ingest.ts.
+    const configCanalDireto = await lerConfigCanalDireto(admin, input.organizationId);
+    if (configCanalDireto?.ligado) {
+      logger.warn("[canal-direto] canal não suportado (Zernio) — mensagem descartada como aviso comum", {
+        organizationId: input.organizationId,
+      });
+    }
     await registrarMensagemIgnorada(admin, input.organizationId, {
       direction: "inbound",
       sessionId: input.channelSessionId,

@@ -25,7 +25,11 @@ import { avaliarSelecao, definirSelecao } from "./selecao";
 const TETO_POR_ORGANIZACAO = 20;
 const JANELA_SEGUNDOS = 60;
 
-export const EVENTO_MENSAGEM_RECEBIDA = "canal_direto.mensagem_recebida";
+// Sufixo `_requested`: é COMANDO (pedido de turno), não fato — a convenção
+// que `tests/unit/evento-comando-tem-consumidor.test.ts` cobra mecanicamente
+// (media.persist_requested, ai_agent.dispatch_requested). Consumidor
+// registrado: workers/canal-direto-worker.handler.ts.
+export const EVENTO_MENSAGEM_RECEBIDA = "canal_direto.turno_requested";
 
 export interface EntradaDoCanalDireto {
   organizationId: string;

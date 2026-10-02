@@ -30,6 +30,7 @@ import {
   ehNumeroInternoDeAviso,
   registrarMensagemIgnorada,
 } from "@/lib/escalacao/numero-interno-de-aviso";
+import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
 import { logger } from "@/lib/logger";
 
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "../archived";
@@ -186,6 +187,16 @@ export async function ingestMetaInbound(
       lid: null,
     })
   ) {
+    // Canal direto (migration 0507) é só WAHA — o envio cru de resposta
+    // (lib/escalacao/canal-direto/transporte.ts) depende de sendWAHA. Meta
+    // continua com o descarte de hoje mesmo com canal_direto_ligado=true; não
+    // finge suportar o que não suporta.
+    const configCanalDireto = await lerConfigCanalDireto(admin, orgId);
+    if (configCanalDireto?.ligado) {
+      logger.warn("[canal-direto] canal não suportado (Meta) — mensagem descartada como aviso comum", {
+        organizationId: orgId,
+      });
+    }
     await registrarMensagemIgnorada(admin, orgId, {
       direction: "inbound",
       sessionId: sessao.id,
