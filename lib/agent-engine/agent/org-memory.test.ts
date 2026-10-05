@@ -23,6 +23,22 @@ describe('loadOrgMemory', () => {
     const mem = await loadOrgMemory(poolSeq([{ rows: [] }, { rows: [] }]), 'org1');
     expect(mem).toEqual({ content: null, entries: [] });
   });
+
+  it('sem terceiro argumento, o filtro de entries passa agentId null (regressão zero)', async () => {
+    const pool = poolSeq([{ rows: [{ content: null }] }, { rows: [] }]);
+    await loadOrgMemory(pool, 'org1');
+    const [, params] = (pool.query as unknown as { mock: { calls: unknown[][] } }).mock.calls[1]!;
+    expect(params).toEqual(['org1', null]);
+  });
+
+  it('com agentId, o filtro de entries passa o id — entries de outro agente não entram na query (agent_id is null or agent_id = $2)', async () => {
+    const pool = poolSeq([{ rows: [{ content: null }] }, { rows: [{ id: 'e1', title: 'Correção', body: 'Nunca oferecer desconto.' }] }]);
+    const mem = await loadOrgMemory(pool, 'org1', 'agent-x');
+    const [sql, params] = (pool.query as unknown as { mock: { calls: unknown[][] } }).mock.calls[1]!;
+    expect(sql as string).toContain('agent_id is null or agent_id = $2');
+    expect(params).toEqual(['org1', 'agent-x']);
+    expect(mem.entries).toEqual([{ id: 'e1', title: 'Correção', body: 'Nunca oferecer desconto.' }]);
+  });
 });
 
 describe('renderOrgMemory', () => {

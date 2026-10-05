@@ -70,6 +70,9 @@ export interface ConfigNaResposta {
   rotulo: string | null;
   ligado: boolean;
   atualizado_em: string;
+  canal_direto_ligado: boolean;
+  canal_direto_agente_id: string | null;
+  canal_direto_agente_nome: string | null;
 }
 
 export interface EstadoDaTelaDeAviso {
@@ -96,6 +99,9 @@ interface LinhaDeConfig {
   mensagens_ignoradas: number;
   ultima_mensagem_ignorada_em: string | null;
   updated_at: string;
+  canal_direto_ligado: boolean;
+  canal_direto_agente_id: string | null;
+  canal_direto_agente_nome: string | null;
 }
 
 export async function lerEstadoDaTelaDeAviso(entrada: {
@@ -157,6 +163,9 @@ export async function lerEstadoDaTelaDeAviso(entrada: {
           rotulo: config.rotulo,
           ligado: config.ligado,
           atualizado_em: config.updated_at,
+          canal_direto_ligado: config.canal_direto_ligado,
+          canal_direto_agente_id: config.canal_direto_agente_id,
+          canal_direto_agente_nome: config.canal_direto_agente_nome,
         }
       : null,
     conexoes,
@@ -171,7 +180,7 @@ async function lerConfig(db: SupabaseClient, orgId: string): Promise<LinhaDeConf
   const { data, error } = await db
     .from("config_aviso_de_caso")
     .select(
-      "channel_session_id, telefone_destino, rotulo, ligado, mensagens_ignoradas, ultima_mensagem_ignorada_em, updated_at",
+      "channel_session_id, telefone_destino, rotulo, ligado, mensagens_ignoradas, ultima_mensagem_ignorada_em, updated_at, canal_direto_ligado, canal_direto_agente_id",
     )
     .eq("organization_id", orgId)
     .maybeSingle();
@@ -185,7 +194,20 @@ async function lerConfig(db: SupabaseClient, orgId: string): Promise<LinhaDeConf
     });
     return null;
   }
-  return (data as LinhaDeConfig | null) ?? null;
+  const linha = data as Omit<LinhaDeConfig, "canal_direto_agente_nome"> | null;
+  if (!linha) return null;
+
+  let canal_direto_agente_nome: string | null = null;
+  if (linha.canal_direto_agente_id) {
+    const { data: agente } = await db
+      .from("ai_agents")
+      .select("name")
+      .eq("organization_id", orgId)
+      .eq("id", linha.canal_direto_agente_id)
+      .maybeSingle();
+    canal_direto_agente_nome = (agente as { name: string } | null)?.name ?? null;
+  }
+  return { ...linha, canal_direto_agente_nome };
 }
 
 /**

@@ -56,6 +56,7 @@ export function OrgMemoryClient({ initialState }: Props) {
     manual: t("manual"),
     flywheel: t("aprendido automaticamente"),
     agent: t("anotado pelo agente"),
+    canal_direto: t("corrigido pelo canal direto"),
   };
   const { data } = useOrgMemory(initialState);
   const document = data?.document ?? null;
