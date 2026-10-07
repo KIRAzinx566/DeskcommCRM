@@ -22,12 +22,14 @@ import { followupGatilhoCasoHandler } from "@/lib/followup/gatilho-caso.handler"
 import { casoNaCentralHandler } from "@/lib/escalacao/caso-na-central.handler";
 import { mediaPersistHandler } from "@/workers/media-persist-worker.handler";
 import { mediaDeriveHandler } from "@/workers/media-derive-worker.handler";
+import { CONSUMIDORES_DOS_CANAIS } from "@/lib/channels/consumidores";
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
 import { csatSurveyHandler } from "@/lib/csat/enviar-pesquisa";
 import { csatReplyHandler } from "@/lib/csat/capturar-resposta";
 import { canalDiretoHandler } from "@/workers/canal-direto-worker.handler";
 import { conversaoDeQualificacaoHandler } from "@/lib/conversoes/qualificacao.handler";
+import { conversaoDeEtapaMetaHandler } from "@/lib/conversoes/etapa-meta.handler";
 import { conversaoDeVendaHandler } from "@/lib/conversoes/envio.handler";
 import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
 import { avisoDeCasoAoSuporteHandler } from "@/lib/escalacao/aviso-ao-suporte.handler";
@@ -70,6 +72,8 @@ export function ensureHandlersRegistered(): void {
   registerHandler(mediaPersistHandler);
   registerHandler(canalDiretoHandler);
   registerHandler(mediaDeriveHandler);
+  // Os consumidores dos canais (ex.: o pino que entrou sem coordenadas).
+  for (const consumidor of CONSUMIDORES_DOS_CANAIS) registerHandler(consumidor);
   registerHandler(webPushInboundHandler);
   registerHandler(billingChargeStatusChangedHandler);
   registerHandler(csatSurveyHandler);
@@ -88,5 +92,6 @@ export function ensureHandlersRegistered(): void {
   // no banco. Falha dele nunca segura os handlers acima.
   registerHandler(conversaoDeVendaHandler);
   registerHandler(conversaoDeQualificacaoHandler);
+  registerHandler(conversaoDeEtapaMetaHandler);
   _registered = true;
 }

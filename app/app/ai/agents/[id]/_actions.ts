@@ -169,6 +169,8 @@ export async function saveAgentDraftAction(
   const escopo = await validarEscopoDaVersao(admin, activeOrg.orgId, {
     pipeline_ids: v.pipeline_ids,
     knowledge_source_ids: v.knowledge_source_ids,
+    credential_id: v.credential_id,
+    channel_session_id: v.channel_session_id,
   });
   if (!escopo.ok) {
     return { ok: false, error: "validation_failed", message: mensagemDoEscopo(escopo) };
@@ -308,6 +310,7 @@ export async function saveAgentDraftAction(
         system_prompt: v.system_prompt,
         provider: v.provider,
         model: v.model,
+        base_url: v.base_url,
         credential_id: v.credential_id,
         tool_ids: v.tool_ids,
         trigger_config: v.trigger_config ?? undefined,
@@ -548,6 +551,7 @@ export async function revertToVersionAction(
     split_messages: boolean;
     split_max_chars: number;
     inbound_debounce_ms: number | null;
+    followup: unknown;
   };
   const src = source as unknown as SourceRow;
 
@@ -599,6 +603,7 @@ export async function revertToVersionAction(
         split_messages: src.split_messages,
         split_max_chars: src.split_max_chars,
         inbound_debounce_ms: src.inbound_debounce_ms ?? null,
+        followup: src.followup,
         status: "draft",
         created_by: authUser.id,
       })
@@ -707,6 +712,12 @@ export async function createMcpAgentAction(
   const requestId = randomUUID();
   const admin = createAdminClient();
 
+  // Antes da primeira escrita: recusado aqui, não sobra agente órfão.
+  const escopo = await validarEscopoDaVersao(admin, activeOrg.orgId, parsed.data.version);
+  if (!escopo.ok) {
+    return { ok: false, error: "validation_failed", message: mensagemDoEscopo(escopo) };
+  }
+
   // Cria agent kind='mcp_agent' + v1 draft. Compensa rollback se versão falhar.
   const { data: agentRow, error: agentErr } = await admin
     .from("ai_agents")
@@ -765,6 +776,7 @@ export async function createMcpAgentAction(
     split_messages: v.split_messages,
     split_max_chars: v.split_max_chars,
     inbound_debounce_ms: v.inbound_debounce_ms ?? null,
+    followup: v.followup,
     // O corpo ACEITAVA estes cinco e o INSERT os descartava: criar o assistente
     // pela tela com papel Operador, escopo de funil ou material marcado produzia
     // uma versão com tudo no default do banco — desligado e vazio.

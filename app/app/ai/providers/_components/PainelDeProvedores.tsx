@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { useT } from "@/hooks/i18n/useT";
 
+import { CartaoDeMapas } from "./CartaoDeMapas";
 import { CartaoDoJev, jevNoPonto, useDadosDoJev, type DadosDoJev } from "./CartaoDoJev";
 
 interface Ponto {
@@ -249,6 +250,8 @@ export function PainelDeProvedores() {
           </section>
         ))}
       </div>
+
+      <CartaoDeMapas />
     </div>
   );
 }
