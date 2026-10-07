@@ -19,6 +19,9 @@ describe("createDefaultRegistry", () => {
       "google",
       "nvidia",
       "openai",
+      // A assinatura do ChatGPT (#1639/#1672): mesma fábrica da OpenAI, com o
+      // endpoint do Codex e o access_token do login no lugar da chave.
+      "openai-assinatura",
       "openrouter",
       "requesty",
     ]);

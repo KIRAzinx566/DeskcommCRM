@@ -136,7 +136,11 @@ export function LeadDossier({
           </p>
         )}
 
-        <ConversaNoDossie conversa={lead.conversa} />
+        <ConversaNoDossie
+          conversa={lead.conversa}
+          contactId={lead.contact_id}
+          phone={lead.contact_phone}
+        />
 
         <LeadTasksSection leadId={lead.id} pipelineId={pipelineId} />
 
@@ -146,7 +150,11 @@ export function LeadDossier({
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
             {t("Contato")}
           </h3>
-          <ContatoDoNegocio contactId={lead.contact_id} pipelineId={pipelineId} />
+          <ContatoDoNegocio
+            contactId={lead.contact_id}
+            pipelineId={pipelineId}
+            leadId={lead.id}
+          />
         </section>
 
         {/* ② timeline */}
