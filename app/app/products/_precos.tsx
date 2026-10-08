@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { showApiError } from "@/components/feedback/ApiErrorToast";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/hooks/i18n/useT";
+import { useIdioma } from "@/lib/i18n/IdiomaProvider";
+import { tagDeIdioma } from "@/lib/i18n/datas";
 import { apiClient } from "@/lib/api/client";
 import type { ReguaDaTela as Regua } from "@/lib/catalogo/regua-de-preco";
 import { lerTabelaDeTaxas, MAX_PARCELAS, simularTodas } from "@/lib/financeiro/parcelamento";
@@ -27,8 +29,9 @@ import { precoParaCentavos } from "@/lib/schemas/produtos";
 
 const EXEMPLO_DE_TAXAS = "Débito – 2,29%\nCrédito à vista – 4,29%\n2x – 5,13%\n10x – 10,2%";
 
-function quando(iso: string, fuso: string): string {
-  return new Date(iso).toLocaleString("pt-BR", {
+/** Data e hora no fuso da organização, no idioma de quem lê (`tagDeIdioma`). */
+function quando(iso: string, fuso: string, idioma: string): string {
+  return new Date(iso).toLocaleString(idioma, {
     timeZone: fuso,
     day: "2-digit",
     month: "2-digit",
@@ -46,6 +49,7 @@ function quando(iso: string, fuso: string): string {
  */
 export function PrecosEParcelas({ podeEditar, inicial }: { podeEditar: boolean; inicial: Regua | null }) {
   const t = useT();
+  const idioma = tagDeIdioma(useIdioma());
   const [regua, setRegua] = React.useState<Regua | null>(inicial);
   const [aberto, setAberto] = React.useState(false);
   const [texto, setTexto] = React.useState(inicial?.parcelamento.texto ?? "");
@@ -104,7 +108,7 @@ export function PrecosEParcelas({ podeEditar, inicial }: { podeEditar: boolean; 
         >
           <p className="font-medium">
             {regua.tabela.conferida_em
-              ? `${t("A tabela de preços não foi conferida hoje. Última conferência:")} ${quando(regua.tabela.conferida_em, regua.fuso)}.`
+              ? `${t("A tabela de preços não foi conferida hoje. Última conferência:")} ${quando(regua.tabela.conferida_em, regua.fuso, idioma)}.`
               : t("A tabela de preços ainda não foi conferida.")}
           </p>
           <p className="mt-1 text-muted-foreground">
@@ -168,7 +172,7 @@ export function PrecosEParcelas({ podeEditar, inicial }: { podeEditar: boolean; 
             </label>
             {regua.tabela.validade === "mesmo_dia" && regua.tabela.conferida_em ? (
               <p className="mt-2 text-xs text-muted-foreground" data-testid="ultima-conferencia">
-                {t("Última conferência:")} {quando(regua.tabela.conferida_em, regua.fuso)}
+                {t("Última conferência:")} {quando(regua.tabela.conferida_em, regua.fuso, idioma)}
               </p>
             ) : null}
           </div>

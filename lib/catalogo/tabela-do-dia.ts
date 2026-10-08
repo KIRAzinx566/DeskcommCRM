@@ -30,6 +30,7 @@
  */
 import { z } from "zod";
 
+import { isoLocalComOffset } from "@/lib/tempo/agora";
 import { FUSO_PADRAO, fusoValido } from "@/lib/tempo/fusos";
 
 export const VALIDADES_DA_TABELA = ["desligada", "mesmo_dia"] as const;
@@ -85,10 +86,15 @@ export function situacaoDaTabela(config: ConfigDaTabela, agora: Date, fuso: stri
     : { estado: "vencida", conferidaEm: config.conferida_em };
 }
 
-/** "07/10", no fuso da organização. */
+/**
+ * "07/10", no fuso da organização. Montado à mão, sem locale: é texto para o
+ * AGENTE (que fala com o cliente em português), não interface — e a cerca
+ * `i18n-a-data-segue-o-idioma` não aceita locale de data fixo.
+ */
 export function diaCurto(iso: string, fuso: string): string {
   const tz = fusoValido(fuso) ? fuso : FUSO_PADRAO;
-  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: tz, day: "2-digit", month: "2-digit" });
+  const [, mes, dia] = isoLocalComOffset(new Date(iso), tz).slice(0, 10).split("-");
+  return `${dia}/${mes}`;
 }
 
 /**
