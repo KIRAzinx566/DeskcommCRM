@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
-import { ROLE_RANK } from "@/lib/auth/types";
+import { roleAtLeast } from "@/lib/auth/types";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { carregarPainel, PERIODOS_DO_PAINEL } from "@/lib/orquestra/painel";
 import { createClient } from "@/lib/supabase/server";
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const painel = await carregarPainel(await createClient(), {
     orgId: authz.org.orgId,
     periodo: parsed.data.periodo,
-    podeVerAuditoria: ROLE_RANK[authz.org.role] >= ROLE_RANK.admin,
+    podeVerAuditoria: roleAtLeast(authz.org.role, "admin"),
   });
   return ok(painel, { requestId });
 }
