@@ -8,6 +8,152 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.2.0] — 2026-10-08
+
+### Adicionado
+
+- **Ganhar um negócio pode abrir a comanda com o valor e o contato, opcional por funil** Fechar um negócio como ganho não dizia nada ao financeiro: quem vendia pelo Kanban tinha de lembrar de abrir a comanda à mão, em outra tela, sem vínculo entre as duas. Agora cada funil tem, em Configurações › Funis, a caixa "Abrir comanda ao ganhar um negócio neste funil". Ligada, ganhar um negócio abre **uma comanda** com o **valor** e o **contato** do negócio, na moeda da organização, e grava o vínculo dela com o negócio.
+
+  A caixa vem **desligada** em todo funil, novo ou existente: desligada, ganhar não toca no financeiro, como antes desta versão. A decisão é do funil porque em loja com checkout, infoproduto ou imobiliária o valor do negócio não é conta a receber.
+
+  Vale para qualquer caminho de ganho — o arrasto para a etapa de ganho, o botão Ganhar e os demais fechamentos — porque quem abre a comanda é o consumidor do evento `lead.won`, que o banco grava em toda transição para ganho. A comanda nasce alguns segundos depois do fecho, no processamento de eventos, e nasce **aberta**: o operador confere o valor e finaliza com a forma de pagamento pelo caminho de sempre. Fechar, reabrir e fechar de novo devolve a comanda que já existe em vez de abrir outra. O atendente da comanda é o responsável pelo negócio, e ela nasce sem atendente quando o negócio não tem responsável.
+
+  O valor e o status são sempre relidos do negócio no banco, nunca tirados do evento. O item da comanda leva o vocabulário e o nome do funil (por exemplo "Pedido · Vendas"), e não o título do negócio, que costuma ser o nome ou o telefone do contato: assim nada de pessoal fica fora do alcance da anonimização da LGPD.
+
+  Contribuição de @webtecnica (#2220, refs #1477).
+
+- **Planos de tarefa — a sequência de tarefas salva uma vez e aplicada a cada negócio por uma regra** Em **Tarefas › Planos** (pelo hub do CRM e pelo ⌘K) quem é gerente ou administrador monta uma sequência de tarefas uma vez: título, prazo em dias contado a partir da aplicação, prioridade e responsável de cada passo (o dono do negócio ou uma pessoa da equipe). No editor de regras, a ação nova **Aplicar um plano de tarefas ao negócio** escolhe um dos planos cadastrados e cria as tarefas na ordem, todas de uma vez. Um plano que já foi aplicado ao negócio não é aplicado de novo: a aplicação fica registrada na linha do tempo do negócio. Se algum passo não pode virar tarefa (o negócio não tem dono, ou o título fica vazio sem o nome do contato), o plano não cria tarefa nenhuma e a regra mostra o motivo no histórico. Os planos ficam nas configurações da empresa; não há nada a configurar na atualização.
+
+  Contribuição de @webtecnica (#2213), a partir da issue #1752 de @franceschini-lucas.
+
+- **Base para o agente de IA chamar um servidor MCP externo (ainda sem tela de cadastro)** Um servidor MCP externo registrado pela instalação passa a ser enxergado e
+  chamado pelo agente: a descoberta fala o contrato MCP (`initialize`,
+  `tools/list`, `tools/call`) pelo cliente do próprio `@modelcontextprotocol/sdk`,
+  com o cabeçalho de autenticação em toda requisição. As ferramentas anunciadas
+  entram no turno AO LADO das compiladas e passam pelo MESMO `wrapMcpTool`, então
+  auditoria, papel e escopo valem para elas — a recusa do ERP (um `403`) sobe como
+  falha auditada e volta em texto para o modelo, porque a permissão continua
+  morando no servidor, onde o dado está.
+
+  O desenho da revisão do mantenedor, ponto a ponto:
+
+  - **Quem cadastra é o dono da instalação** (`platform admin`), pela mesma regra
+    das extensões, e o gate de permissão vem ANTES da validação de forma. O
+    registro continua POR ORGANIZAÇÃO: a linha gravada é a da organização da
+    sessão e o runtime lê pelo `organization_id` do run, nunca por um id do corpo.
+  - **A chave sai do jsonb para colunas cifradas** (migration `0580`, apêndice
+    idempotente no `baseline.sql`): `organizations.settings` era entregue pela RLS
+    a todo membro, inclusive `viewer`. Agora é AES-256-GCM nas colunas
+    `mcp_externo_chave_*`; o cadastro devolve só os últimos 4, e o endpoint segue no
+    bolso de sempre (merge em dois níveis).
+  - **Anti-SSRF em três peças** no caminho de chamada (`assertSafeOutboundUrl`,
+    `assertDestinoResolvidoSeguro` e `redirect: "manual"` dentro do
+    `allowlistedFetch`, com allowlist nascida do host cadastrado) e já no
+    cadastro do endereço.
+  - **Nada de segredo no endereço**: querystring, fragmento ou credencial embutida
+    não é registrável, e a trilha de auditoria e o log levam SÓ o host.
+  - **Cada agente escolhe as próprias ferramentas**, pelo `tool_ids` da versão, no
+    prefixo estável `mcp_externo:<leitura|escrita>:<nome>`; o editor do agente tem
+    uma action de listagem pronta que devolve os ids, um por marca aceita (a tela do editor ainda não a usa).
+  - **Desligado por padrão**: sem registro, ou com registro mas sem escolha no
+    agente, o catálogo é o de sempre e nenhuma rede é aberta (a descoberta só
+    acontece quando o agente escolheu ao menos uma remota); a escolha nasce
+    vazia.
+  - **Durante conversa só entra leitura de verdade**: a remota só conta como `read`
+    quando o servidor anuncia `annotations.readOnlyHint === true` E quem administra
+    marcou `leitura`; o resto sai `write` e cai na conferência de escopo do turno
+    (`escrita_sem_escopo_do_turno`). Até existir identificação forçada do contato
+    na chamada, turno com contato nenhum carrega servidor remoto — Conversador e
+    Operador.
+
+  Sem registro nada muda: o catálogo compilado segue sendo a única fonte do turno
+  e nenhuma chamada de rede é aberta. Servidor registrado fora do ar também não
+  derruba o turno — ele volta sem as ferramentas remotas, com o motivo no log.
+  Esta fatia entrega a base REGISTRÁVEL + INVOCÁVEL, ainda sem porta na tela:
+  nenhuma tela chama a action de cadastro nem a de listagem, então nenhuma
+  instalação muda de comportamento com esta versão. A tela de cadastro, a
+  escolha das ferramentas no editor do agente e os limites ficam para depois.
+  Fora de conversa (turno sem contato), uma ferramenta marcada como escrita
+  executa no servidor remoto; durante conversa, não.
+
+  Contribuição de @webtecnica (PR #2204, Refs #2147).
+
+### Corrigido
+
+- **Aba que estava carregando quando o acompanhamento de suporte começou ou terminou passa a mostrar a organização certa** Quem abre o acompanhamento de suporte com mais de uma aba do mesmo navegador aberta
+  via, às vezes, uma das abas continuar mostrando a organização anterior por até 15
+  segundos depois de entrar ou sair do acompanhamento. Isso acontecia quando a aba
+  estava no meio de um carregamento no instante da troca e perdia o aviso enviado
+  pela outra aba.
+
+  Agora a aba confere, ao terminar de carregar, se a troca aconteceu enquanto ela
+  carregava, e se atualiza na hora. Nenhum dado era gravado na organização errada,
+  porque o servidor já recusava essas gravações: o problema era só o que a tela
+  mostrava.
+
+- **Comanda do ganho: moeda certa, audit da abertura e corrida fechada** A comanda aberta ao arrastar um negócio para **Ganho** recebe quatro
+  consertos, sobre as pendências anotadas na issue #2475 (a numeração abaixo
+  é deste texto, não a da issue).
+
+  **1. A moeda do negócio decide se a comanda nasce.** Antes, o valor era copiado
+  do lead para a comanda sem ninguém perguntar em que moeda ele estava — dois
+  centavos de moedas diferentes no mesmo relatório, sem aviso. Agora o handler
+  compara a moeda do negócio com a da organização (`moedaDaOrganizacao`) e, quando
+  as duas estão DECLARADAS e diferentes, a comanda não abre: o desfecho é
+  `skipped` com `moeda_divergente:<a>!=<b>` no `detail`, que é o registro do
+  porquê. **A pegadinha do `DEFAULT 'BRL'`**: `crm_leads.currency` nasce `'BRL'`
+  por conta do banco, então uma organização em EUR cujo lead nunca escolheu moeda
+  carrega `'BRL'` sem ser escolha nenhuma — a guarda trata esse default como
+  "não declarado" e **não pula**. Uma comparação ingênua (`lead.currency !==
+  org.currency`) derrubaria o financeiro inteiro dessa organização. Nenhuma
+  decisão aqui é de auditoria: quem pula, pula, e o `detail` diz.
+
+  **2. A abertura da comanda ganha rastro no audit.** O handler emite
+  `comanda.aberta` (ação que já existia em `lib/audit/actions.ts`) com
+  `resourceType: sale`, o id da comanda e `origem: ganho_no_kanban` no metadata —
+  com a abertura antes invisível no painel de auditoria, não havia como saber
+  quando e por qual caminho uma conta a receber nasceu. Quando a comanda é
+  pulada, o audit não registra nada (não abriu). O evento não carrega ator: o
+  `event_log` não guarda quem arrastou.
+
+  **3. A corrida entre o worker e o `drain-loop` fecha com índice.** Duas linhas
+  `lead.won` do mesmo negócio — fechar, reabrir, fechar — em instâncias
+  diferentes passavam as duas pela trava de leitura do vínculo (a primeira ainda
+  não gravou) e abriam duas comandas para o mesmo negócio. A migration **0582**
+  cria o índice único parcial `uniq_comanda_do_ganho_por_negocio` em
+  `crm_lead_links (organization_id, lead_id) WHERE link_kind = 'comanda_no_ganho'`
+  — o índice anterior trazia `target_id` na chave, e por isso não segurava duas
+  comandas. A limpeza de duplicatas pré-existente mantém a mais antiga e só toca
+  `crm_lead_links`, nenhum dinheiro é apagado. No código, o vínculo agora é
+  gravado **antes** do item: a perdedora da corrida (23505) cancela a comanda
+  vazia que acabou de abrir (`cancel_reason = 'corrida_do_ganho'`; `sales`
+  cancela, nunca apaga) e devolve `ja_existia` com a comanda da vencedora, em vez de virar um
+  `falhou` que o dreno reagendaria para sempre — a ordem é o que decide o tamanho
+  do estrago.
+
+  **4. O retry agora completa o que faltava.** O vínculo é gravado mesmo quando o
+  insert do item falha (duplicar dinheiro é pior que um item faltando), mas o
+  desfecho seguinte era `ja_existia` → `ok` → a comanda ficava com total 0 para
+  sempre e ninguém avisado. A repetição agora lê a comanda: aberta e sem item, reinsere o
+  valor (sem abrir segunda comanda e sem consultar a numeração); com item, ou já
+  finalizada ou cancelada, não mexe em nada. Limitação conhecida: o gatilho é
+  "comanda vinculada, aberta e sem item", e isso inclui o item que o operador
+  removeu à mão de uma comanda ainda aberta — a repetição seguinte do mesmo
+  evento o devolveria.
+
+  Dois arquivos de teste (`comanda-do-ganho.test.ts` e
+  `comanda-do-ganho.handler.test.ts`) cobrem os quatro itens. Os testes que
+  vigiam a mudança foram sabotados (código antigo no lugar) e ficaram vermelhos;
+  os de controle de não-regressão seguem verdes nos dois sentidos.
+
+  Refs #2475
+
+  Contribuição de @webtecnica.
+
+- **Três dependências internas sobem para versões corrigidas** As bibliotecas de imagem (`sharp`), de serialização (`seroval`) e de mapa de código (`source-map-js`) sobem para as versões com correção de segurança publicada. Nada muda no uso: a atualização é interna e não pede ação de quem opera o servidor.
+
+- **Os avisos de negócio ganho, perdido, reaberto ou com novo responsável só nascem do próprio negócio** Os avisos que saem quando um negócio é ganho, perdido, reaberto ou muda de responsável — notificação, webhook de saída e conversão para anúncios — passam a nascer só da mudança registrada no próprio negócio. Ganhar, perder e reatribuir pela tela, pela automação ou pela IA continuam funcionando como antes.
+
 ## [1.76.0] — 2026-10-07
 
 ### Adicionado
@@ -10582,7 +10728,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.1.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v1.26.2...v2.0.0
