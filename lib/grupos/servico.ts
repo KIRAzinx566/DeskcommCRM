@@ -46,6 +46,10 @@ export interface GrupoDoNumero {
    * grupo fica preso ligado para sempre.
    */
   presente: boolean;
+  /** Grupo de vendas (migration 0613): cada venda/gasto escrito nele vira lançamento no caixa. */
+  lancaNoCaixa: boolean;
+  /** A conta em que o dinheiro do grupo de vendas cai. */
+  contaDoCaixaId: string | null;
 }
 
 interface LinhaDeGrupo {
@@ -53,6 +57,10 @@ interface LinhaDeGrupo {
   subject: string | null;
   enabled: boolean;
   enabled_at: string | null;
+  // Só leitura aqui: quem grava é `configurarGrupoDeVendas`, e o ligar/desligar
+  // grava a linha com campos explícitos — nunca apaga esta escolha.
+  lanca_no_caixa?: boolean;
+  conta_do_caixa_id?: string | null;
 }
 
 export interface GruposDb {
@@ -112,6 +120,8 @@ export async function listarGruposDoNumero(
       enabled: l?.enabled ?? false,
       enabledAt: l?.enabled_at ?? null,
       presente: true,
+      lancaNoCaixa: l?.lanca_no_caixa ?? false,
+      contaDoCaixaId: l?.conta_do_caixa_id ?? null,
     };
   });
   // Órfãos: LIGADOS no banco, mas o WhatsApp não devolveu mais (o número saiu
@@ -126,6 +136,8 @@ export async function listarGruposDoNumero(
       enabled: l.enabled,
       enabledAt: l.enabled_at,
       presente: false,
+      lancaNoCaixa: l.lanca_no_caixa ?? false,
+      contaDoCaixaId: l.conta_do_caixa_id ?? null,
     }));
   return [...daLista, ...orfaos];
 }
@@ -291,7 +303,7 @@ export function criarDepsDeGrupos(admin: SupabaseClient): DepsDeGrupos {
       async listarLinhas(org, sessionId) {
         const { data } = await admin
           .from("channel_session_groups")
-          .select("group_chat_id, subject, enabled, enabled_at")
+          .select("group_chat_id, subject, enabled, enabled_at, lanca_no_caixa, conta_do_caixa_id")
           .eq("organization_id", org)
           .eq("channel_session_id", sessionId);
         return (data ?? []) as LinhaDeGrupo[];

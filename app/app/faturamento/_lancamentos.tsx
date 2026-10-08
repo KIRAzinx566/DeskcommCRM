@@ -174,8 +174,20 @@ export function ListaDeLancamentos({
                 <td className="py-1 text-text-muted">{l.entry_date}</td>
                 <td className="py-1">
                   {l.description ?? "—"}
+                  {/* Rótulo por origem: era "de comanda" para tudo que não fosse manual,
+                      inclusive o recorrente e o estorno. */}
                   {l.origin !== "manual" ? (
-                    <span className="ml-2 text-xs text-text-muted">{t("de comanda")}</span>
+                    <span className="ml-2 text-xs text-text-muted">
+                      {l.origin === "sale"
+                        ? t("de comanda")
+                        : l.origin === "recurring"
+                          ? t("recorrente")
+                          : l.origin === "reversal"
+                            ? t("estorno")
+                            : l.origin === "grupo"
+                              ? t("do grupo de vendas")
+                              : null}
+                    </span>
                   ) : null}
                 </td>
                 <td className="py-1 text-right tabular-nums">

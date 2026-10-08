@@ -35,6 +35,14 @@ interface Grupo {
   enabled: boolean;
   enabledAt: string | null;
   presente: boolean;
+  /** Grupo de vendas (migration 0613): as vendas e os gastos escritos nele viram lançamento no caixa. */
+  lancaNoCaixa: boolean;
+  contaDoCaixaId: string | null;
+}
+
+interface Conta {
+  id: string;
+  name: string;
 }
 
 const AVISO_DE_VOLUME =
@@ -94,6 +102,10 @@ export function GruposSheet({
   const [pendente, setPendente] = useState<Grupo | null>(null);
   const [salvando, setSalvando] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  // `null` = ainda não buscadas. Só busca quando precisa (alguém marcou grupo de
+  // vendas, ou já há um marcado): a folha de grupos não paga a ida ao financeiro
+  // para quem só liga e desliga grupo.
+  const [contas, setContas] = useState<Conta[] | null>(null);
   const [confirmarDesligarTodos, setConfirmarDesligarTodos] = useState(false);
   const [confirmarLigarTodos, setConfirmarLigarTodos] = useState<{
     alvos: Grupo[];
@@ -123,6 +135,56 @@ export function GruposSheet({
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  // As contas do caixa, para escolher onde cai o dinheiro do grupo de vendas.
+  // Sem elas (papel sem acesso ao financeiro, ou nenhuma conta criada), o
+  // controle mostra o aviso em vez de uma lista vazia.
+  const buscarContas = useCallback(async (): Promise<Conta[]> => {
+    try {
+      const r = await fetch("/api/v1/financeiro/catalogo/contas");
+      const lista = ((await r.json().catch(() => null)) as { data?: Conta[] } | null)?.data ?? [];
+      setContas(lista);
+      return lista;
+    } catch {
+      setContas([]);
+      return [];
+    }
+  }, []);
+  const temGrupoDeVendas = (grupos ?? []).some((g) => g.lancaNoCaixa === true);
+  useEffect(() => {
+    if (temGrupoDeVendas && contas === null) void buscarContas();
+  }, [temGrupoDeVendas, contas, buscarContas]);
+
+  async function marcarGrupoDeVendas(g: Grupo, marcar: boolean) {
+    if (!marcar) return configurarCaixa(g, false, null);
+    const lista = contas ?? (await buscarContas());
+    if (lista.length === 0) {
+      setErro(t("Crie uma conta em Faturamento para o grupo poder lançar no caixa."));
+      return;
+    }
+    return configurarCaixa(g, true, g.contaDoCaixaId ?? lista[0]!.id);
+  }
+
+  async function configurarCaixa(g: Grupo, lancaNoCaixa: boolean, contaId: string | null) {
+    setSalvando(g.chatId);
+    setErro(null);
+    const res = await fetch(`/api/v1/channel-sessions/${channelId}/groups/caixa`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_chat_id: g.chatId, lanca_no_caixa: lancaNoCaixa, conta_do_caixa_id: contaId }),
+    });
+    setSalvando(null);
+    if (!res.ok) {
+      const j = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErro(j?.error?.message ?? t("Não foi possível salvar."));
+      return;
+    }
+    setGrupos(
+      (atual) =>
+        atual?.map((x) => (x.chatId === g.chatId ? { ...x, lancaNoCaixa, contaDoCaixaId: lancaNoCaixa ? contaId : null } : x)) ??
+        null,
+    );
+  }
 
   async function gravar(g: Grupo, enabled: boolean) {
     setSalvando(g.chatId);
@@ -357,21 +419,53 @@ export function GruposSheet({
         <div className="min-h-0 flex-1 overflow-y-auto">
           <ul className="space-y-2">
             {filtrados.map((g) => (
-              <li key={g.chatId} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="text-sm">{g.subject ?? t("Grupo sem nome")}</span>
-                  {!g.presente && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("O número saiu deste grupo. Desligue a chave se não precisar mais dela.")}
-                    </p>
-                  )}
+              <li key={g.chatId} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-sm">{g.subject ?? t("Grupo sem nome")}</span>
+                    {!g.presente && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("O número saiu deste grupo. Desligue a chave se não precisar mais dela.")}
+                      </p>
+                    )}
+                  </div>
+                  <Switch
+                    aria-label={g.subject ?? t("Grupo sem nome")}
+                    checked={g.enabled}
+                    disabled={salvando === g.chatId || progresso !== null}
+                    onCheckedChange={(v) => alternar(g, v)}
+                  />
                 </div>
-                <Switch
-                  aria-label={g.subject ?? t("Grupo sem nome")}
-                  checked={g.enabled}
-                  disabled={salvando === g.chatId || progresso !== null}
-                  onCheckedChange={(v) => alternar(g, v)}
-                />
+                {g.enabled ? (
+                  <div className="ml-1 border-l pl-3 text-xs" data-testid={`grupo-de-vendas-${g.chatId}`}>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={g.lancaNoCaixa === true}
+                        disabled={salvando === g.chatId}
+                        onChange={(e) => void marcarGrupoDeVendas(g, e.target.checked)}
+                      />
+                      {t("Grupo de vendas: lançar no caixa o que for vendido e gasto aqui")}
+                    </label>
+                    {g.lancaNoCaixa ? (
+                      <label className="mt-1 flex items-center gap-2 text-muted-foreground">
+                        {t("Conta")}
+                        <select
+                          value={g.contaDoCaixaId ?? ""}
+                          disabled={salvando === g.chatId}
+                          onChange={(e) => void configurarCaixa(g, true, e.target.value)}
+                          className="h-7 rounded-md border bg-background px-2"
+                        >
+                          {(contas ?? []).map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
