@@ -195,6 +195,26 @@ export const NAV_CATALOG = [
     group: "atendimento",
     sidebar: true,
   },
+  // ---- Modo Orquestra — a visão do dono (lib/orquestra/painel.ts) ----
+  // SEM `sidebar`, de propósito: na interface completa as duas ficam no ⌘K e não
+  // somam ao menu de quem opera o CRM. Na interface "Orquestra" (uma escolha de
+  // portas que inclui a Visão geral, ver `ORQUESTRA` em `./interface.ts`), o menu
+  // fica plano e elas sobem para o topo (`sidebarGroups`). Ficam no FIM do grupo
+  // porque a paleta ⌘K abre Atendimento pelo Inbox, para todo mundo.
+  {
+    href: "/app/orquestra",
+    label: "Visão geral",
+    description: "O caixa, a fila, o funil e o que cada agente de IA está fazendo agora — num quadro só.",
+    icon: "House",
+    group: "atendimento",
+  },
+  {
+    href: "/app/orquestra/mundo",
+    label: "Mundo dos agentes",
+    description: "Os agentes de IA e a operação desenhados como um escritório, com o que está acontecendo de verdade.",
+    icon: "Globe",
+    group: "atendimento",
+  },
 
   // ---- CRM — o funil ----
   {
