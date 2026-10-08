@@ -50,8 +50,8 @@ describe("listarGruposDoNumero", () => {
   it("junta a lista do WhatsApp com o estado gravado; o padrão é desligado", async () => {
     const r = await listarGruposDoNumero(deps({ ligados: [G1] }), { organizationId: ORG, channelSessionId: SESS });
     expect(r).toEqual([
-      { chatId: G1, subject: "Cliente A", enabled: true, enabledAt: "2026-09-23T00:00:00.000Z", presente: true },
-      { chatId: G2, subject: "Família", enabled: false, enabledAt: null, presente: true },
+      { chatId: G1, subject: "Cliente A", enabled: true, enabledAt: "2026-09-23T00:00:00.000Z", presente: true, lancaNoCaixa: false, contaDoCaixaId: null },
+      { chatId: G2, subject: "Família", enabled: false, enabledAt: null, presente: true, lancaNoCaixa: false, contaDoCaixaId: null },
     ]);
   });
   it("canal sem capacidade de grupos é recusado", async () => {
@@ -69,6 +69,8 @@ describe("listarGruposDoNumero", () => {
       enabled: true,
       enabledAt: "2026-09-23T00:00:00.000Z",
       presente: false,
+      lancaNoCaixa: false,
+      contaDoCaixaId: null,
     });
   });
   it("grupo DESLIGADO que o número já deixou não aparece — não há nada para desligar", async () => {
