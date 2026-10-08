@@ -1081,6 +1081,14 @@ export const AUDIT_ACTIONS = [
   // Planos de tarefa (#1752): a lista `settings.task_plans` mudou pela rota
   // `settings/task-plans` — mesma família de `campaign.settings_updated`.
   "task_plans.settings_updated",
+
+  // A régua de preço da loja (tabela do dia + taxas do cartão), em
+  // `organizations.settings.catalogo` e `.parcelamento`. Ligar a validade cala o
+  // preço do agente; trocar a taxa muda o valor de toda parcela dita ao cliente.
+  "pricing.config_changed",
+  // "Os preços de hoje estão certos" (ou a planilha importada sem erro): é a
+  // assinatura de quem respondeu pela tabela que o agente passa a usar no dia.
+  "pricing.table_confirmed",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

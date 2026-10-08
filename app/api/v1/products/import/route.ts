@@ -23,6 +23,7 @@ import { type NextRequest } from "next/server";
 import { audit } from "@/lib/audit";
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
+import { conferirTabelaDoDia } from "@/lib/catalogo/conferir-tabela";
 import { moedaDaOrganizacao } from "@/lib/catalogo/moeda-da-org";
 import { chaveDoCodigo, lerPlanilha, type ErroDaLinha } from "@/lib/catalogo/planilha";
 import { traduzir } from "@/lib/i18n/dicionario";
@@ -52,6 +53,12 @@ interface ResumoDaImportacao {
   atualizados: number;
   erros: ErroDaLinha[];
   colunas_ignoradas: string[];
+  /**
+   * A importação marcou a TABELA DO DIA como conferida (`lib/catalogo/tabela-do-dia.ts`).
+   * Só a planilha que entrou INTEIRA marca: com linha recusada, há preço que
+   * ninguém atualizou, e carimbar a tabela diria ao agente que todos valem hoje.
+   */
+  tabela_conferida?: boolean;
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -274,6 +281,24 @@ export async function POST(req: NextRequest): Promise<Response> {
     },
   });
 
+  // A planilha inteira entrou: é a tabela do dia que a loja mandou.
+  let tabelaConferida = false;
+  if (gravados > 0 && erros.length === 0) {
+    const conferidaEm = await conferirTabelaDoDia(orgId);
+    tabelaConferida = conferidaEm !== null;
+    if (conferidaEm) {
+      void audit({
+        organizationId: orgId,
+        actorUserId: authz.user.id,
+        action: "pricing.table_confirmed",
+        resourceType: "organization",
+        resourceId: orgId,
+        requestId,
+        metadata: { conferida_em: conferidaEm, via: "planilha" },
+      });
+    }
+  }
+
   return ok(
     {
       total_linhas: totalLinhas,
@@ -281,6 +306,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       atualizados,
       erros,
       colunas_ignoradas: lido.colunasIgnoradas,
+      tabela_conferida: tabelaConferida,
     } satisfies ResumoDaImportacao,
     { requestId },
   );
