@@ -87,7 +87,8 @@ export interface PainelDoOrquestra {
     nome: string;
     etapas: Array<{ nome: string; cor: string | null; quantidade: number; valorCents: number }>;
   } | null;
-  canais: Array<{ nome: string; telefone: string | null; conectado: boolean; status: string }> | null;
+  /** `nome` é o de exibição do número, cru (pode faltar): quem desenha decide o que mostrar no lugar. */
+  canais: Array<{ nome: string | null; telefone: string | null; conectado: boolean; status: string }> | null;
   agentes: AgenteNoPainel[] | null;
   /** Conversas que passaram para uma pessoa hoje. */
   passagensHoje: number | null;
@@ -363,9 +364,8 @@ export async function carregarPainel(
           .is("archived_at", null),
       );
       return linhas.map((c) => ({
-        // Nome de exibição, ou o número; o identificador interno da sessão nunca vai
-        // para a tela (doutrina de restrição de canal: lint:channels).
-        nome: c.display_name || (c.phone_number ? `+${c.phone_number}` : "WhatsApp"),
+        // O identificador interno da sessão nunca vai para a tela (lint:channels).
+        nome: c.display_name,
         telefone: c.phone_number,
         conectado: c.status === "WORKING",
         status: c.status,

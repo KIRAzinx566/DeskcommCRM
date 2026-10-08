@@ -286,8 +286,8 @@ export function VisaoGeral() {
                 </li>
               ) : (
                 p?.canais?.map((c) => (
-                  <li key={c.nome} className="flex justify-between gap-2">
-                    <span>{c.nome}</span>
+                  <li key={`${c.nome}-${c.telefone}`} className="flex justify-between gap-2">
+                    <span>{c.nome ?? (c.telefone ? `+${c.telefone}` : "WhatsApp")}</span>
                     {c.conectado ? (
                       <span className="text-success-fg">{c.telefone ? `+${c.telefone}` : t("conectado")}</span>
                     ) : (
