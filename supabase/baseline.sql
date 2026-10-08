@@ -48655,3 +48655,49 @@ where l.id = repetidas.id
 create unique index if not exists uniq_comanda_do_ganho_por_negocio
   on public.crm_lead_links (organization_id, lead_id)
   where link_kind = 'comanda_no_ganho';
+
+-- ---- grupo de vendas no caixa (migration 0613) ----
+-- Um grupo ligado pode ser o "grupo de vendas": cada venda/gasto escrito nele
+-- vira lançamento pago com origin = 'grupo' (lib/financeiro/grupo-de-vendas.ts).
+-- O CHECK de origin só AMPLIA o vocabulário; a idempotência é o índice único de
+-- (organization_id, source_message_id, source_line). A mensagem apagada pela
+-- LGPD não apaga o dinheiro (on delete set null). Idempotente. Cabeçalho: 0613.
+alter table public.channel_session_groups
+  add column if not exists lanca_no_caixa boolean not null default false;
+alter table public.channel_session_groups
+  add column if not exists conta_do_caixa_id uuid references public.financial_accounts(id) on delete set null;
+
+comment on column public.channel_session_groups.lanca_no_caixa is
+  'Grupo de vendas: cada venda/gasto escrito no grupo vira lançamento pago em conta_do_caixa_id (lib/financeiro/grupo-de-vendas.ts). Só vale com enabled = true.';
+
+alter table public.financial_entries
+  add column if not exists source_message_id uuid references public.messages(id) on delete set null;
+alter table public.financial_entries
+  add column if not exists source_line integer;
+
+create unique index if not exists financial_entries_da_linha_do_grupo
+  on public.financial_entries (organization_id, source_message_id, source_line)
+  where source_message_id is not null;
+
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+     where conrelid = 'public.financial_entries'::regclass
+       and conname = 'financial_entries_origin_check'
+       and pg_get_constraintdef(oid) not like '%grupo%'
+  ) then
+    alter table public.financial_entries drop constraint financial_entries_origin_check;
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+     where conrelid = 'public.financial_entries'::regclass
+       and conname = 'financial_entries_origin_check'
+  ) then
+    alter table public.financial_entries
+      add constraint financial_entries_origin_check
+      check (origin in ('manual', 'sale', 'reversal', 'recurring', 'grupo'));
+  end if;
+end $$;
+
+notify pgrst, 'reload schema';

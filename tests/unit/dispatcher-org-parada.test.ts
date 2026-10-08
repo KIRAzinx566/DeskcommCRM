@@ -40,6 +40,7 @@ import { followupGatilhoRetornoHandler } from "@/lib/followup/gatilho-retorno.ha
 import { followupReactivityHandler } from "@/lib/followup/reactivity.handler";
 import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
 import { comandaDoGanhoHandler } from "@/lib/financeiro/comanda-do-ganho.handler";
+import { lancamentoDoGrupoHandler } from "@/lib/financeiro/lancamento-do-grupo.handler";
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { avisoDePropostaNoWhatsAppHandler } from "@/lib/propostas/aviso-no-whatsapp.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
@@ -61,6 +62,8 @@ const RODA: EventHandler[] = [
   avisoDeEtapaHandler,
   casoNaCentralHandler,
   comandaDoGanhoHandler,
+  // A venda postada no grupo aconteceu de qualquer jeito: escrita interna no caixa.
+  lancamentoDoGrupoHandler,
   mediaPersistHandler,
   lgpdExportHandler,
   lgpdRedactHandler,

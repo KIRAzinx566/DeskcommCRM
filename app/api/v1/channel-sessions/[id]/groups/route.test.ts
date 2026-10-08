@@ -33,7 +33,7 @@ describe("grupos do número", () => {
   });
   it("lista os grupos com a organização da sessão, nunca do body", async () => {
     autorizado();
-    vi.mocked(listarGruposDoNumero).mockResolvedValue([{ chatId: "1@g.us", subject: "A", enabled: false, enabledAt: null, presente: true }]);
+    vi.mocked(listarGruposDoNumero).mockResolvedValue([{ chatId: "1@g.us", subject: "A", enabled: false, enabledAt: null, presente: true, lancaNoCaixa: false, contaDoCaixaId: null }]);
     const res = await GET(new NextRequest("http://x"), ctx);
     expect(res.status).toBe(200);
     expect(listarGruposDoNumero).toHaveBeenCalledWith(expect.anything(), { organizationId: ORG, channelSessionId: SESS });
