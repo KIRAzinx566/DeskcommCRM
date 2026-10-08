@@ -354,16 +354,18 @@ export async function carregarPainel(
     }),
     secao("canais", orgId, async () => {
       const linhas = semErro<
-        Array<{ display_name: string | null; waha_session_name: string; phone_number: string | null; status: string; metadata: unknown }>
+        Array<{ display_name: string | null; phone_number: string | null; status: string }>
       >(
         await db
           .from("channel_sessions")
-          .select("display_name, waha_session_name, phone_number, status, metadata")
+          .select("display_name, phone_number, status")
           .eq("organization_id", orgId)
           .is("archived_at", null),
       );
       return linhas.map((c) => ({
-        nome: c.display_name || c.waha_session_name,
+        // Nome de exibição, ou o número; o identificador interno da sessão nunca vai
+        // para a tela (doutrina de restrição de canal: lint:channels).
+        nome: c.display_name || (c.phone_number ? `+${c.phone_number}` : "WhatsApp"),
         telefone: c.phone_number,
         conectado: c.status === "WORKING",
         status: c.status,
