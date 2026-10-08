@@ -102,7 +102,10 @@ export function GruposSheet({
   const [pendente, setPendente] = useState<Grupo | null>(null);
   const [salvando, setSalvando] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
-  const [contas, setContas] = useState<Conta[]>([]);
+  // `null` = ainda não buscadas. Só busca quando precisa (alguém marcou grupo de
+  // vendas, ou já há um marcado): a folha de grupos não paga a ida ao financeiro
+  // para quem só liga e desliga grupo.
+  const [contas, setContas] = useState<Conta[] | null>(null);
   const [confirmarDesligarTodos, setConfirmarDesligarTodos] = useState(false);
   const [confirmarLigarTodos, setConfirmarLigarTodos] = useState<{
     alvos: Grupo[];
@@ -135,13 +138,32 @@ export function GruposSheet({
 
   // As contas do caixa, para escolher onde cai o dinheiro do grupo de vendas.
   // Sem elas (papel sem acesso ao financeiro, ou nenhuma conta criada), o
-  // controle do grupo de vendas mostra o aviso em vez de uma lista vazia.
-  useEffect(() => {
-    void fetch("/api/v1/financeiro/catalogo/contas")
-      .then(async (r) => ((await r.json().catch(() => null)) as { data?: Conta[] } | null)?.data ?? [])
-      .then(setContas)
-      .catch(() => setContas([]));
+  // controle mostra o aviso em vez de uma lista vazia.
+  const buscarContas = useCallback(async (): Promise<Conta[]> => {
+    try {
+      const r = await fetch("/api/v1/financeiro/catalogo/contas");
+      const lista = ((await r.json().catch(() => null)) as { data?: Conta[] } | null)?.data ?? [];
+      setContas(lista);
+      return lista;
+    } catch {
+      setContas([]);
+      return [];
+    }
   }, []);
+  const temGrupoDeVendas = (grupos ?? []).some((g) => g.lancaNoCaixa === true);
+  useEffect(() => {
+    if (temGrupoDeVendas && contas === null) void buscarContas();
+  }, [temGrupoDeVendas, contas, buscarContas]);
+
+  async function marcarGrupoDeVendas(g: Grupo, marcar: boolean) {
+    if (!marcar) return configurarCaixa(g, false, null);
+    const lista = contas ?? (await buscarContas());
+    if (lista.length === 0) {
+      setErro(t("Crie uma conta em Faturamento para o grupo poder lançar no caixa."));
+      return;
+    }
+    return configurarCaixa(g, true, g.contaDoCaixaId ?? lista[0]!.id);
+  }
 
   async function configurarCaixa(g: Grupo, lancaNoCaixa: boolean, contaId: string | null) {
     setSalvando(g.chatId);
@@ -419,11 +441,9 @@ export function GruposSheet({
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={g.lancaNoCaixa}
-                        disabled={salvando === g.chatId || (contas.length === 0 && !g.lancaNoCaixa)}
-                        onChange={(e) =>
-                          void configurarCaixa(g, e.target.checked, e.target.checked ? (g.contaDoCaixaId ?? contas[0]?.id ?? null) : null)
-                        }
+                        checked={g.lancaNoCaixa === true}
+                        disabled={salvando === g.chatId}
+                        onChange={(e) => void marcarGrupoDeVendas(g, e.target.checked)}
                       />
                       {t("Grupo de vendas: lançar no caixa o que for vendido e gasto aqui")}
                     </label>
@@ -436,17 +456,13 @@ export function GruposSheet({
                           onChange={(e) => void configurarCaixa(g, true, e.target.value)}
                           className="h-7 rounded-md border bg-background px-2"
                         >
-                          {contas.map((c) => (
+                          {(contas ?? []).map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
                             </option>
                           ))}
                         </select>
                       </label>
-                    ) : contas.length === 0 ? (
-                      <p className="mt-1 text-muted-foreground">
-                        {t("Crie uma conta em Faturamento para o grupo poder lançar no caixa.")}
-                      </p>
                     ) : null}
                   </div>
                 ) : null}

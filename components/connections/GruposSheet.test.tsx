@@ -372,3 +372,37 @@ describe("GruposSheet", () => {
     );
   });
 });
+
+describe("GruposSheet — grupo de vendas (migration 0613)", () => {
+  const LIGADO = { chatId: "1@g.us", subject: "Vendas", enabled: true, enabledAt: "2026-09-23T00:00:00Z", presente: true, lancaNoCaixa: false, contaDoCaixaId: null };
+
+  it("abrir a folha não busca contas: só quem marca grupo de vendas paga essa ida", async () => {
+    fetchMock.mockReturnValueOnce(resposta([LIGADO]));
+    render(<GruposSheet channelId="s1" onClose={() => {}} />);
+    expect(await screen.findByText(/Grupo de vendas/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("marcar busca as contas e grava o grupo na primeira conta", async () => {
+    fetchMock
+      .mockReturnValueOnce(resposta([LIGADO]))
+      .mockReturnValueOnce(resposta([{ id: "c1", name: "Caixa da loja" }]))
+      .mockReturnValueOnce(resposta({ lancaNoCaixa: true, contaDoCaixaId: "c1" }));
+    render(<GruposSheet channelId="s1" onClose={() => {}} />);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Grupo de vendas/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[1]![0]).toBe("/api/v1/financeiro/catalogo/contas");
+    const [url, init] = fetchMock.mock.calls[2]! as [string, RequestInit];
+    expect(url).toBe("/api/v1/channel-sessions/s1/groups/caixa");
+    expect(JSON.parse(String(init.body))).toEqual({ group_chat_id: "1@g.us", lanca_no_caixa: true, conta_do_caixa_id: "c1" });
+    expect(await screen.findByRole("combobox")).toHaveValue("c1");
+  });
+
+  it("sem conta nenhuma: não grava e diz o que fazer", async () => {
+    fetchMock.mockReturnValueOnce(resposta([LIGADO])).mockReturnValueOnce(resposta([]));
+    render(<GruposSheet channelId="s1" onClose={() => {}} />);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Grupo de vendas/ }));
+    expect(await screen.findByText(/Crie uma conta em Faturamento/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
