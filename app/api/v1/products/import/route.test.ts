@@ -7,12 +7,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { conferirTabelaDoDia } from "@/lib/catalogo/conferir-tabela";
 import { createClient } from "@/lib/supabase/server";
 
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
+vi.mock("@/lib/catalogo/conferir-tabela", () => ({
+  conferirTabelaDoDia: vi.fn(async () => "2026-10-07T15:00:00.000Z"),
+}));
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const ORG_ID = "22222222-2222-4222-8222-222222222222";
@@ -202,6 +207,50 @@ describe("POST /api/v1/products/import — o código não diferencia maiúsculas
 
     expect(res.status).toBe(500);
     expect(upserts).toEqual([]);
+  });
+});
+
+/**
+ * A TABELA DO DIA (`lib/catalogo/tabela-do-dia.ts`): a planilha que entra
+ * inteira é a tabela que a loja mandou hoje, e carimba a conferência. Com linha
+ * recusada, há preço que ninguém atualizou — e carimbar diria ao agente que
+ * todos valem hoje.
+ */
+describe("POST /api/v1/products/import — a planilha inteira confere a tabela do dia", () => {
+  it("sem erro nenhum: marca a tabela como conferida e audita quem respondeu por ela", async () => {
+    vi.mocked(createClient).mockResolvedValue(supabaseCom("BRL", []) as never);
+    const { POST } = await import("./route");
+
+    const res = await POST(pedido(csv("IP15,iPhone 15,5499")));
+    const corpo = (await res.json()) as { data: Record<string, unknown> };
+
+    expect(conferirTabelaDoDia).toHaveBeenCalledWith(ORG_ID);
+    expect(corpo.data.tabela_conferida).toBe(true);
+    expect(vi.mocked(audit).mock.calls.map(([a]) => a.action)).toContain("pricing.table_confirmed");
+  });
+
+  it("com linha recusada: NÃO marca a tabela", async () => {
+    vi.mocked(createClient).mockResolvedValue(supabaseCom("BRL", ["IP15"]) as never);
+    const { POST } = await import("./route");
+
+    const res = await POST(pedido(csv("IP16,iPhone 16,6499\nip15,iPhone 15,4999")));
+    const corpo = (await res.json()) as { data: Record<string, unknown> };
+
+    expect(conferirTabelaDoDia).not.toHaveBeenCalled();
+    expect(corpo.data.tabela_conferida).toBe(false);
+  });
+
+  it("o carimbo que falha não derruba a importação: os preços entraram, e a tela é avisada", async () => {
+    vi.mocked(conferirTabelaDoDia).mockResolvedValueOnce(null);
+    vi.mocked(createClient).mockResolvedValue(supabaseCom("BRL", []) as never);
+    const { POST } = await import("./route");
+
+    const res = await POST(pedido(csv("IP15,iPhone 15,5499")));
+    const corpo = (await res.json()) as { data: Record<string, unknown> };
+
+    expect(res.status).toBe(200);
+    expect(corpo.data).toMatchObject({ criados: 1, tabela_conferida: false });
+    expect(vi.mocked(audit).mock.calls.map(([a]) => a.action)).not.toContain("pricing.table_confirmed");
   });
 });
 

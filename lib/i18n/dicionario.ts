@@ -10732,6 +10732,52 @@ export const DICIONARIO: Traducoes = {
   // em espanhol vê a mesma tela; um preço explicado em português numa tela
   // espanhola é a primeira coisa que faz alguém desconfiar do sistema.
   "Produtos": { es: "Productos" },
+
+  // Preços e parcelas: a tabela do dia e as taxas do cartão (app/app/products/_precos.tsx).
+  "A tabela de preços ficou marcada como conferida hoje.": {
+    es: "La lista de precios quedó marcada como revisada hoy.",
+  },
+  "A tabela de preços não foi conferida hoje. Última conferência:": {
+    es: "La lista de precios no fue revisada hoy. Última revisión:",
+  },
+  "A tabela de preços ainda não foi conferida.": { es: "La lista de precios aún no fue revisada." },
+  "Enquanto isso, o atendente de IA não passa preço nem parcela: diz que já envia a tabela atualizada e chama a equipe.": {
+    es: "Mientras tanto, el asistente de IA no da precios ni cuotas: dice que enseguida envía la lista actualizada y llama al equipo.",
+  },
+  "Tabela conferida para hoje": { es: "Lista revisada para hoy" },
+  "Os preços de hoje estão certos": { es: "Los precios de hoy están correctos" },
+  "Importar a planilha inteira sem erro também confere a tabela.": {
+    es: "Importar la planilla completa sin errores también revisa la lista.",
+  },
+  "Preços e parcelas": { es: "Precios y cuotas" },
+  "Tabela do dia": { es: "Lista del día" },
+  "Configuração salva": { es: "Configuración guardada" },
+  "Exigir que a tabela de preços seja conferida todo dia": {
+    es: "Exigir que la lista de precios se revise todos los días",
+  },
+  "Para quem muda preço durante o dia (celular, eletrônico, câmbio). Sem a conferência do dia, o atendente não passa preço.": {
+    es: "Para quien cambia precios durante el día (celulares, electrónica, tipo de cambio). Sin la revisión del día, el asistente no da precios.",
+  },
+  "Última conferência:": { es: "Última revisión:" },
+  "Taxas do cartão": { es: "Comisiones de la tarjeta" },
+  "Cole a tabela da maquininha, uma linha por opção. O atendente usa estas taxas para dizer o valor exato de cada parcela.": {
+    es: "Pegue la tabla de la terminal, una línea por opción. El asistente usa estas comisiones para decir el valor exacto de cada cuota.",
+  },
+  "Não consegui ler:": { es: "No pude leer:" },
+  "Sem juros até": { es: "Sin intereses hasta" },
+  "Até aqui a loja absorve a taxa e o cliente paga o valor à vista dividido. 0 = repassa sempre.": {
+    es: "Hasta aquí la tienda absorbe la comisión y el cliente paga el valor de contado dividido. 0 = siempre se traslada.",
+  },
+  "Taxas salvas": { es: "Comisiones guardadas" },
+  "Salvar taxas": { es: "Guardar comisiones" },
+  "Simular para um valor à vista de": { es: "Simular para un valor de contado de" },
+  "Débito": { es: "Débito" },
+  "Crédito à vista": { es: "Crédito en una cuota" },
+  "sem juros": { es: "sin intereses" },
+  "Não consegui ler algumas linhas da tabela de taxas. Use o formato \"10x – 10,2%\".": {
+    es: "No pude leer algunas líneas de la tabla de comisiones. Use el formato \"10x – 10,2%\".",
+  },
+
   "O catálogo da loja. É daqui que o atendente de IA tira o preço quando alguém pergunta.": {
     es: "El catálogo de la tienda. El asistente de IA toma de aquí el precio cuando alguien pregunta.",
   },
