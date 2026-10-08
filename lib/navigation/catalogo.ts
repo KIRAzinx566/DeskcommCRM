@@ -145,6 +145,25 @@ export const NAV_CATALOG = [
     minRole: "admin",
     section: "O dia a dia da venda",
   },
+  // ---- Modo Orquestra — a visão do dono (lib/orquestra/painel.ts) ----
+  // SEM `sidebar`, de propósito: na interface completa as duas ficam no ⌘K e não
+  // somam ao menu de quem opera o CRM. Na interface "Orquestra" (uma escolha de
+  // portas que inclui a Visão geral, ver `ORQUESTRA` em `./interface.ts`), o menu
+  // fica plano e elas aparecem primeiro.
+  {
+    href: "/app/orquestra",
+    label: "Visão geral",
+    description: "O caixa, a fila, o funil e o que cada agente de IA está fazendo agora — num quadro só.",
+    icon: "House",
+    group: "atendimento",
+  },
+  {
+    href: "/app/orquestra/mundo",
+    label: "Mundo dos agentes",
+    description: "Os agentes de IA e a operação desenhados como um escritório, com o que está acontecendo de verdade.",
+    icon: "Globe",
+    group: "atendimento",
+  },
   // ---- Atendimento — onde o operador passa o dia ----
   {
     href: "/app/inbox",

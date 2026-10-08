@@ -27,6 +27,37 @@ const SIMPLIFICADA: readonly NavDestinationId[] = [
   "/app/tasks",
   "/app/connections",
 ];
+
+/**
+ * O MODO ORQUESTRA — a interface do dono, com a cara do painel de agentes da
+ * agência: a Visão geral e o Mundo dos agentes na frente, e só as telas que um
+ * dono de loja usa (conversas, funil, produtos e preços, o agente, o WhatsApp e
+ * o caixa).
+ *
+ * Não é um preset novo no banco — as constraints de `organizations` e
+ * `user_organizations` só aceitam `completa`/`simplificada`, e uma terceira
+ * palavra pediria migration e a escada dos clones. É uma ESCOLHA DE PORTAS
+ * (`destinos`), que o schema já aceita; o editor a oferece como um perfil.
+ * Quem a reconhece é `ehModoOrquestra`: escolha explícita que inclui a Visão
+ * geral. É ela que deixa o menu plano (`sidebarGroups`) e põe a Visão geral
+ * como tela inicial (`homeDaInterface`).
+ */
+export const ORQUESTRA: readonly NavDestinationId[] = [
+  "/app/orquestra",
+  "/app/orquestra/mundo",
+  "/app/inbox",
+  "/app/kanban",
+  "/app/products",
+  "/app/ai/agents",
+  "/app/connections",
+  "/app/faturamento",
+];
+
+/** A escolha de portas é a do Modo Orquestra? Sem escolha explícita (interface completa), nunca. */
+export function ehModoOrquestra(settings: Pick<InterfaceSettings, "destinos"> | null | undefined): boolean {
+  return !!settings?.destinos?.includes("/app/orquestra");
+}
+
 /** Portas pessoais e recuperação administrativa não são removíveis. Atualização
  * e administração de plataforma têm consumidores próprios com seus gates atuais.
  *
@@ -128,7 +159,12 @@ export function interfaceTemDestino(
 }
 export function homeDaInterface(raw: unknown, platform: boolean, role: Role | null): string {
   const visible = destinosDaInterface(raw, platform, role);
+  // No Modo Orquestra quem abre o app é o dono: a Visão geral vem antes do Inbox.
+  const orquestra = ehModoOrquestra(lerInterface(raw).settings)
+    ? visible.find((d) => d.href === "/app/orquestra")?.href
+    : undefined;
   return (
+    orquestra ??
     visible.find((d) => d.href === "/app/inbox")?.href ??
     visible.find((d) => !essencial(d, role, platform))?.href ??
     "/app/settings/profile"

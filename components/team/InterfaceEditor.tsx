@@ -5,7 +5,9 @@ import type { Role } from "@/lib/auth/types";
 import { NAV_GROUPS, type NavDestinationId } from "@/lib/navigation/catalogo";
 import {
   destinosDaInterface,
+  ehModoOrquestra,
   essencial,
+  ORQUESTRA,
   interfaceTemDestino,
   lerInterface,
   permitidos,
@@ -36,12 +38,21 @@ export function InterfaceEditor({
       <label htmlFor={id} className="block text-sm">{t("Perfil de interface")}</label>
       <select
         id={id}
-        value={value.preset}
-        onChange={(e) => onChange({ preset: e.target.value as InterfaceSettings["preset"] })}
+        value={ehModoOrquestra(value) ? "orquestra" : value.preset}
+        onChange={(e) =>
+          onChange(
+            // "Orquestra" não é preset gravado: é a escolha de portas `ORQUESTRA`
+            // (ver o cabeçalho dela em lib/navigation/interface.ts).
+            e.target.value === "orquestra"
+              ? { preset: "completa", destinos: [...ORQUESTRA] }
+              : { preset: e.target.value as InterfaceSettings["preset"] },
+          )
+        }
         className="h-10 w-full rounded-md border bg-background px-3 text-sm"
       >
         <option value="completa">{t("Completa")}</option>
         <option value="simplificada">{t("Simplificada")}</option>
+        <option value="orquestra">{t("Orquestra (visão do dono)")}</option>
       </select>
       <p className="text-xs text-muted-foreground">{t("Trocar o perfil restaura sua seleção padrão. Perfil, segurança e acesso à equipe de quem administra continuam disponíveis.")}</p>
       {lerInterface(value).needsAdjustment && (

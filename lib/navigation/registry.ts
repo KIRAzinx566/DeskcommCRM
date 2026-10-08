@@ -17,6 +17,8 @@ import {
   FlowArrow,
   Funnel,
   Gauge,
+  Globe,
+  House,
   Inbox,
   Kanban,
   Key,
@@ -54,7 +56,7 @@ import {
 import type { ModuloOpcional } from "@/lib/instalacao/modulos";
 import type { CapacidadeDaOrganizacao } from "@/lib/organizacao/capacidades";
 
-import { destinosDaInterface, type InterfaceSettings } from "./interface";
+import { destinosDaInterface, ehModoOrquestra, type InterfaceSettings } from "./interface";
 export { NAV_GROUPS, GRUPO_NO_RODAPE } from "./catalogo";
 export type { NavGroup, NavGroupId } from "./catalogo";
 const ICONS = {
@@ -73,6 +75,8 @@ const ICONS = {
   FlowArrow,
   Funnel,
   Gauge,
+  Globe,
+  House,
   Inbox,
   Kanban,
   Key,
@@ -127,10 +131,17 @@ export function sidebarGroups(
   const visible = new Set<string>(
     destinosDaInterface(settings, isPlatformAdmin, role, modulos, capacidades).map((d) => d.href),
   );
+  // Modo Orquestra: o menu é PLANO — toda porta escolhida aparece direto, sem
+  // "Ver tudo em…". São oito portas; esconder Produtos atrás de um hub seria
+  // devolver ao dono o labirinto que o modo existe para tirar.
+  const plano = ehModoOrquestra(settings);
   return NAV_GROUPS.map((group) => ({
     group,
     items: NAV_DESTINATIONS.filter(
-      (d) => d.group === group.id && (d.sidebar || (!group.hub && !!settings?.destinos)) && visible.has(d.href),
+      (d) =>
+        d.group === group.id &&
+        (plano || d.sidebar || (!group.hub && !!settings?.destinos)) &&
+        visible.has(d.href),
     ),
   })).filter(
     (g) =>
