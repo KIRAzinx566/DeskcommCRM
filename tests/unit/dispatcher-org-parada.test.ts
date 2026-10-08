@@ -39,6 +39,7 @@ import { followupGatilhoPresencaHandler } from "@/lib/followup/gatilho-presenca.
 import { followupGatilhoRetornoHandler } from "@/lib/followup/gatilho-retorno.handler";
 import { followupReactivityHandler } from "@/lib/followup/reactivity.handler";
 import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
+import { comandaDoGanhoHandler } from "@/lib/financeiro/comanda-do-ganho.handler";
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { avisoDePropostaNoWhatsAppHandler } from "@/lib/propostas/aviso-no-whatsapp.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
@@ -59,6 +60,7 @@ const RODA: EventHandler[] = [
   campanhaRespostaHandler,
   avisoDeEtapaHandler,
   casoNaCentralHandler,
+  comandaDoGanhoHandler,
   mediaPersistHandler,
   lgpdExportHandler,
   lgpdRedactHandler,
