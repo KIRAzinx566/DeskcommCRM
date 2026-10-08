@@ -17,6 +17,8 @@ import { Card } from "@/components/ui/card";
 import { MundoDosAgentes } from "@/components/orquestra/MundoDosAgentes";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { useT } from "@/hooks/i18n/useT";
+import { useIdioma } from "@/lib/i18n/IdiomaProvider";
+import { tagDeIdioma } from "@/lib/i18n/datas";
 import { useConversationCounts } from "@/hooks/inbox/useConversationCounts";
 import { usePainelDoOrquestra } from "@/hooks/orquestra/usePainelDoOrquestra";
 import { formatCents } from "@/lib/money";
@@ -25,8 +27,9 @@ import type { DiaDoCaixa, PeriodoDoPainel } from "@/lib/orquestra/painel";
 
 const PERIODOS: PeriodoDoPainel[] = ["hoje", "7d", "mes"];
 
-function quando(iso: string, fuso: string): string {
-  return new Date(iso).toLocaleString("pt-BR", {
+/** Data e hora no fuso da organização, no idioma de quem lê (`tagDeIdioma`). */
+function quando(iso: string, fuso: string, idioma: string): string {
+  return new Date(iso).toLocaleString(idioma, {
     timeZone: fuso,
     day: "2-digit",
     month: "2-digit",
@@ -84,6 +87,7 @@ function Numero({
 
 export function VisaoGeral() {
   const t = useT();
+  const idioma = tagDeIdioma(useIdioma());
   const { activeOrg } = useAuth();
   const [periodo, setPeriodo] = React.useState<PeriodoDoPainel>("mes");
   const painel = usePainelDoOrquestra(periodo);
@@ -211,9 +215,9 @@ export function VisaoGeral() {
                     <p className="font-medium">{a.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       {a.ultimaAcao
-                        ? `${a.ultimaAcao.rotulo} · ${quando(a.ultimaAcao.em, p.fuso)}`
+                        ? `${a.ultimaAcao.rotulo} · ${quando(a.ultimaAcao.em, p.fuso, idioma)}`
                         : a.ultimoTurnoEm
-                          ? `${t("Último atendimento")} ${quando(a.ultimoTurnoEm, p.fuso)}`
+                          ? `${t("Último atendimento")} ${quando(a.ultimoTurnoEm, p.fuso, idioma)}`
                           : t("Nenhum atendimento hoje")}
                     </p>
                   </div>

@@ -135,13 +135,19 @@ export function sidebarGroups(
   // "Ver tudo em…". São oito portas; esconder Produtos atrás de um hub seria
   // devolver ao dono o labirinto que o modo existe para tirar.
   const plano = ehModoOrquestra(settings);
+  // No catálogo as telas do Orquestra ficam no FIM de Atendimento (a paleta ⌘K
+  // abre no Inbox para todo mundo); no modo plano elas sobem para o topo.
+  const primeiroOOrquestra = (xs: NavDestination[]) =>
+    plano ? [...xs].sort((x, y) => Number(y.href.startsWith("/app/orquestra")) - Number(x.href.startsWith("/app/orquestra"))) : xs;
   return NAV_GROUPS.map((group) => ({
     group,
-    items: NAV_DESTINATIONS.filter(
-      (d) =>
-        d.group === group.id &&
-        (plano || d.sidebar || (!group.hub && !!settings?.destinos)) &&
-        visible.has(d.href),
+    items: primeiroOOrquestra(
+      NAV_DESTINATIONS.filter(
+        (d) =>
+          d.group === group.id &&
+          (plano || d.sidebar || (!group.hub && !!settings?.destinos)) &&
+          visible.has(d.href),
+      ),
     ),
   })).filter(
     (g) =>

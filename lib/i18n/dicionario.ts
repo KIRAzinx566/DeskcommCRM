@@ -14964,6 +14964,8 @@ export const DICIONARIO: Traducoes = {
   "Operações": { es: "Operaciones" },
   "Orquestra (visão do dono)": { es: "Orquestra (vista del dueño)" },
   "Período inválido.": { es: "Período inválido." },
+  "O caixa, a fila, o funil e o que cada agente de IA está fazendo agora — num quadro só.": { es: "La caja, la fila, el embudo y lo que cada agente de IA está haciendo ahora — en un solo tablero." },
+  "Os agentes de IA e a operação desenhados como um escritório, com o que está acontecendo de verdade.": { es: "Los agentes de IA y la operación dibujados como una oficina, con lo que está pasando de verdad." },
 };
 
 /**

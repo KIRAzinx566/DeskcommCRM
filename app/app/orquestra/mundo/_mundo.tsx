@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { MundoDosAgentes } from "@/components/orquestra/MundoDosAgentes";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { useT } from "@/hooks/i18n/useT";
+import { useIdioma } from "@/lib/i18n/IdiomaProvider";
+import { tagDeIdioma } from "@/lib/i18n/datas";
 import { useConversationCounts } from "@/hooks/inbox/useConversationCounts";
 import { usePainelDoOrquestra } from "@/hooks/orquestra/usePainelDoOrquestra";
 import { montarCena, type SetorId } from "@/lib/orquestra/mundo/personagens";
@@ -27,13 +29,15 @@ function useNomeDoSetor(): (s: SetorId) => string {
             : t("Financeiro");
 }
 
-function hora(iso: string, fuso: string): string {
-  return new Date(iso).toLocaleTimeString("pt-BR", { timeZone: fuso, hour: "2-digit", minute: "2-digit" });
+/** Hora no fuso da organização, no idioma de quem lê (`tagDeIdioma`). */
+function hora(iso: string, fuso: string, idioma: string): string {
+  return new Date(iso).toLocaleTimeString(idioma, { timeZone: fuso, hour: "2-digit", minute: "2-digit" });
 }
 
 export function Mundo() {
   const t = useT();
   const nomeDoSetor = useNomeDoSetor();
+  const idioma = tagDeIdioma(useIdioma());
   const { activeOrg } = useAuth();
   const painel = usePainelDoOrquestra("hoje");
   const contagens = useConversationCounts(activeOrg?.orgId ?? null);
@@ -135,7 +139,7 @@ export function Mundo() {
               ) : (
                 p.diario.map((e, i) => (
                   <li key={`${e.em}-${i}`} className="flex gap-2">
-                    <time className="shrink-0 tabular-nums text-muted-foreground">{hora(e.em, p.fuso)}</time>
+                    <time className="shrink-0 tabular-nums text-muted-foreground">{hora(e.em, p.fuso, idioma)}</time>
                     <span>
                       <b>{e.agente}</b> {e.texto}
                     </span>
