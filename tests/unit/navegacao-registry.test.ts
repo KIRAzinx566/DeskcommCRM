@@ -183,6 +183,10 @@ describe("hubSections", () => {
       "/app/people",
       "/app/tasks",
       "/app/billing/charges",
+      // #1752: os planos caem embaixo de Tarefas, NA MESMA seção — um plano é
+      // rotina do dia, não preparação nem fechamento. `sidebar: false` deixa o
+      // menu do dia a dia com os 20 itens de sempre; a porta é o hub e o ⌘K.
+      "/app/tasks/planos",
       "/app/calls",
       "/app/comandas",
       "/app/products",
