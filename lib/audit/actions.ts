@@ -637,6 +637,12 @@ export const AUDIT_ACTIONS = [
   "financeiro.lancamento_criado",
   "financeiro.lancamento_pago",
   "financeiro.lancamento_removido",
+  // O grupo de vendas do WhatsApp (migration 0613): a MENSAGEM que virou dinheiro
+  // no caixa — uma linha por mensagem com efeito, com a contagem — e quem marcou
+  // um grupo como grupo de vendas, e em que conta. Sem a segunda, "por que esse
+  // dinheiro entrou nesta conta?" não teria resposta.
+  "financeiro.lancamento_do_grupo",
+  "financeiro.grupo_de_vendas_configurado",
   // Módulo opcional de honorários (advocacia, ADR-0002) — contrato criado e parcela marcada
   // como paga. Pagar uma parcela cria um `financial_entries` por baixo (DIRC "integrar"), mas
   // o código aqui é do módulo: quem lê a auditoria do caixo núcleo não precisa saber que a

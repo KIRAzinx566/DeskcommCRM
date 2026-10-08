@@ -14916,6 +14916,16 @@ export const DICIONARIO: Traducoes = {
   "Cada aplicação cria as tarefas do plano na ordem e não duplica — a marca da aplicação é a prova.": {
     es: "Cada aplicación crea las tareas del plan en orden y no duplica — la marca de la aplicación es la prueba.",
   },
+  // ─── Grupo de vendas no caixa (Conexões › Grupos, Faturamento) ───
+  "Grupo de vendas: lançar no caixa o que for vendido e gasto aqui": { es: "Grupo de ventas: registrar en caja lo que se venda y gaste aquí" },
+  "Crie uma conta em Faturamento para o grupo poder lançar no caixa.": { es: "Cree una cuenta en Facturación para que el grupo pueda registrar en caja." },
+  "recorrente": { es: "recurrente" },
+  "estorno": { es: "reversión" },
+  "do grupo de vendas": { es: "del grupo de ventas" },
+  "Escolha a conta em que o dinheiro do grupo cai.": { es: "Elija la cuenta en la que cae el dinero del grupo." },
+  "Ligue o grupo antes de marcá-lo como grupo de vendas.": { es: "Active el grupo antes de marcarlo como grupo de ventas." },
+  "Essa conta não existe ou está inativa.": { es: "Esa cuenta no existe o está inactiva." },
+  "Falha ao salvar.": { es: "Error al guardar." },
 };
 
 /**
