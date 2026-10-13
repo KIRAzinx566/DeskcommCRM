@@ -260,10 +260,9 @@ describe("a fiação — quem usa a regra a chama", () => {
     expect(etapa, "anexarDadosDoContato não é chamada na etapa").toMatch(
       /anexarDadosDoContato\(\s*leadsDoQuadro,\s*linhas\s*\)/,
     );
-    // A cadeia ganhou mais um elo depois desta etapa (withNextTasks, migration
-    // 0236): `funil-filtro-de-tag-le-as-duas-caixas` e `kanban-atalho-conversa`
-    // vigiam withConversas → withMarcadoresDoContato → withNextTasks → resposta.
-    expect(rota).toMatch(/withNextTasks\(\s*supabase,\s*[^,]+,\s*leadsComMarcadores\.leads/);
+    // sem etapa nova na cadeia: `funil-filtro-de-tag-le-as-duas-caixas` e
+    // `kanban-atalho-conversa` vigiam withConversas → withMarcadoresDoContato → resposta
+    expect(rota).toMatch(/leads:\s*leadsComMarcadores\.leads/);
   });
 
   it("o card e o dossiê renderizam os componentes novos", () => {

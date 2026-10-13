@@ -34,11 +34,12 @@ function makeAdminStub(state: StubState) {
             }),
           }),
         }),
+        // organization_id primeiro, depois o id (cerca admin-client-exige-filtro-de-tenant).
         update: (patch: Record<string, unknown>) => ({
-          eq: () => {
+          eq: () => ({ eq: () => {
             state.updates.push(patch);
             return Promise.resolve({ error: state.updateError ? { message: state.updateError } : null });
-          },
+          } }),
         }),
       };
     },

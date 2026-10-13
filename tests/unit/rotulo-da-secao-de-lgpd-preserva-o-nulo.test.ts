@@ -76,7 +76,8 @@ describe("o rótulo da seção de LGPD preserva o nulo (issue #2656)", () => {
     expect(ultimaNoBaseline, "a última definição da função sumiu do baseline").not.toBe("");
     expect(ultimaNaCadeia, "nenhuma migration redefine a função").not.toBe("");
     // As duas migrations que hoje a definem continuam lá: apagá-las seria reescrever história.
-    expect(queRedefinem.some((f) => f.includes("_0485_"))).toBe(true);
+    // No fork esta migration se chama 0504 (o 0485 do fork já era o CSAT): reconhece pelo NOME.
+    expect(queRedefinem.some((f) => f.includes("_lgpd_alcanca_secoes_de_modulo"))).toBe(true);
     expect(queRedefinem.some((f) => f.includes("_0619_"))).toBe(true);
   });
 

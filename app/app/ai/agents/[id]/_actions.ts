@@ -764,6 +764,7 @@ export async function createMcpAgentAction(
     await admin
       .from("ai_agents")
       .update({ archived_at: new Date().toISOString() })
+      .eq("organization_id", activeOrg.orgId)
       .eq("id", agentRow.id);
     return {
       ok: false,

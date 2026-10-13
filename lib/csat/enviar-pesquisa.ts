@@ -55,6 +55,7 @@ export const csatSurveyHandler: EventHandler = {
     const { data: existente } = await admin
       .from("csat_requests")
       .select("id")
+      .eq("organization_id", row.organization_id)
       .eq("conversation_id", row.entity_id)
       .gte("sent_at", new Date(Date.now() - EXPIRA_EM_MS).toISOString())
       .maybeSingle();

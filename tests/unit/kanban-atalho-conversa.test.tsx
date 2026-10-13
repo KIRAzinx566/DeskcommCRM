@@ -126,23 +126,19 @@ describe("o elo que some sem barulho", () => {
     // custo se paga, e a resposta sai sem a conversa. A primeira versão deste
     // caso só olhava a chamada e o sabote passou.
     //
-    // A cadeia hoje é withConversas → withMarcadoresDoContato → withNextTasks →
-    // resposta (migration 0236 acrescentou o último elo). Exigir o texto
+    // A resposta não sai mais direto de `withConversas`: a cadeia é
+    // withConversas → withMarcadoresDoContato → resposta. Exigir o texto
     // `leads: leadsComConversa.leads` reprovava quem acrescentava uma etapa
-    // CERTA depois dela; o que importa é o resultado de cada uma alimentar a
-    // próxima, e a resposta sair da última.
+    // CERTA depois dela; o que importa é o resultado dela alimentar a próxima,
+    // e a resposta sair da última.
     expect(
       fonte,
-      "o resultado de withConversas não alimenta withMarcadoresDoContato (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
+      "o resultado de withConversas não alimenta withMarcadoresDoContato (cadeia: withConversas → withMarcadoresDoContato → resposta)",
     ).toMatch(/withMarcadoresDoContato\(\s*supabase,[\s\S]*?leadsComConversa\.leads/);
     expect(
       fonte,
-      "withNextTasks não recebeu o resultado de withMarcadoresDoContato (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
-    ).toMatch(/withNextTasks\(\s*supabase,\s*[^,]+,\s*leadsComMarcadores\.leads/);
-    expect(
-      fonte,
-      "a resposta não sai da última etapa (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
-    ).toMatch(/leads:\s*leadsComTarefa\.leads/);
+      "a resposta não sai da última etapa (cadeia: withConversas → withMarcadoresDoContato → resposta)",
+    ).toMatch(/leads:\s*leadsComMarcadores\.leads/);
   });
 
   it("contato SEM conversa sai como `null`, não ausente — senão \"Abrir conversa\" nunca aparece (#1993)", () => {

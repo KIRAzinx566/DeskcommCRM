@@ -108,6 +108,9 @@ vi.mock("@/lib/ai/pontos/capacidade-em-vigor", () => ({
 }));
 
 vi.mock("ai", () => ({
+  // `normalizarErro` desembrulha o RetryError do SDK (fork): o dublê precisa responder
+  // à pergunta, e nenhum erro deste teste é um RetryError.
+  RetryError: { isInstance: () => false },
   generateText: vi.fn(async () => ({
     text: "descrição de mentira",
     usage: {
