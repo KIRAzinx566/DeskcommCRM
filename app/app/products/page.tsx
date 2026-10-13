@@ -13,6 +13,7 @@ import {
   ultimaPagina,
 } from "@/lib/catalogo/busca-da-tela";
 import { BUCKET_DAS_FOTOS, fotoPertenceAoProduto } from "@/lib/catalogo/fotos";
+import { reguaDaTela, type LinhaDaRegua } from "@/lib/catalogo/regua-de-preco";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { COLUNAS_DO_PRODUTO, type Produto } from "@/lib/schemas/produtos";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -113,8 +114,19 @@ export default async function ProdutosPage({
     }
   }
 
+  // A régua de preço (tabela do dia + taxas do cartão), lida aqui para a tela
+  // não buscar nada no navegador. Falha de leitura não derruba o catálogo: o
+  // painel de preços só não aparece (`lib/catalogo/regua-de-preco.ts`).
+  const { data: linhaDaOrg, error: erroDaRegua } = await supabase
+    .from("organizations")
+    .select("settings, timezone, currency")
+    .eq("id", activeOrg.orgId)
+    .maybeSingle();
+  const regua = erroDaRegua || !linhaDaOrg ? null : reguaDaTela(linhaDaOrg as LinhaDaRegua);
+
   return (
     <ProdutosClient
+      regua={regua}
       inicial={produtos}
       total={total}
       pagina={pagina}

@@ -19,12 +19,14 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { apiClient } from "@/lib/api/client";
 import { queryDaTela } from "@/lib/catalogo/busca-da-tela";
+import type { ReguaDaTela } from "@/lib/catalogo/regua-de-preco";
 import { MAXIMO_DE_FOTOS } from "@/lib/catalogo/fotos";
 import { formatCents } from "@/lib/money";
 import { precoParaCentavos, type Produto } from "@/lib/schemas/produtos";
 import { PencilSimple, Trash } from "@/lib/ui/icons";
 
 import { EdicaoDoProduto } from "./_edicao";
+import { PrecosEParcelas } from "./_precos";
 
 interface Textos {
   titulo: string;
@@ -39,6 +41,8 @@ interface ResumoDaImportacao {
   atualizados: number;
   erros: Array<{ linha: number; motivo: string }>;
   colunas_ignoradas: string[];
+  /** A planilha entrou inteira e conferiu a tabela do dia (`lib/catalogo/tabela-do-dia.ts`). */
+  tabela_conferida?: boolean;
 }
 
 interface Rascunho {
@@ -325,6 +329,7 @@ function CamposDoProduto({
 }
 
 export function ProdutosClient({
+  regua = null,
   inicial,
   total,
   pagina,
@@ -334,6 +339,11 @@ export function ProdutosClient({
   podeEditar,
   textos,
 }: {
+  /**
+   * A régua de preço (tabela do dia + taxas do cartão), lida pela página no
+   * servidor. Ausente, o painel "Preços e parcelas" não aparece.
+   */
+  regua?: ReguaDaTela | null;
   /** A página atual, já filtrada no servidor (ver `lib/catalogo/busca-da-tela.ts`). */
   inicial: Produto[];
   /** Quantos produtos casam com a busca no catálogo INTEIRO, não só nesta página. */
@@ -470,6 +480,9 @@ export function ProdutosClient({
         <p className="mt-1 text-sm text-muted-foreground">{textos.subtitulo}</p>
       </header>
 
+      {/* O `router.refresh()` da importação refaz a régua no servidor: a planilha inteira confere a tabela do dia. */}
+      <PrecosEParcelas podeEditar={podeEditar} inicial={regua} />
+
       <div className="mb-4 flex items-center gap-3">
         <input
           value={busca}
@@ -526,6 +539,11 @@ export function ProdutosClient({
             {resumo.criados} {t("novos")} · {resumo.atualizados} {t("atualizados")} ·{" "}
             {resumo.total_linhas} {t("linhas na planilha")}
           </p>
+          {resumo.tabela_conferida ? (
+            <p className="mt-2 text-muted-foreground" data-testid="importacao-conferiu-tabela">
+              {t("A tabela de preços ficou marcada como conferida hoje.")}
+            </p>
+          ) : null}
           {resumo.colunas_ignoradas.length > 0 ? (
             <p className="mt-2 text-muted-foreground">
               {t("Não usei estas colunas:")} {resumo.colunas_ignoradas.join(", ")}.
