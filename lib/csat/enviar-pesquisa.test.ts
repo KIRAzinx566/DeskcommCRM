@@ -36,10 +36,13 @@ function makeAdminStub(state: StubState) {
       }
       if (table === "csat_requests") {
         return {
+          // organization_id, depois a conversa (cerca admin-client-exige-filtro-de-tenant).
           select: () => ({
             eq: () => ({
-              gte: () => ({
-                maybeSingle: () => Promise.resolve({ data: state.existente, error: null }),
+              eq: () => ({
+                gte: () => ({
+                  maybeSingle: () => Promise.resolve({ data: state.existente, error: null }),
+                }),
               }),
             }),
           }),

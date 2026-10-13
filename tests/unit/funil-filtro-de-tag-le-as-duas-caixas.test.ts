@@ -125,13 +125,9 @@ describe("os pontos de chamada — a regra só vale se quem a usa a chama", () =
     expect(fonte, "withMarcadoresDoContato não é chamada na rota").toMatch(
       /leadsComMarcadores\s*=\s*await withMarcadoresDoContato\(/,
     );
-    // A resposta não sai mais direto de `withMarcadoresDoContato`: a cadeia
-    // ganhou mais um elo (withNextTasks, migration 0236) depois dela. O que
-    // importa é o resultado dela alimentar o PRÓXIMO elo, não ser o último.
-    expect(
-      fonte,
-      "withNextTasks não recebeu o resultado de withMarcadoresDoContato (cadeia: withConversas → withMarcadoresDoContato → withNextTasks → resposta)",
-    ).toMatch(/withNextTasks\(\s*supabase,\s*[^,]+,\s*leadsComMarcadores\.leads/);
+    expect(fonte, "o resultado de withMarcadoresDoContato não chega à resposta").toMatch(
+      /leads:\s*leadsComMarcadores\.leads/,
+    );
   });
 
   it("a consulta de conversas do quadro traz as `tags` e as devolve no card", () => {

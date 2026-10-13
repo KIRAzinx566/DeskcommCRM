@@ -28,17 +28,24 @@ import { useAssignableMembers } from "@/hooks/inbox/useAssignableMembers";
 import { useCreateNote } from "@/hooks/inbox/useCreateNote";
 import { useMessageTemplates, type MessageTemplate } from "@/hooks/inbox/useMessageTemplates";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 import { useSendMessage } from "@/hooks/inbox/useSendMessage";
 import { useUploadMedia, type DestinoDoUpload } from "@/hooks/inbox/useUploadMedia";
 import { imagemDoClipboard } from "@/lib/inbox/clipboard-image";
-import { interpolateTemplate } from "@/lib/inbox/template-vars";
+import {
+  faltouNomeDeContato,
+  interpolateTemplate,
+  type TemplateContact,
+} from "@/lib/inbox/template-vars";
 import {
   type AvisoDeRascunho,
   type MotivoDeRecusa,
 } from "@/lib/inbox/rascunho-sugerido";
 import { apiClient } from "@/lib/api/client";
-import { embutirMencoes, type MencaoEscolhida } from "@/lib/notifications/mentions";
+import { embutirMencoes, podarMencoes, type MencaoEscolhida } from "@/lib/notifications/mentions";
 import { cn } from "@/lib/utils";
+import { resolveSharedContact } from "@/lib/messaging/contact-card";
+import type { Message } from "@/lib/types/messaging";
 
 export interface ComposerHandle {
   focus: () => void;
@@ -92,11 +99,17 @@ interface Props {
    * Vem de fora e não daqui porque quem escolhe é a lista de mensagens: o
    * composer só precisa mostrar o que foi escolhido e mandá-lo junto.
    */
-  respondendo?: { id: string; body: string | null; direction: string } | null;
+  respondendo?: Pick<Message, "id" | "body" | "direction" | "type" | "metadata"> | null;
   /** Desfaz a escolha — o `x` da faixa de citação. */
   onCancelarResposta?: () => void;
   /** Nome do contato da conversa, para interpolar {{nome}}/{{primeiro_nome}} do template escolhido. */
   contactName?: string | null;
+  /**
+   * Rótulo do canal (`contacts.display_name`), fallback quando `contactName`
+   * é vazio (issue #2744). Contato criado pela ingestão do canal ainda não tem
+   * `name` gravado, e o template não podia mandar `{{nome}}` literal pro cliente.
+   */
+  contactDisplayName?: string | null;
   /** Contato da conversa — excluído do seletor de cartão compartilhado. */
   currentContactId?: string | null;
   /**
@@ -118,6 +131,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     blockedReason,
     janelaFechada,
     contactName,
+    contactDisplayName,
     currentContactId,
     respondendo,
     onCancelarResposta,
@@ -247,20 +261,37 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     setText("");
     requestAnimationFrame(() => autoresize());
 
+    // Se a pessoa já começou a próxima resposta, preserve os dois textos.
+    const restaurar = (current: string) => (current ? `${legivel}\n${current}` : legivel);
     const restoreOnError = () => {
-      // Se a pessoa já começou a próxima resposta, preserve os dois textos.
-      setText((current) => (current ? `${legivel}\n${current}` : legivel));
+      setText(restaurar);
       requestAnimationFrame(() => autoresize());
     };
+    // As escolhas DESTA nota, guardadas no envio: o campo segue editável
+    // durante o envio, e a 1ª tecla poda `mencoes` contra um texto que já não
+    // tem o `@Nome` enviado. Sem isto, o retry voltava sem o id e saía como
+    // texto puro (com homônimos, avisando os dois).
+    const mencoesEnviadas = mencoes;
 
     if (mode === "note") {
       createNote.mutate(
         { conversation_id: conversationId, body: corpo },
         {
-          onError: restoreOnError,
-          // Só depois de gravar: se falhar, as menções continuam valendo para
-          // o retry — apagá-las aqui faria a segunda tentativa notificar quem?
-          onSuccess: () => setMencoes([]),
+          onError: () => {
+            restoreOnError();
+            // Na FRENTE das atuais: o texto enviado volta antes do novo, e o
+            // `embutirMencoes` pareia ocorrência e escolha por ordem.
+            const restaurado = restaurar(taRef.current?.value ?? "");
+            setMencoes((atual) =>
+              podarMencoes(restaurado, [...mencoesEnviadas, ...atual.filter((m) => !mencoesEnviadas.includes(m))]),
+            );
+          },
+          // Só depois de gravar, e só as escolhas DESTA nota — a lista pode já
+          // ter a menção da PRÓXIMA, escolhida enquanto esta ainda estava no ar
+          // (`mencoesEnviadas`): zerar tudo apagava a escolha dela, e a nota
+          // seguinte sairia como texto puro (com homônimos, avisando os dois).
+          onSuccess: () =>
+            setMencoes((atual) => atual.filter((m) => !mencoesEnviadas.includes(m))),
         },
       );
       return;
@@ -308,9 +339,21 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
       });
   }
 
-  function applyTemplate(t: MessageTemplate) {
-    const filled = interpolateTemplate(t.body, { name: contactName ?? null });
+  function applyTemplate(tpl: MessageTemplate) {
+    const contato: TemplateContact = {
+      name: contactName ?? null,
+      displayName: contactDisplayName ?? null,
+    };
+    const filled = interpolateTemplate(tpl.body, contato);
     setText(filled);
+    // Contato sem `name` NEM `display_name`: o literal sobrevive no texto e iria
+    // pro cliente como `{{nome}}`. O aviso não é cosmético — é a única chance
+    // do operador editar antes de mandar (#2744).
+    if (faltouNomeDeContato(tpl.body, contato)) {
+      toast.warning(
+        t("Contato sem nome no CRM: {{nome}}/{{primeiro_nome}} ficaram literais no texto. Edite antes de enviar."),
+      );
+    }
     setMenuDismissed(true);
     const ta = taRef.current;
     if (!ta) return;
@@ -496,7 +539,9 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 {respondendo.direction === "outbound" ? t("Você") : t("Cliente")}
               </div>
               <div className="line-clamp-2 text-xs text-muted-foreground">
-                {respondendo.body?.trim() || t("(sem texto)")}
+                {respondendo.type === "contact"
+                  ? resolveSharedContact(respondendo)?.name || t("Contato")
+                  : respondendo.body?.trim() || t("(sem texto)")}
               </div>
             </div>
             <button
@@ -568,6 +613,15 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               setText(novo);
               setCaret(pos);
               setMencaoIndice(0);
+              // A escolha que sumiu do texto sai da lista AGORA (#2463): com
+              // duas pessoas de mesmo rótulo, a escolha apagada roubava o
+              // `@Nome` da próxima e a nota notificava quem não foi mencionado.
+              //
+              // Só na edição À MÃO, de propósito: o envio limpa o campo sem
+              // passar por aqui, e é isso que mantém as menções valendo para o
+              // retry depois de uma falha. Quem digita DURANTE o envio poda as
+              // escolhas aqui — o `onError` da nota devolve as que foram enviadas.
+              setMencoes((atual) => podarMencoes(novo, atual));
               if (!resolveSlash(novo).open) setMenuDismissed(false);
               // Sumiu o `@` (apagou, ou o Enter escolheu): o Esc de uma vez
               // não pode travar a lista da PRÓXIMA menção.

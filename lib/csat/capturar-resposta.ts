@@ -51,7 +51,11 @@ export const csatReplyHandler: EventHandler = {
     // vs "Z", casas decimais diferentes) — comparar como texto arriscaria
     // "expirou" errado pro lado errado.
     if (new Date(pendente.expires_at).getTime() < Date.now()) {
-      await admin.from("csat_requests").update({ status: "expired" }).eq("id", pendente.id);
+      await admin
+        .from("csat_requests")
+        .update({ status: "expired" })
+        .eq("organization_id", row.organization_id)
+        .eq("id", pendente.id);
       return { consumer_key: CSAT_REPLY_HANDLER_KEY, status: "ok", detail: "expirada" };
     }
 
@@ -68,6 +72,7 @@ export const csatReplyHandler: EventHandler = {
         raw_reply: p.body_preview,
         answered_at: new Date().toISOString(),
       })
+      .eq("organization_id", row.organization_id)
       .eq("id", pendente.id);
     if (error) {
       return {

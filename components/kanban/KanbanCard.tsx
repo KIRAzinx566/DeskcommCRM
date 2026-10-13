@@ -14,6 +14,7 @@ import { ConversaSlot } from "./ConversaSlot";
 import { ScoreSlot } from "./ScoreSlot";
 import { OwnerBadge } from "./OwnerBadge";
 import { ContatoNoCard } from "./ContatoNoCard";
+import { TarefasNoCard } from "./TarefasNoCard";
 
 /** Os dois gestos de seleção que o card sabe relatar. */
 export type GestoDeSelecao = "alterna" | "intervalo";
@@ -300,38 +301,20 @@ export function KanbanCard({
               negócio não tem nada disso, como a conversa acima. */}
           <ContatoNoCard lead={lead} />
 
-          {/* ④ dono · ⑤ tempo no estágio */}
+          {/* ④ dono (+ selo de tarefas) · ⑤ tempo no estágio */}
           <div className="mt-1 flex h-6 items-center justify-between gap-2">
-            <OwnerBadge
-              ownerKind={card.owner.kind}
-              ownerName={card.owner.name}
-              agentVersion={card.owner.agentVersion}
-            />
-            <span className="flex min-w-0 items-center justify-end gap-1.5">
-              {/* A tarefa aberta de prazo mais próximo (migration 0236, `crm_tasks`)
-                  SUBSTITUI o "tempo no estágio", nunca disputa a mesma linha
-                  com ele: o card tem largura fixa (`w-80`) e o rodapé já
-                  reparte espaço com o dono — três textos ali colapsam a
-                  zero. Mesma régua que `showStageAge` já aplica às outras
-                  faixas (§5: um dado por vez, nunca dois pelo mesmo motivo). */}
-              {card.nextTask ? (
-                <span
-                  className={cn(
-                    "flex min-w-0 items-center gap-0.5 truncate text-[11px] font-medium",
-                    card.nextTask.overdue ? "text-warning-fg" : "text-text-muted",
-                  )}
-                  title={card.nextTask.title}
-                >
-                  <ClockCountdown size={12} className="shrink-0" aria-hidden />
-                  <span className="min-w-0 truncate">{card.nextTask.title}</span>
-                </span>
-              ) : (
-                <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-text-muted">
-                  {state.showStageAge && age
-                    ? `${age} ${t("em")} ${card.stageName}`
-                    : `${t("em")} ${card.stageName}`}
-                </span>
-              )}
+            <div className="flex min-w-0 items-center gap-2">
+              <OwnerBadge
+                ownerKind={card.owner.kind}
+                ownerName={card.owner.name}
+                agentVersion={card.owner.agentVersion}
+              />
+              <TarefasNoCard tarefas={lead.tarefas} />
+            </div>
+            <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-text-muted">
+              {state.showStageAge && age
+                ? `${age} ${t("em")} ${card.stageName}`
+                : `${t("em")} ${card.stageName}`}
             </span>
           </div>
         </div>
