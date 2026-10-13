@@ -24,8 +24,8 @@ import {
   type PropostaAmbigua,
 } from "@/lib/leads/next-action";
 import type { LeadCandidate } from "@/lib/leads/active-lead";
-import { tarefaMaisProxima, type SituacaoDaTarefa } from "@/lib/tarefas/tipos";
 import { anexarDadosDoContato, type LinhaDoContatoNoQuadro } from "@/lib/kanban/dados-do-contato";
+import { anexarTarefasAosNegocios, type LinhaDaTarefaNoQuadro } from "@/lib/kanban/tarefas-no-quadro";
 import { buscaEmLotes } from "@/lib/supabase/em-lotes";
 import { createClient } from "@/lib/supabase/server";
 import { idsDeContatosPessoais } from "@/app/api/v1/conversations/_handler";
@@ -440,12 +440,18 @@ async function withNextActions(
 }
 
 /**
- * Anexa a tarefa ABERTA de prazo mais próximo de cada lead (migration 0236,
- * `crm_tasks`) — nunca a lista inteira, a régua é a mesma do dossiê e do
- * Radar (`tarefaMaisProxima`, única fonte, testada em `lib/tarefas/
- * tipos.test.ts`).
+ * Anexa o resumo das tarefas EM ABERTO de cada negócio — o selo do card.
+ *
+ * Uma leitura de `crm_tasks` para o quadro inteiro, em lotes de ids como as
+ * outras: o card não pode custar uma consulta por negócio. Só as abertas vêm do
+ * banco, porque é só o que o selo conta; a régua de "aberta" e "atrasada" é a
+ * mesma da lista do dossiê (`lib/kanban/tarefas-no-quadro.ts`).
+ *
+ * Erro de leitura derruba o quadro com 500, como as outras etapas desta rota:
+ * um quadro que some com o selo em silêncio diria "nenhuma tarefa pendente"
+ * justamente no dia em que não sabe.
  */
-async function withNextTasks(
+async function withTarefas(
   supabase: Awaited<ReturnType<typeof createClient>>,
   organizationId: string,
   leads: Lead[],
@@ -453,40 +459,18 @@ async function withNextTasks(
   const leadIds = leads.map((l) => l.id);
   if (leadIds.length === 0) return { leads, error: null };
 
-  const { data, error } = await supabase
-    .from("crm_tasks")
-    .select("id, lead_id, title, due_date, status")
-    .eq("organization_id", organizationId)
-    .in("status", ["pending", "in_progress"])
-    .not("due_date", "is", null)
-    .in("lead_id", leadIds);
+  const { data, error } = await buscaEmLotes(leadIds, (lote) =>
+    supabase
+      .from("crm_tasks")
+      .select("lead_id, due_date, status")
+      .eq("organization_id", organizationId)
+      .in("lead_id", lote)
+      .in("status", ["pending", "in_progress"]),
+  );
   if (error) return { leads, error: error.message };
-  if (!data || data.length === 0) return { leads, error: null };
-
-  interface TarefaDoQuadro {
-    id: string;
-    title: string;
-    due_date: string;
-    status: SituacaoDaTarefa;
-  }
-  const porLead = new Map<string, TarefaDoQuadro[]>();
-  for (const t of data as Array<{ id: string; lead_id: string; title: string; due_date: string; status: SituacaoDaTarefa }>) {
-    const lista = porLead.get(t.lead_id);
-    if (lista) lista.push(t);
-    else porLead.set(t.lead_id, [t]);
-  }
 
   return {
-    leads: leads.map((lead) => {
-      const tarefas = porLead.get(lead.id);
-      if (!tarefas) return lead;
-      const proxima = tarefaMaisProxima(tarefas);
-      if (!proxima) return lead;
-      return {
-        ...lead,
-        next_task: { id: proxima.id, title: proxima.title, due_date: proxima.due_date },
-      };
-    }),
+    leads: anexarTarefasAosNegocios(leads, (data ?? []) as LinhaDaTarefaNoQuadro[]),
     error: null,
   };
 }
@@ -581,10 +565,24 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
     return fail("internal_error", leadsComScore.error, 500, { requestId });
   }
 
-  const leadsComConversa = await withConversas(
+  // As tarefas entram NO MEIO da cadeia, e não no fim: a resposta continua
+  // saindo de `withMarcadoresDoContato`, a última etapa que as cercas do quadro
+  // vigiam (`kanban-atalho-conversa`, `funil-mostra-dados-do-cliente`,
+  // `funil-filtro-de-tag-le-as-duas-caixas`). A ordem não muda o resultado: cada
+  // etapa só acrescenta o próprio campo ao lead.
+  const leadsComTarefas = await withTarefas(
     supabase,
     (pipeline as Pipeline).organization_id,
     leadsComScore.leads,
+  );
+  if (leadsComTarefas.error) {
+    return fail("internal_error", leadsComTarefas.error, 500, { requestId });
+  }
+
+  const leadsComConversa = await withConversas(
+    supabase,
+    (pipeline as Pipeline).organization_id,
+    leadsComTarefas.leads,
   );
   if (leadsComConversa.error) {
     return fail("internal_error", leadsComConversa.error, 500, { requestId });
@@ -599,19 +597,10 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
     return fail("internal_error", leadsComMarcadores.error, 500, { requestId });
   }
 
-  const leadsComTarefa = await withNextTasks(
-    supabase,
-    (pipeline as Pipeline).organization_id,
-    leadsComMarcadores.leads,
-  );
-  if (leadsComTarefa.error) {
-    return fail("internal_error", leadsComTarefa.error, 500, { requestId });
-  }
-
   const board: BoardData = {
     pipeline: pipeline as Pipeline,
     stages: (stages ?? []) as Stage[],
-    leads: leadsComTarefa.leads,
+    leads: leadsComMarcadores.leads,
   };
 
   return ok(board, { requestId });

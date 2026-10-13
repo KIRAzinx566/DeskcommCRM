@@ -25,15 +25,29 @@ import { FUSOS_OFERECIDOS } from "@/lib/tempo/fusos";
 
 interface Props {
   initial: TenantInput;
+  /**
+   * Quem grava. Padrão: a server action do próprio tenant (Configurações ›
+   * Empresa). A gestão de tenants do admin da plataforma passa a rota dela —
+   * mesmos campos, mesma validação, outra autoridade.
+   */
+  onSave?: (dados: TenantInput) => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Chamado depois de gravar com sucesso (ex.: fechar o diálogo do admin). */
+  onSaved?: () => void;
 }
 
 // A mesma lista de toda tela de fuso — ver `lib/tempo/fusos.ts`.
 const TIMEZONES = FUSOS_OFERECIDOS.map((f) => f.codigo);
 
-export function TenantForm({ initial }: Props) {
+export function TenantForm({ initial, onSave, onSaved }: Props) {
   const t = useT();
   const [form, setForm] = useState<TenantInput>(initial);
   const [isPending, startTransition] = useTransition();
+
+  // O rótulo do nome legal e do número da empresa vem do PERFIL DO PAÍS
+  // (issue #1946, item 4): a mesma troca de país que muda o documento do
+  // contato muda estes dois rótulos. Escrevê-los aqui em duro mostrava
+  // "Razão social"/"CNPJ" para uma organização em Portugal.
+  const perfil = perfilDoPais(form.country);
 
   function set<K extends keyof TenantInput>(key: K, value: TenantInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -47,9 +61,11 @@ export function TenantForm({ initial }: Props) {
       return;
     }
     startTransition(async () => {
-      const r = await updateTenant(parsed.data);
-      if (r.ok) toast.success(t("Organização atualizada."));
-      else toast.error(`${t("Erro")}: ${r.error}`);
+      const r = await (onSave ?? updateTenant)(parsed.data);
+      if (r.ok) {
+        toast.success(t("Organização atualizada."));
+        onSaved?.();
+      } else toast.error(`${t("Erro")}: ${r.error}`);
     });
   }
 
@@ -67,7 +83,7 @@ export function TenantForm({ initial }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="legal_name">{t("Razão social")}</Label>
+            <Label htmlFor="legal_name">{t(perfil.empresa.rotuloNomeLegal)}</Label>
             <Input
               id="legal_name"
               value={form.legal_name}
@@ -76,7 +92,7 @@ export function TenantForm({ initial }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cnpj">{t("CNPJ")}</Label>
+            <Label htmlFor="cnpj">{t(perfil.empresa.rotuloNumero)}</Label>
             <Input
               id="cnpj"
               value={form.cnpj ?? ""}
@@ -165,7 +181,7 @@ export function TenantForm({ initial }: Props) {
             {/* Quem responde pelo documento precisa saber que a revisão foi
                 feita por IA (doc 88). O texto fala de Portugal: só o perfil PT
                 declara `revisadaPorIa`, e um teste prende isso. */}
-            {perfilDoPais(form.country).lei?.revisadaPorIa && (
+            {perfil.lei?.revisadaPorIa && (
               <p
                 role="note"
                 data-testid="aviso-revisao-por-ia"
@@ -227,6 +243,8 @@ export function TenantForm({ initial }: Props) {
           </div>
         </div>
 
+        {/* CSAT só onde a tela o grava (Configurações › Empresa); a edição de tenant pelo admin não manda os campos. */}
+        {form.csat_enabled !== undefined ? (
         <div className="space-y-3 border-t border-border pt-4">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
@@ -250,7 +268,7 @@ export function TenantForm({ initial }: Props) {
               <Label htmlFor="csat_pergunta">{t("Pergunta enviada")}</Label>
               <Textarea
                 id="csat_pergunta"
-                value={form.csat_pergunta}
+                value={form.csat_pergunta ?? ""}
                 onChange={(e) => set("csat_pergunta", e.target.value)}
                 maxLength={300}
                 rows={2}
@@ -258,6 +276,7 @@ export function TenantForm({ initial }: Props) {
             </div>
           ) : null}
         </div>
+        ) : null}
 
         <div className="flex sm:justify-end">
           <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
