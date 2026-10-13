@@ -8,6 +8,226 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.3.0] — 2026-10-13
+
+### ⚠️ Requer atenção
+
+- **Lembretes da agenda deixam de escolher arbitrariamente entre números da organização** Depois de atualizar, abra Configurações › Tipos de agendamento se a organização tem mais de um número. Escolha o canal do lembrete nos serviços que recebem reserva manual sem conversa; sem isso, o lembrete fica pendente com aviso na Central em vez de sair por um número qualquer. O mesmo vale para a reserva cuja conversa está num número desconectado ou arquivado: ela deixa de sair pelo número novo e fica pendente, o que atinge também quem trocou de número. Lembrete com a janela de 24 horas fechada passa a abrir aviso na Central.
+
+### Adicionado
+
+- **O histórico de uma conversa pode ser baixado em PDF, pelo endereço da rota e com a sessão logada** Existia só o export de LGPD — e aquele é devido ao titular: ele que pede, a lista engloba outras tabelas e o arquivo sai por e-mail. O operador que precisa guardar como prova o histórico de UMA conversa não tinha para onde ir. Agora `GET /api/v1/conversations/[id]/export?formato=pdf` devolve o fio de mensagens em ordem cronológica, com autor, horário e direção em cada linha, o cabeçalho datado e quem exportou, e a razão social da organização no rodapé. O papel `agent` baixa; `viewer` continua lendo a conversa na Inbox, mas não leva o arquivo. Lê pelo client da sessão (RLS + `fn_can_view_conversation`), registra `conversation.exported` na auditoria (quantas mensagens, nunca o texto) e não muda uma linha do export de LGPD. Cada arquivo leva até as 500 mensagens mais recentes; conversa maior sai com o corte declarado no cabeçalho. O teto vem da memória medida do render, que roda no mesmo processo do CRM. Há limite de 5 exportações por minuto por pessoa e 20 por organização. O botão na tela da conversa ainda não existe: por ora o download é por essa rota, com a sessão de quem está logado. Nenhuma mudança de banco.
+
+  Contribuição de @webtecnica (refs #1982).
+
+- **O funil ganha a visão Calendário por campo de data, com mês e semana** Ao lado do quadro, o funil tem agora a aba Calendário. Ela mostra os negócios no dia de um campo de data do próprio funil, como data de início ou data do evento.
+
+  Você escolhe qual campo de data o calendário usa e, se quiser, um segundo campo para mostrar o negócio como intervalo, do primeiro ao último dia.
+
+  Dá para ver o mês inteiro ou uma semana, e os filtros da barra do funil valem também para o calendário.
+
+  Um clique no negócio abre a mesma ficha do quadro. Negócio sem a data escolhida não aparece no calendário, e o quadro continua sendo a tela padrão.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2790), a partir da issue #2770.
+
+- **GPT-6 Luna, GPT-6.1 Sol e GPT-6 Astra entram na lista de modelos** Em Provedores de IA e no seletor do agente passam a aparecer o GPT-6 Luna, o GPT-6.1 Sol e o GPT-6 Astra, com o custo contado em Uso e orçamento. Quem deixou `OPENAI_REASONING_EFFORT` em `none` ou `minimal` pode usar o GPT-6.1 Sol e o GPT-6 Astra: como esses dois não aceitam desligar o raciocínio, eles passam a receber `low` em vez de recusar a resposta. E quem usa `minimal` com o GPT-6 Luna também: lá ele passa a sair como `none`, o mais rápido que o Luna aceita. O modelo padrão não muda. Crédito: @rafaelcesardev.
+
+- **Grupo de vendas do WhatsApp lança vendas e gastos no caixa** Em Conexões › Grupos, um grupo ligado pode ser marcado como **grupo de vendas**,
+  com a conta em que o dinheiro cai. A partir daí, o que a equipe já escreve no
+  grupo vira lançamento pago no Faturamento, sem ninguém redigitar:
+
+  - "iPhone 13 128GB vendido por R$ 2.100 no pix" → entrada de R$ 2.100,00;
+  - "paguei motoboy R$ 25" → saída de R$ 25,00.
+
+  O leitor entende o formato (verbo de venda ou de gasto e UM valor), não um
+  produto: serve para qualquer loja. Linha ambígua — sem valor, ou com dois
+  valores possíveis — não vira lançamento: lançamento errado no caixa é pior que
+  lançamento faltando. A data é a da mensagem, no fuso da organização, e a mesma
+  mensagem nunca lança duas vezes. Os lançamentos aparecem no Faturamento com a
+  marca "do grupo de vendas" (e os recorrentes e estornos deixam de aparecer como
+  "de comanda").
+
+  Migration 0613 (com apêndice no `baseline.sql`): colunas novas em
+  `channel_session_groups` e `financial_entries`, e `'grupo'` no vocabulário de
+  `financial_entries.origin`. Nada muda para quem não marcar um grupo.
+
+- **Opção por organização para criar o Google Meet da reunião já com acesso aberto** Nova opção nas configurações da Agenda, desligada por padrão em toda
+  organização: quando ligada, o Google Meet criado pela reunião nasce já aberto —
+  quem tiver o link entra sem pedir para participar. A opção traz o aviso de
+  risco, porque abrir a reunião é exatamente isso: qualquer pessoa com o link
+  entra. Desligada (o padrão de quem já instalou), o comportamento atual é
+  preservado sem nenhuma mudança.
+
+  Quando ligada, o link do espaço aberto entra no campo `location` do evento NA
+  PRIMEIRA publicação: o convidado recebe um convite que já tem a sala, não um
+  convite sem link e um "alterado" minutos depois. E só o espaço aberto troca o
+  local pelo link — o Meet "confiável" do Calendar continua fora da projeção, de
+  propósito: o link dele nasce depois da publicação, e mandá-lo para o `location`
+  de todo compromisso já publicado viraria um e-mail de "evento alterado" em massa
+  para os convidados na primeira sincronização depois desta atualização.
+
+  Requer, na conexão do Google da organização, que a API do Meet esteja
+  habilitada e que o escopo opcional de criação de espaços tenha sido concedido
+  (reconectar com a opção ligada já pede o escopo). Sem o escopo, a reunião continua
+  nascendo o Meet "confiável" de sempre — a opção só passa a valer quando as duas
+  condições se encontram.
+
+  No self-host quem conecta o Google usa o app OAuth próprio, então habilitar a
+  Meet API e colocar `meetings.space.created` na tela de consentimento do projeto
+  está na própria tela da opção e na doc de setup do kit.
+
+  Contribuição de @webtecnica (#2089).
+
+- **Modo Orquestra — Visão geral do dono e Mundo dos agentes, com dados reais** Um perfil de interface novo, **Orquestra (visão do dono)**, em Configurações ›
+  Organização › Interface (e no convite de cada pessoa). Ele deixa no menu só o
+  que o dono de uma loja usa — Visão geral, Mundo dos agentes, Inbox, Funis,
+  Produtos, Agentes, Conexões e Faturamento —, num menu plano, e abre o app na
+  Visão geral.
+
+  - **Visão geral** (`/app/orquestra`): as entradas no caixa do período (hoje, 7
+    dias, mês) em curva, o resultado (entradas − saídas), quantas conversas
+    esperam a equipe (a mesma conta da Fila do Inbox), quantas passaram para uma
+    pessoa hoje, cada agente de IA com os atendimentos do dia e a última ação, o
+    funil padrão, o que está conectado e a miniatura do Mundo.
+  - **Mundo dos agentes** (`/app/orquestra/mundo`): a operação desenhada como um
+    escritório em pixel art. Cada personagem é um dado: os agentes de IA no
+    Atendimento (com a última ferramenta que usaram), a Equipe com a fila, o Caixa
+    com os lançamentos do dia e o Painel com os atendimentos de IA. O setor sem
+    agente fica vazio e diz que está vazio. Um diário lista o que os agentes
+    fizeram hoje.
+
+  Tudo lido pelo cliente da sessão: cada papel vê o que já via. O que cada agente
+  fez (as ferramentas usadas) vem da auditoria e aparece para quem administra;
+  para os demais, o diário mostra os atendimentos.
+
+  Nada muda para quem não escolher o perfil: a interface completa continua com o
+  mesmo menu e a mesma tela inicial, e as duas telas novas ficam só na busca (⌘K).
+  Sem mudança de schema — o perfil é uma escolha de áreas, que o banco já aceita.
+
+- **Tabela de preços do dia e simulação de parcelas no cartão para o atendente de IA** Duas réguas de preço novas na tela de Produtos, em **Preços e parcelas**, para a
+  loja que vende pelo WhatsApp:
+
+  - **Tabela do dia.** Ligando "Exigir que a tabela de preços seja conferida todo
+    dia", o atendente de IA só passa preço da tabela conferida HOJE (no fuso da
+    organização). Sem a conferência, a busca de produtos devolve o produto sem o
+    preço, e o atendente diz ao cliente que já envia a tabela atualizada e chama a
+    equipe. A tabela é conferida pelo botão "Os preços de hoje estão certos" ou
+    importando a planilha inteira sem nenhuma linha recusada. Um aviso no topo da
+    tela de Produtos explica por que o atendente parou de passar preço.
+  - **Parcelas no cartão.** A loja cola a tabela de taxas da maquininha (débito,
+    crédito à vista e cada número de vezes) e, se quiser, até quantas vezes é sem
+    juros. Quando o cliente pergunta "em 10x fica quanto?", a busca de produtos do
+    atendente (`crm_search_products`, parâmetro novo `vezes`) devolve o valor exato
+    da parcela de cada produto — valor à vista ÷ (1 − taxa), dividido pelas vezes.
+    Opção sem taxa cadastrada não é estimada: o atendente diz que vai confirmar com
+    a equipe. Não é uma capacidade nova: todo agente que já procura produto passa a
+    saber parcelar, sem ninguém ligar nada e sem ocupar vaga no teto de
+    capacidades.
+
+  Desligado por padrão: sem configurar nada, o atendente passa o preço cadastrado
+  como sempre passou, e pergunta de parcela continua indo para a equipe. Nenhuma
+  mudança de schema — as duas configurações moram em `organizations.settings`.
+
+- **Tarefas dentro do card do negócio, com responsável, e o selo de pendências no quadro** Até aqui a tarefa só nascia na tela de Tarefas, que não pergunta de qual negócio ela é — na prática toda tarefa ficava avulsa, e as presas a um negócio só vinham de automação. Agora o dossiê do negócio (o painel que abre ao clicar no card) ganha a seção **Tarefas**, entre o contato e a linha do tempo: o botão **Nova tarefa** cria a tarefa já presa àquele negócio (e ao contato dele), e dali mesmo dá para concluir, reabrir, editar e apagar. O formulário de tarefa ganha o campo **Responsável**, com as mesmas pessoas que podem receber uma conversa; quem cria pelo card já nasce como responsável. No quadro, o card mostra um selo discreto com as tarefas em aberto daquele negócio, em vermelho quando alguma passou do prazo — sem crescer o card. Na tela de Tarefas, cada linha diz de qual negócio é a tarefa, com atalho para ele, e quem é o responsável. O servidor passou a recusar um responsável que não faz parte da equipe (antes o usuário de qualquer empresa da instalação era aceito). Criar e mexer em tarefa continua sendo do papel `agent` para cima; `viewer` vê. Nenhuma mudança de banco.
+
+  Contribuição de @profpeque.
+
+- **Troca rápida de funil dentro do quadro** O nome do funil no topo do quadro virou um seletor: dá para pular para outro funil sem voltar à lista de Funis. Com um funil só, nada muda. Crédito: @paulolimajr77.
+
+### Alterado
+
+- **O botão de recolher a barra lateral sai do rodapé e vai para o alto** O botão que recolhe e expande a barra lateral saiu do rodapé, onde ficava longe de tudo, e foi para o alto. Com a barra aberta, ele aparece só como ícone na linha da logo, à direita. Com a barra recolhida, aparece numa faixa logo abaixo do símbolo. A ação é a mesma de antes, e o nome do botão para leitores de tela também.
+
+  Para caber ao lado do botão, a logo própria muito larga encolhe e o nome da empresa que não tem logo fica numa linha só, com reticências; o nome inteiro aparece ao passar o mouse. No celular nada muda.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2723), a partir da issue #2722.
+
+### Corrigido
+
+- **Inbox, contadores e fila param de resolver o contato por linha** O filtro "quem manda na conversa" — a lista do inbox, os números das abas e a fila de atendimento — lia as travas do contato (força de atendimento humano e descadastro) com duas consultas a `contacts` por conversa, dentro de uma função avaliada linha a linha: com N conversas, cada tela pagava N avaliações e 2N leituras. Agora essas travas ficam guardadas na própria conversa, atualizadas quando o contato muda e quando a conversa troca de contato, e o prazo do silêncio continua sendo avaliado na hora da consulta — nada de resultado congelado. Medido com 3.000 conversas (pg15): as leituras caíram de 18.101 buffers para 77 por consulta, com o mesmo resultado de antes nas três telas.
+
+  Contribuição de @Tong-bit-art (#2748), a partir da issue #2739 e do diagnóstico de @mrmateussiilva (#1921).
+
+- **Criar um negócio direto numa etapa de perda sem motivo responde 422, não erro interno** Pela API, criar um negócio (`POST /api/v1/leads`) já numa etapa de perda e sem informar o motivo respondia erro interno (500) com o texto cru do banco. Agora a resposta é 422 `lost_reason_required`, com a mesma frase traduzida que a ação "marcar como perdido" devolve. O mesmo vale para a importação de planilha e para as fontes de captação que apontam para uma etapa de perda: a importação para na primeira linha e desfaz os contatos que tinha criado, e a fonte externa recebe 422 em vez de 500. Outros erros do banco continuam como antes.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2762), a partir da issue #2743.
+
+- **Editar o funil e o material de um agente pela API agora grava** Quem editava um agente pela API (integrações e chamadas por token) mandando `pipeline_ids` ou `knowledge_source_ids` no `PATCH /api/v1/ai/agents/:id/versions/:vid` recebia 200 e nada era gravado: a versão seguia com o funil e o material antigos. Agora a edição grava, e antes confere que o funil e o material existem nesta organização: material arquivado ou de outra organização passa a ser recusado também aqui, como já era na criação. A tela do agente não era afetada, porque salva por outro caminho, que já gravava.
+
+  Contribuição de @ygorl.
+
+- **Sem SMTP, o "esqueci a senha" diz o motivo em vez de mandar tentar de novo** Numa instalação de servidor único sem SMTP configurado, o "esqueci a senha" respondia "Não foi possível enviar o e-mail. Tente novamente.", e tentar de novo nunca funcionaria. Agora a tela diz que a recuperação de senha não está disponível nesta instalação porque não há SMTP, e que o administrador configura em /admin/email. O aviso do `update.sh` para o mesmo caso passa a dizer por que é preciso rodá-lo de novo depois de configurar: é ele que leva o SMTP do CRM ao serviço de login. Com SMTP configurado, ou com o Supabase na nuvem, nada muda.
+
+  Um limite: quem pôs o SMTP direto no `.env` do Supabase, sem passar por /admin/email, passa a ver a mensagem de "sem SMTP". Configure o mesmo servidor em /admin/email e rode o `update.sh`.
+
+  Contribuição de @webtecnica (#2767), a partir da issue #2755.
+
+- **As seis abas do Inbox cabem na coluna da lista em qualquer largura** Com a janela em 1280 px, a faixa de abas do Inbox não cabia na coluna da lista: "Fechadas" aparecia cortada e "Arquivadas" ficava escondida atrás da seta de rolagem. Agora a faixa quebra em duas linhas quando falta espaço, e as seis abas (Automático, Fila, Minhas, Todas, Fechadas, Arquivadas) ficam sempre à vista, na mesma ordem e com os mesmos nomes.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2766), a partir da issue #2745.
+
+- **A prévia do vCard na lista do Inbox mostra o nome do contato** Conversa cuja última mensagem era um contato compartilhado (vCard) aparecia na lista do Inbox com o literal `[contact]` no lugar do nome — e, quando o cartão vinha cru, com o começo do texto `BEGIN:VCARD`. Agora a linha mostra `Contato: <nome>`, lido do próprio cartão, na conversa individual e também na de grupo. Texto, fotos, áudios e documentos continuam com a prévia de sempre.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2765), a partir da issue #2742.
+
+- **Depois de gravar a marca, uma leitura feita no meio da troca não traz mais de volta a marca anterior** Depois de gravar a marca (logo, nome, ícone), uma leitura feita no meio da troca não traz mais de volta a marca anterior; antes, ela podia voltar a aparecer por até 30 segundos. Acontecia quando uma tela estava sendo montada no instante da gravação: o servidor reaproveitava, dentro dessa tela, a resposta que o banco tinha dado antes da gravação, e a guardava como se fosse a nova. A mesma leitura reaproveitada foi fechada nas outras configurações da instalação que a tela grava e o servidor guarda pelos mesmos 30 segundos: o CSS personalizado, o modo de cadastro, o comportamento da instalação em /admin/sistema e as credenciais do Google Agenda e do app da Meta. A memória curta de cada uma continua existindo como antes. Nenhuma mudança de banco nem de configuração.
+
+  Refs #1218.
+
+- **Um pedido de dados do titular gera uma exportação, não duas** Um pedido de dados LGPD podia exportar duas vezes: o webhook da Nuvemshop e a aprovação manual disparam o mesmo trabalho, e as duas execuções podiam rodar ao mesmo tempo — o arquivo era montado em dobro, dois e-mails saíam e a trilha de auditoria registrava duas entregas para um pedido só. Agora a exportação é reivindicada de forma atômica pelo worker: quem chega segundo não exporta, e o pedido fica com uma tentativa e uma entrega. Retry depois de falha e retomada de execução interrompida continuam funcionando, sem espera extra.
+
+  Contribuição de @Tong-bit-art (#2752), a partir da issue #2751.
+
+- **O Gemini 3.6, 3.7 e 3.8 Flash passam a custar o dobro em 1º de janeiro de 2027** A partir de 1º de janeiro de 2027 (UTC) o custo gravado em Uso e orçamento do Gemini 3.6 Flash, do 3.7 Flash e do 3.8 Flash dobra: US$ 1,50 de entrada e US$ 7,50 de saída por milhão de tokens, e a leitura de cache acompanha. Até esse instante continua o preço promocional — no atendimento e também no classificador de sentimento e no respondedor antigo, que gravam o mesmo corte. Na lista de modelos o número mostrado já é o de 2027. Não é preciso fazer nada.
+
+- **O aviso de buildx ausente do update manda instalar o pacote que esta VPS tem** Quando o plugin buildx do Docker falta, a atualização para antes de mexer em qualquer coisa e explica o motivo. Até aqui ela mandava instalar sempre o pacote `docker-buildx-plugin`, que só existe no repositório oficial do Docker. Numa VPS com o Docker do próprio Ubuntu, o apt respondia que o pacote não existe. Agora o aviso consulta o índice do apt desta VPS e cita o nome que ela encontra: `docker-buildx-plugin` quando o repositório do Docker está ligado, `docker-buildx` quando só o Ubuntu oferece o plugin. Sem nenhum dos dois no índice, o aviso cita os dois nomes, com a origem de cada um.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2763), a partir da issue #2754.
+
+- **E-mails de recuperação de senha e de confirmação voltam a usar o modelo da instalação no single-server atrás de um proxy externo** Na instalação single-server (Supabase na mesma VPS) atrás de um Traefik da hospedagem, os e-mails de "esqueci minha senha" e de confirmação de cadastro podiam sair no modelo padrão do Supabase, em inglês, cujo link não fecha a sessão quando o clique vem do webmail. O serviço de autenticação buscava o modelo no app pelo domínio público, e de dentro dos contêineres o domínio não respondia nessa VPS. Agora o serviço de autenticação entra na rede privada do app e busca o modelo direto nela (`http://app:3000/email-templates/...`), sem passar pelo domínio.
+
+  Você não precisa fazer nada: o `update.sh` liga o serviço de autenticação à rede privada e troca o endereço que o próprio kit tinha gravado (`https://SEU_DOMINIO/email-templates/...`) pelo interno. Um modelo que você tenha apontado para outro lugar continua como está. Instalações com o Supabase na nuvem ou com um Supabase próprio fora do kit não mudam.
+
+  Crédito: @daviguerreiroa.
+
+- **Lembretes da agenda deixam de escolher arbitrariamente entre números da organização** Em Configurações › Tipos de agendamento, é possível escolher o canal que enviará os lembretes de cada serviço. Essa escolha tem prioridade, inclusive em reservas manuais. Sem configuração, o sistema usa a conversa vinculada à reserva ou, na ausência dela, somente um canal elegível sem ambiguidade. Um vínculo indisponível não autoriza enviar por outro setor.
+
+  Sem remetente seguro ou com janela de atendimento fechada, o lembrete fica pendente e a Central de avisos mostra como corrigir. O aviso é deduplicado e fecha ao corrigir, vencer, cancelar, desligar os lembretes ou anonimizar o contato. Não há reenvio de lembretes já processados.
+
+  Excluir uma conexão remove somente seu vínculo nos tipos de agendamento, preservando os serviços. Eles voltam à seleção automática descrita acima; arquivar ou desconectar preserva a escolha e impede a troca por outro número.
+
+  Relacionado à issue #2594; preserva a proteção de janela introduzida no PR #2620. Contribuição de @ozzure (#2669).
+
+- **Resposta rápida com {{nome}} usa o display_name quando o contato não tem nome** Quem usava uma resposta rápida com `{{nome}}` ou `{{primeiro_nome}}` numa conversa aberta pelo WhatsApp recebia a variável literal no corpo da mensagem — `Oi {{primeiro_nome}}, segue o catálogo!` — porque o compositor só olhava o `name` do contato, e o contato que nasce pelo canal chega com `name` vazio e só o `display_name` preenchido. Agora o compositor cai no `display_name` quando o `name` está vazio, e a resposta sai com o nome da pessoa. O mesmo vale para a legenda de uma resposta rápida com imagem, que é o texto do próprio compositor.
+
+  Sem nenhum dos dois nomes, o texto continua saindo com a variável literal (nada é inventado no lugar do nome), e o compositor avisa o operador na hora em que o modelo é aplicado, para ele editar antes de enviar.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2764), a partir da issue #2744.
+
+- **O pedido para parar de receber mensagens encerra também o follow-up pausado à mão** Quando o cliente pedia para parar de receber mensagens ("pare", "sair da lista"), o follow-up dele era encerrado como descadastro, mas só se estivesse andando, esperando resposta ou pausado por atendimento humano. O follow-up que alguém da equipe tinha pausado à mão ficava vivo. Nenhuma mensagem saía (o envio já confere o descadastro na hora), mas o follow-up continuava ocupando a vaga do contato. Todo follow-up novo para essa pessoa falhava sem explicação, e o descadastro não entrava na contagem de resultados. Agora o pedido para parar encerra também o follow-up pausado à mão, como já acontecia na anonimização de LGPD. Uma mensagem comum, de quem não pediu para parar, continua sem mexer na pausa: quem retoma é quem pausou. Nenhuma mudança de banco.
+
+  Contribuição de @FabioMundoDigital.
+
+- **O submenu Responsável do card do funil abre inteiro, por cima do menu** No quadro do funil, ao abrir o menu "⋯" de um card e passar em Responsável, a lista de membros e agentes abria cortada atrás do menu e não dava para escolher o responsável. Agora a lista abre inteira, ao lado do menu e por cima dele, e vira para a esquerda quando não cabe à direita. Numa lista longa em tela baixa, ela fica dentro da altura da tela e rola até o último nome. Escolher um nome grava o responsável no card sem abrir a ficha do lead.
+
+  Você não precisa fazer nada.
+
+  Contribuição de @webtecnica (#2713), a partir da issue #2702 relatada por @DPalmercs.
+
 ## [2.2.0] — 2026-10-08
 
 ### Adicionado
@@ -11335,7 +11555,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.2.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.0.0...v2.0.1
