@@ -11,11 +11,76 @@
  */
 import { z } from "zod";
 
-import type { McpToolDefinition } from "../types";
+import type { McpContext, McpToolDefinition } from "../types";
 import { audit } from "@/lib/audit";
 import { buscarComRelaxamento } from "@/lib/catalogo/busca";
+import {
+  avisoDaTabelaVencidaParaOAgente,
+  lerConfigDaTabela,
+  situacaoDaTabela,
+  type SituacaoDaTabela,
+} from "@/lib/catalogo/tabela-do-dia";
+import {
+  lerConfigDoParcelamento,
+  MAX_PARCELAS,
+  simularOpcao,
+  simularTodas,
+  temTaxas,
+  type ConfigDoParcelamento,
+} from "@/lib/financeiro/parcelamento";
 import { formatCents } from "@/lib/money";
 import { precoParaCentavos } from "@/lib/schemas/produtos";
+import { FUSO_PADRAO } from "@/lib/tempo/fusos";
+
+// ---------------------------------------------------------------------------
+// a régua de preço da organização (tabela do dia + taxas do cartão)
+// ---------------------------------------------------------------------------
+
+interface ReguaDePreco {
+  tabela: SituacaoDaTabela;
+  fuso: string;
+  /** A moeda da organização — a de um valor que a pessoa citou, sem produto. */
+  moeda: string;
+  parcelamento: ConfigDoParcelamento;
+}
+
+const REGUA_SEM_CONFIGURACAO: ReguaDePreco = {
+  tabela: { estado: "sem_validade" },
+  fuso: FUSO_PADRAO,
+  moeda: "BRL",
+  parcelamento: lerConfigDoParcelamento(null),
+};
+
+/**
+ * Lê `organizations.settings`, `timezone` e `currency` da organização do token.
+ *
+ * ⚠️ FALHA ABERTA para a tabela do dia, e é decisão: sem conseguir ler a
+ * configuração, o comportamento é o de ANTES desta régua existir (o preço
+ * cadastrado sai). Fechar aqui calaria o preço de toda loja — inclusive as que
+ * nunca ligaram a validade — por um soluço de banco. Para o parcelamento a
+ * mesma leitura falha FECHADA por construção: sem config não há taxa, e sem
+ * taxa a simulação recusa.
+ */
+async function reguaDePreco(ctx: McpContext): Promise<ReguaDePreco> {
+  try {
+    const { data, error } = await ctx.supabase
+      .from("organizations")
+      .select("settings, timezone, currency")
+      .eq("id", ctx.organizationId)
+      .maybeSingle();
+    if (error || !data) return REGUA_SEM_CONFIGURACAO;
+    const linha = data as { settings?: unknown; timezone?: string | null; currency?: string | null };
+    const fuso = linha.timezone || FUSO_PADRAO;
+    return {
+      tabela: situacaoDaTabela(lerConfigDaTabela(linha.settings), new Date(), fuso),
+      fuso,
+      moeda: linha.currency || "BRL",
+      parcelamento: lerConfigDoParcelamento(linha.settings),
+    };
+  } catch {
+    return REGUA_SEM_CONFIGURACAO;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // pedidos de um cliente
@@ -99,6 +164,20 @@ const produtosInputShape = {
     .describe("o que a pessoa disse — pode ser o nome, a marca, o código ou tudo junto"),
   limite: z.number().int().min(1).max(20).optional().default(8),
   somente_disponiveis: z.boolean().optional().default(true),
+  // PARCELAS NO CARTÃO (`lib/financeiro/parcelamento.ts`). É parâmetro desta
+  // busca, e não ferramenta própria, de propósito: o teto de capacidades por
+  // agente estava cheio — uma ferramenta a mais em "vender" deixava o agente
+  // recém-criado sem vaga para segunda jornada nenhuma
+  // (`tests/unit/pacote-reserva-vaga-da-critica.test.ts`). E todo agente que já
+  // busca produto ganha a conta sem ninguém precisar ligar nada.
+  vezes: z
+    .union([z.literal("debito"), z.number().int().min(1).max(MAX_PARCELAS)])
+    .optional()
+    .describe(
+      'quando a pessoa perguntar de parcela ou cartão ("em 10x fica quanto?", "e no débito?"): quantas vezes ' +
+        'no crédito (1 = crédito à vista) ou "debito". Cada produto volta com o valor exato da parcela, com a ' +
+        "taxa da maquininha da loja.",
+    ),
 };
 
 /**
@@ -199,7 +278,11 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
     "tem — diga que vai confirmar com a equipe. Em qualquer caso, não invente preço e nunca " +
     "invente um valor que você lembra. " +
     "Produto com `fotos` tem foto cadastrada: ao apresentá-lo, passe o `codigo` dele em " +
-    "`produto_codigo` no send_message, e a foto vai junto com o texto.",
+    "`produto_codigo` no send_message, e a foto vai junto com o texto. " +
+    "PARCELA: se a pessoa perguntar de parcela, débito ou \"fica quanto em 10x\", busque de novo passando " +
+    "`vezes`; cada produto volta com `parcelamento` (total e valor de cada parcela, com a taxa da " +
+    "maquininha da loja). Responda com esses valores — nunca faça a conta de cabeça. Sem `parcelamento` " +
+    "na resposta, a loja não cadastrou a taxa dessa opção: NÃO estime, diga que vai confirmar com a equipe.",
   inputSchema: produtosInputShape,
   category: "read",
   requiresRole: "agent",
@@ -349,12 +432,46 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
 
     const mensagem = avisosDaBusca({ empate, ignorados });
 
+    // TABELA DO DIA (`lib/catalogo/tabela-do-dia.ts`): com a validade ligada e
+    // a tabela não conferida hoje, o produto volta SEM preço. Tirar o campo, e
+    // não só avisar, é o ponto: um aviso ao lado do número o modelo pode
+    // ignorar; o número que não veio ele não tem como repetir.
+    const regua = await reguaDePreco(ctx);
+    const tabelaVencida = regua.tabela.estado === "vencida";
+
+    // A parcela pedida, por produto. Preço vencido não tem parcela (a parcela de
+    // um preço vencido é um preço vencido); opção sem taxa cadastrada também não
+    // — e a mensagem diz por quê, para o modelo não estimar pela vizinha.
+    const parcelaDe = (precoCents: number, moeda: string) => {
+      if (input.vezes === undefined || tabelaVencida) return null;
+      const s = simularOpcao(precoCents, input.vezes, regua.parcelamento);
+      if (!s) return null;
+      const vezes = s.opcao === "debito" ? 1 : s.opcao;
+      return {
+        opcao: s.opcao === "debito" ? "débito" : s.opcao === 1 ? "crédito à vista" : `${s.opcao}x`,
+        total: formatCents(s.total_cents, moeda),
+        ...(vezes > 1 ? { parcela: formatCents(s.parcela_cents, moeda) } : {}),
+        ...(s.sem_acrescimo ? { sem_juros: true } : {}),
+      };
+    };
+    const comParcela = (p: ReturnType<typeof parcelaDe>) => (p ? { parcelamento: p } : {});
+    const semTaxa =
+      input.vezes !== undefined && !tabelaVencida && simularOpcao(100, input.vezes, regua.parcelamento) === null
+        ? temTaxas(regua.parcelamento)
+          ? "a loja não cadastrou a taxa dessa opção de pagamento. NÃO estime pela vizinha — diga quais " +
+            "opções existem ou que vai confirmar com a equipe."
+          : "esta loja não cadastrou as taxas do cartão, então não há como calcular parcela. NÃO estime — " +
+            "diga que vai confirmar com a equipe."
+        : null;
+
     return {
       produtos: topo.map(({ produto }) => ({
         codigo: produto.codigo,
         nome: produto.nome,
-        preco: formatCents(produto.preco_cents, produto.moeda),
-        preco_cents: produto.preco_cents,
+        ...(tabelaVencida
+          ? {}
+          : { preco: formatCents(produto.preco_cents, produto.moeda), preco_cents: produto.preco_cents }),
+        ...comParcela(parcelaDe(produto.preco_cents, produto.moeda)),
         ...(produto.marca ? { marca: produto.marca } : {}),
         ...(produto.descricao ? { descricao: produto.descricao } : {}),
         disponivel: !produto.controla_estoque || produto.quantidade > 0,
@@ -369,7 +486,16 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
       // A diferença é o que falta — no empate, qual das opções; aqui, se o
       // número que sumiu importava.
       ...(ignorados.length > 0 ? { numeros_ignorados: ignorados } : {}),
-      ...(mensagem ? { mensagem } : {}),
+      ...(regua.tabela.estado === "vencida"
+        ? {
+            tabela_vencida: true,
+            mensagem: [avisoDaTabelaVencidaParaOAgente(regua.tabela, regua.fuso), mensagem]
+              .filter(Boolean)
+              .join(" "),
+          }
+        : mensagem || semTaxa
+          ? { mensagem: [semTaxa, mensagem].filter(Boolean).join(" ") }
+          : {}),
     };
   },
 };
