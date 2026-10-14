@@ -373,7 +373,9 @@ describe("o handler escolhe UM caminho", () => {
 
 const ETAPA = "44444444-4444-4444-8444-444444444444";
 const CHAVE_DA_ETAPA = `MetaEtapa:${ETAPA}`;
-const ENTROU_NA_ETAPA = "2026-10-06T16:32:50.000Z";
+// Relativo ao relógio: a Meta recusa evento com mais de 7 dias, e uma data fixa
+// fazia o teste vencer sozinho uma semana depois de escrito.
+const ENTROU_NA_ETAPA = new Date(Math.floor(Date.now() / 1000) * 1000 - 60 * 60_000).toISOString();
 
 const regraDaEtapa = (metaEvent = "InitiateCheckout") => ({
   meta_ads_conversion_rules: {
