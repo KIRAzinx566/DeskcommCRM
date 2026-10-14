@@ -8,6 +8,12 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.3.1] — 2026-10-14
+
+### Corrigido
+
+- **Recusa permanente do atendimento e da agenda para de travar o PostgREST (PT409, não 40001)** Recusas que nunca vão passar (`service_stale`, `google_stale`, `appointment_stale` e outras 14) saíam do banco com `errcode='40001'`, que quer dizer "conflito de serialização, tente de novo". O PostgREST 14 acredita e refaz a transação sozinho, sem limite: a v14.17 fixa a biblioteca `hasql-transaction` 1.1.0.1 ([haskell-packages.nix#L144](https://github.com/PostgREST/postgrest/blob/v14.17/nix/overlays/haskell-packages.nix#L144)), que repete a transação inteira em `40001` e também em `40P01` (deadlock), num laço sem teto ([Sessions.hs#L13-L46](https://github.com/nikita-volkov/hasql-transaction/blob/1.1.0.1/library/Hasql/Transaction/Private/Sessions.hs#L13-L46)). Numa instalação self-hosted, uma única chamada recusada virou ~1.750 rollbacks/s, o pool esgotado (`PGRST003`), o banco em 243% de CPU e o CRM inteiro em "Algo deu errado". A guarda da 0250 não alcança esse caso, porque depende do `sb-request-id`, que o self-host não carimba. A migration 0654 troca o código por `PT409` nos 34 pontos de recusa permanente de 16 funções. O PostgREST responde 409 e não repete. Onde o banco capturava a recusa antiga para registrar o desfecho (a recuperação de falta, que grava o recibo 'stale' e abre o aviso na Central quando o atendimento mudou), a captura passa a aceitar os dois códigos, e o comportamento visível fica o mesmo. `service_contact_changed`, `appointment_notice_busy` e `contact_redaction_busy` continuam `40001`, porque ali repetir passa. As rotas de demandas, agendamentos e agendas do Google respondem 409 com `PT409` ou `40001`. O código antigo continua aceito, porque o banco e a imagem não se atualizam no mesmo instante. — Paulo
+
 ## [2.3.0] — 2026-10-13
 
 ### ⚠️ Requer atenção
@@ -11555,7 +11561,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.0.1...v2.1.0
