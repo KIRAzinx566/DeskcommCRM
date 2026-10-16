@@ -72,11 +72,14 @@ esac
 case "${1:-}" in
   compose)
     case "$*" in
+      # O `exec` vem ANTES do overlay: depois do build local, este fork passa a
+      # citar o `docker-compose.build.yml` em TODA chamada de `dc`
+      # (EXTRA_COMPOSE_FILES, em _common.sh), inclusive na sonda de saúde.
+      *" exec "*) printf 'healthy\n{"data":{"status":"healthy"}}\n'; exit 0 ;;
       *"docker-compose.build.yml"*) exit 0 ;;
       *"up -d"*)
         [ "${UP_D_FORA:-0}" = 1 ] && exit 1
         exit 0 ;;
-      *" exec "*) printf 'healthy\n{"data":{"status":"healthy"}}\n'; exit 0 ;;
     esac ;;
 esac
 exit 0
