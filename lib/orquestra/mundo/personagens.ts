@@ -23,7 +23,7 @@
  */
 import type { AgenteNoPainel, PainelDoOrquestra } from "@/lib/orquestra/painel";
 
-import type { Acessorio, LayoutDoEscritorio } from "./layout";
+import type { Acessorio, Genero, LayoutDoEscritorio } from "./layout";
 
 export type SetorId = "copa" | "comercial" | "ops" | "dados" | "financeiro";
 
@@ -38,6 +38,23 @@ export interface Personagem {
   /** Visual escolhido no editor do hub; sem escolha, o padrão (pele clara, camisa da cor da sala). */
   pele?: string;
   camisa?: string;
+  genero?: Genero;
+  /*
+   * Os campos abaixo são do escritório ao vivo do FBhub (visitantes, fala real,
+   * venda, conquistas, expediente, equipe). O desenho é o mesmo arquivo nos dois
+   * produtos; aqui no CRM o painel ainda não os preenche, e sem eles o
+   * personagem desenha como sempre.
+   */
+  visitante?: boolean;
+  fala?: string;
+  destaque?: boolean;
+  espera?: { minutos: number; nivel: 0 | 1 | 2 };
+  humor?: "feliz" | "neutro" | "irritado";
+  comemorando?: boolean;
+  medalhas?: string[];
+  emCasa?: boolean;
+  voltaEm?: string | null;
+  humano?: boolean;
   /** A frase do balão — sempre um fato, nunca sorteada. */
   tarefa: string;
   /** Movimento recente: anda até a mesa e trabalha. Parado: fica de pé, sem balão de progresso. */
@@ -109,6 +126,8 @@ export function montarCena(
 ): Cena {
   const personagens: Personagem[] = [];
   const agentes = painel.agentes ?? [];
+  // Destaque do dia: quem mais atendeu hoje (só se alguém atendeu) — estrela na cabeça.
+  const destaque = agentes.reduce<AgenteNoPainel | null>((m, a) => (a.turnosHoje > 0 && (!m || a.turnosHoje > m.turnosHoje) ? a : m), null);
 
   agentes.slice(0, AGENTES_NO_ESCRITORIO).forEach((a, i) => {
     const recente = !!a.ultimoTurnoEm && agora.getTime() - new Date(a.ultimoTurnoEm).getTime() < RECENTE_MS;
@@ -125,6 +144,8 @@ export function montarCena(
       acessorio: visual?.acessorio === undefined ? "headset" : visual.acessorio,
       pele: visual?.pele,
       camisa: visual?.camisa,
+      genero: visual?.genero,
+      destaque: destaque?.id === a.id,
       tarefa,
       trabalhando: !pausado && recente,
       pausado,
@@ -193,3 +214,6 @@ export function montarCena(
 
   return { personagens, agentesAlemDasMesas: Math.max(0, agentes.length - AGENTES_NO_ESCRITORIO) };
 }
+
+/** Por onde visitante entra e sai (o corredor na porta do Atendimento) — usado pelo desenho compartilhado. */
+export const PORTA_DOS_VISITANTES: [number, number] = [720, 300];

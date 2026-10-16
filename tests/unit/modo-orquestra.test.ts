@@ -160,6 +160,14 @@ describe("a cena do Mundo dos agentes", () => {
     expect(cena.agentesAlemDasMesas).toBe(2);
   });
 
+  it("destaque do dia é quem mais atendeu — e sem atendimento não há estrela", () => {
+    const [bia, leo] = montarCena(painel, null, agora).personagens;
+    expect(bia!.destaque).toBe(true);
+    expect(leo!.destaque).toBe(false);
+    const ninguem = { ...painel, agentes: painel.agentes!.map((a) => ({ ...a, turnosHoje: 0 })) };
+    expect(montarCena(ninguem, null, agora).personagens.some((p) => p.destaque)).toBe(false);
+  });
+
   it("o layout do editor manda: mesa movida e visual escolhido chegam ao personagem", () => {
     const [bia] = montarCena(painel, null, agora, {
       mesas: { a1: [300, 520] },

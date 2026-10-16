@@ -7,6 +7,7 @@
  *   - pediu ajuda     → na mesa, mão levantada (há caso esperando gente)
  *   - pausado         → cochilando num assento da copa
  *   - fora do ar      → descansando num assento, lendo (não atende ninguém)
+ *   - fora do horário → foi para casa: sai pela porta e some (volta no horário)
  *   - livre           → vive: café, água, sofá, alongar, regar planta, ping-pong
  *                       com outro livre, ou arrumando a própria mesa
  *
@@ -24,6 +25,7 @@ import { CATALOGO, PISOS, type ItemDoEscritorio, type LayoutDoEscritorio } from 
 import type { Personagem, SetorId } from './personagens';
 
 export type Atividade =
+  | 'casa'
   | 'mesa'
   | 'digitando'
   | 'ajuda'
@@ -130,6 +132,7 @@ export function atividades(
     else if (p.pausado) saida[p.id] = 'dormindo';
     else if (p.ajuda) saida[p.id] = 'ajuda';
     else if (p.trabalhando) saida[p.id] = 'digitando';
+    else if (p.emCasa) saida[p.id] = 'casa';
     else livres.push(p);
   }
   const sorteados = livres.slice().sort((a, b) => hash(`${a.id}:${janela}`) - hash(`${b.id}:${janela}`));
@@ -144,7 +147,11 @@ export function atividades(
  * Onde o personagem fica para a atividade (o `vaga`-ésimo do grupo). Sem lugar
  * sobrando (mais gente que assento), fica de pé perto do último.
  */
+/** Por onde quem vai para casa sai: o corredor na porta do Atendimento. */
+export const SAIDA: [number, number] = [720, 300];
+
 export function destino(p: Personagem, atividade: Atividade, vaga: number, lugares: Lugares): [number, number] {
+  if (atividade === 'casa') return SAIDA;
   const g = grupoDe(atividade);
   const lista = g ? lugares[g] : [];
   if (lista.length === 0) return [p.mesa[0], p.mesa[1] + 26];

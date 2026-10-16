@@ -77,6 +77,16 @@ describe('a rotina dos agentes no escritório', () => {
     expect(destino(agente('bia'), 'cafe', 0, movido)).toEqual([622, 150]);
   });
 
+  it('fora do expediente vai para casa — mas trabalho de verdade e pedido de ajuda vencem o relógio', () => {
+    const a = atividades(
+      [agente('bia', { emCasa: true }), agente('leo', { emCasa: true, trabalhando: true }), agente('ana', { emCasa: true, ajuda: true })],
+      0,
+      LUGARES,
+    );
+    expect(a).toEqual({ 'agente:bia': 'casa', 'agente:leo': 'digitando', 'agente:ana': 'ajuda' });
+    expect(destino(agente('bia'), 'casa', 0, LUGARES)).toEqual([720, 300]);
+  });
+
   it('dados parados (Painel) não entram na rotina', () => {
     expect(atividades([agente('painel', { rotina: false })], 0, LUGARES)).toEqual({});
   });
@@ -117,5 +127,11 @@ describe('a rotina dos agentes no escritório', () => {
     expect(l.itens).toEqual([]);
     expect(l.visual.a1?.cabelo).toBeUndefined();
     expect(normalizarLayout(null)).toBe(LAYOUT_PADRAO);
+  });
+
+  it('aparência: só homem ou mulher valem; o resto vira "padrão"', () => {
+    const l = normalizarLayout({ itens: [], visual: { a1: { genero: 'mulher' }, a2: { genero: 'robo' } } });
+    expect(l.visual.a1?.genero).toBe('mulher');
+    expect(l.visual.a2?.genero).toBeUndefined();
   });
 });

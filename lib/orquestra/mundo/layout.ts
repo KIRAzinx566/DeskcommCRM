@@ -36,7 +36,11 @@ export interface ItemDoEscritorio {
 
 export type Acessorio = 'headset' | 'oculos' | 'viseira' | 'gravata' | 'coroa' | null;
 
+export type Genero = 'homem' | 'mulher';
+
 export interface VisualDoAgente {
+  /** Muda o desenho (cabelo comprido e boca para mulher); sem escolha, o visual padrão. */
+  genero?: Genero;
   cabelo?: string;
   pele?: string;
   camisa?: string;
@@ -178,7 +182,8 @@ export function normalizarLayout(bruto: unknown): LayoutDoEscritorio {
     for (const [id, v] of Object.entries(b.visual as Record<string, Record<string, unknown>>)) {
       if (!v || typeof v !== 'object') continue;
       const acessorio = ACESSORIOS.some((a) => a.valor === v.acessorio) ? (v.acessorio as Acessorio) : undefined;
-      visual[id] = { cabelo: cor(v.cabelo), pele: cor(v.pele), camisa: cor(v.camisa), acessorio };
+      const genero = v.genero === 'homem' || v.genero === 'mulher' ? v.genero : undefined;
+      visual[id] = { genero, cabelo: cor(v.cabelo), pele: cor(v.pele), camisa: cor(v.camisa), acessorio };
     }
   }
 

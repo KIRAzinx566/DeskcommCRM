@@ -32,9 +32,10 @@ Visão geral.
   reconhece é descartado, nunca quebra a tela.
 - **Comandar pelo Mundo**: clicar num agente abre a mesa dele. Quem administra
   pausa e retoma o automático do agente (e tem o botão **Pausar todos**, com
-  confirmação, para calar todos de uma vez). Quem atende vê os **pedidos de
-  ajuda** que o agente abriu e responde ali mesmo (resolver, pedir informação ao
-  cliente ou passar para a equipe), e vê as **conversas com este agente**, com
+  confirmação, para calar todos de uma vez). Quem atende vê os
+  **pedidos de ajuda** que o agente abriu e responde ali mesmo (resolver, pedir
+  informação ao cliente ou passar para a equipe), e vê as
+  **conversas com este agente**, com
   **Assumir** e **Devolver ao agente**. O balão do agente mostra quando ele
   precisa de você, e um agente pausado aparece pausado. Nenhum comando é novo:
   cada botão usa a mesma ação da tela do agente, da fila de casos e do Inbox.

@@ -224,9 +224,33 @@ const planta = (c: C, x: number, y: number) => {
   R(c, x - 3, y - 20, 6, 8, "#58a066");
   R(c, x + 3, y - 16, 4, 6, "#6bbb7a");
 };
-const janela = (c: C, x: number, y: number, w: number, h: number, ceu: string, tm: number) => {
+/**
+ * A hora do mundo (0–24, no relógio de quem olha), para o céu das janelas e a
+ * luz da noite. Posta por `desenharMundo` a cada quadro.
+ */
+let horaDoMundo = 12;
+
+/** O céu da janela: o tom da sala de dia, laranja no fim de tarde, azul-escuro de noite. */
+function ceuDaHora(ceuDoDia: string): string {
+  const h = horaDoMundo;
+  if (h >= 7 && h < 17) return ceuDoDia;
+  if ((h >= 17 && h < 19) || (h >= 5.5 && h < 7)) return "#f59e6b";
+  return "#1e2a4a";
+}
+const ehNoite = () => horaDoMundo >= 19 || horaDoMundo < 5.5;
+
+const janela = (c: C, x: number, y: number, w: number, h: number, ceuDoDia: string, tm: number) => {
+  const ceu = ceuDaHora(ceuDoDia);
   R(c, x - 3, y - 3, w + 6, h + 6, "#2d241c");
   R(c, x, y, w, h, ceu);
+  if (ehNoite()) {
+    // estrelas
+    for (let i = 0; i < 4; i++) {
+      const sx = x + 3 + ((i * 11 + x) % (w - 6));
+      const sy = y + 3 + ((i * 7 + y) % (h - 6));
+      A(c, 0.5 + 0.5 * Math.sin(tm / 600 + i * 2), () => R(c, sx, sy, 1, 1, "#fff"));
+    }
+  }
   A(c, 0.25, () => R(c, x, y, w, h / 2, "#fff"));
   R(c, x + w / 2 - 1, y, 2, h, "#2d241c");
   R(c, x, y + h / 2 - 1, w, 2, "#2d241c");
@@ -345,16 +369,92 @@ function desenharItem(c: C, item: ItemDoEscritorio, tm: number, pingpong: boolea
   }
 }
 
-function decorAtendimento(c: C, s: Setor, tm: number) {
+/** O placar do dia na TV do Atendimento. Sem placar, a TV mostra o gráfico decorativo. */
+export interface Placar {
+  leads: number;
+  mensagens: number;
+  ajuda: number;
+  /** O nome curto do agente que mais atendeu hoje (só quando alguém atendeu). */
+  destaque: string | null;
+  /** Mensagens hoje vs ontem até a mesma hora, em %. null = sem base para comparar. */
+  variacao?: number | null;
+  /** Vendas fechadas hoje (null = não lido). */
+  vendas?: number | null;
+  /** Uma venda acabou de sair: a TV comemora. */
+  vendaAgora?: string | null;
+}
+
+function decorAtendimento(c: C, s: Setor, tm: number, placar?: Placar, nivel = 0) {
   const { x, y } = s;
   janela(c, x + 10, y + 8, 38, 36, "#ffd49b", tm);
   janela(c, x + 352, y + 8, 38, 36, "#ffd49b", tm);
   R(c, x + 108, y + 4, 184, 44, "#1b1218");
   R(c, x + 111, y + 7, 178, 38, "#2a1c23");
-  const barras = ["#5aa2ff", "#4cd68a", "#f4d35e", "#ff9d6b", "#b58cff"];
-  for (let i = 0; i < 5; i++) {
-    const bw = 150 - i * 26;
-    R(c, x + 200 - bw / 2, y + 10 + i * 7, bw, 5, barras[i]!);
+  if (placar) {
+    c.textAlign = "left";
+    c.textBaseline = "alphabetic";
+    c.font = "700 10px system-ui, sans-serif";
+    c.fillStyle = "#f4d35e";
+    c.fillText("HOJE", x + 116, y + 19);
+    c.font = "600 10px system-ui, sans-serif";
+    c.fillStyle = "#eef0ff";
+    c.fillText(`${placar.leads} leads`, x + 146, y + 19);
+    c.fillText(`${placar.mensagens} msgs`, x + 196, y + 19);
+    c.fillStyle = placar.ajuda > 0 ? "#f4d35e" : "#9aa0b4";
+    c.fillText(`${placar.ajuda} ajuda`, x + 246, y + 19);
+    c.font = "600 10px system-ui, sans-serif";
+    if (placar.vendaAgora !== undefined && placar.vendaAgora !== null) {
+      const pisca = Math.sin(tm / 200) > 0;
+      c.fillStyle = pisca ? "#facc15" : "#f472b6";
+      c.fillText(`🎉 VENDA! ${placar.vendaAgora}`.slice(0, 34), x + 116, y + 37);
+    } else {
+      c.fillStyle = "#4cd68a";
+      c.fillText(placar.destaque ? `★ Destaque: ${placar.destaque}` : "Ninguém atendeu ainda hoje", x + 116, y + 37);
+      const extra: string[] = [];
+      if (placar.vendas) extra.push(`${placar.vendas} venda${placar.vendas === 1 ? "" : "s"}`);
+      if (placar.variacao !== null && placar.variacao !== undefined) {
+        extra.push(`${placar.variacao >= 0 ? "▲" : "▼"}${Math.abs(placar.variacao)}% ontem`);
+      }
+      if (extra.length) {
+        c.textAlign = "right";
+        c.fillStyle = placar.variacao !== null && placar.variacao !== undefined && placar.variacao < 0 ? "#fb7185" : "#a3e635";
+        c.fillText(extra.join(" · "), x + 286, y + 37);
+        c.textAlign = "left";
+      }
+    }
+  } else {
+    const barras = ["#5aa2ff", "#4cd68a", "#f4d35e", "#ff9d6b", "#b58cff"];
+    for (let i = 0; i < 5; i++) {
+      const bw = 150 - i * 26;
+      R(c, x + 200 - bw / 2, y + 10 + i * 7, bw, 5, barras[i]!);
+    }
+  }
+  if (nivel >= 1) {
+    // nível 1: placa de neon "loja em alta" na parede
+    const brilho = 0.75 + 0.25 * Math.sin(tm / 300);
+    A(c, brilho, () => {
+      R(c, x + 58, y + 14, 44, 26, "#3b0764");
+      c.font = "700 8px system-ui, sans-serif";
+      c.fillStyle = "#f0abfc";
+      c.textAlign = "center";
+      c.fillText("LOJA EM", x + 80, y + 25);
+      c.fillText("ALTA ✦", x + 80, y + 35);
+      c.textAlign = "left";
+    });
+  }
+  if (nivel >= 2) {
+    // nível 2: troféu no chão, perto da entrada
+    R(c, x + 316, y + 196, 14, 3, "#a16207");
+    R(c, x + 319, y + 186, 8, 10, "#facc15");
+    R(c, x + 316, y + 186, 3, 4, "#facc15");
+    R(c, x + 327, y + 186, 3, 4, "#facc15");
+    A(c, 0.6, () => R(c, x + 320, y + 187, 2, 4, "#fff"));
+  }
+  if (nivel >= 3) {
+    // nível 3: palmeira grande e um tapete vermelho na entrada
+    R(c, x + 186, y + 214, 28, 10, "#b91c1c");
+    planta(c, x + 30, y + 220);
+    planta(c, x + 40, y + 214);
   }
   R(c, x + 346, y + 150, 26, 34, "#2b2b33");
   R(c, x + 354, y + 168, 10, 8, "#e8e0cf");
@@ -418,7 +518,7 @@ function decorFinanceiro(c: C, s: Setor, tm: number) {
 function mesa(c: C, p: Personagem, tm: number) {
   const [dx, dy] = p.mesa;
   const cor = setorDe(p.setor).cor;
-  if (p.setor === "ops") {
+  if (p.setor === "ops" && !p.humano) {
     R(c, dx - 44, dy - 12, 88, 24, "#101620");
     R(c, dx - 44, dy - 12, 88, 3, "#27425a");
     tela(c, dx - 38, dy - 24, 24, 12, "#6fd1ff", tm, 1, true);
@@ -433,6 +533,27 @@ function mesa(c: C, p: Personagem, tm: number) {
   for (let i = 0; i < 4; i++) R(c, dx - 5, dy - 21 + i * 2.5, 6 + ((tm / 200 + i * 3 + dx) % 9), 1.5, i % 2 ? cor : "#9fb3d6");
   R(c, dx + 16, dy - 8, 6, 6, "#e8e0cf");
   R(c, dx - 9, dy + 12, 18, 9, "#1b1f2a");
+  if (p.medalhas?.length) {
+    // as conquistas, penduradas na frente da mesa
+    p.medalhas.forEach((cor, i) => {
+      const mx = dx - 20 + i * 8;
+      R(c, mx + 1, dy + 2, 1, 3, "#94a3b8");
+      c.fillStyle = cor;
+      c.beginPath();
+      c.arc(mx + 1.5, dy + 7, 3, 0, 7);
+      c.fill();
+    });
+  }
+  if (p.emCasa) {
+    c.font = "700 8px system-ui, sans-serif";
+    c.textAlign = "center";
+    const t = p.voltaEm ? `VOLTA ${p.voltaEm.toUpperCase()}` : "FORA DO EXPEDIENTE";
+    const w = c.measureText(t).width + 8;
+    R(c, dx - w / 2, dy - 4, w, 11, "#1e3a8a");
+    c.fillStyle = "#dbeafe";
+    c.fillText(t, dx, dy + 4);
+    c.textAlign = "left";
+  }
   if (p.foraDoAr) {
     // mesa vazia: o agente está descansando na copa, e a placa diz por quê
     c.font = "700 8px system-ui, sans-serif";
@@ -454,8 +575,11 @@ function personagem(
   atividade: Atividade | undefined,
 ) {
   const cor = p.camisa ?? (p.pausado ? "#7a7f8c" : setorDe(p.setor).cor);
-  const pele = p.pele ?? "#f0cfa8";
+  const bravo = p.espera?.nivel === 2 || p.humor === "irritado";
+  const pele = bravo ? "#f2a48c" : (p.pele ?? "#f0cfa8");
   const andando = Math.hypot(m.alvo[0] - m.x, m.alvo[1] - m.y) > 1 || (m.rota?.length ?? 0) > 0;
+  // foi para casa: saiu pela porta e não aparece mais até voltar o expediente
+  if (atividade === "casa" && !andando) return;
   // a pose só vale quando chegou; andando, é só andar
   const pose = andando ? undefined : atividade;
   const sentado = pose === "sofa" || pose === "dormindo" || pose === "descansando";
@@ -483,7 +607,13 @@ function personagem(
     c.ellipse(x, m.y + 12, 13, 5, 0, 0, 7);
     c.stroke();
   }
-  const perna = andando ? Math.round(Math.sin(m.passo) * 2.5) : 0;
+  // quem espera resposta bate o pé — mais rápido quanto mais espera
+  const batendoPe = !andando && (p.espera?.nivel ?? 0) > 0;
+  const perna = andando
+    ? Math.round(Math.sin(m.passo) * 2.5)
+    : batendoPe
+      ? Math.max(0, Math.round(Math.sin(tm / (p.espera!.nivel === 2 ? 70 : 140)) * 2))
+      : 0;
   if (sentado) {
     R(c, x - 5, y + 7, 10, 3, "#252a3a");
   } else {
@@ -495,7 +625,14 @@ function personagem(
   R(c, x - 6, y + 3, 12, 4, mistura(cor, -0.25));
   // braços: cada pose mexe de um jeito
   const balanco = Math.sin(tm / 180);
-  if (pose === "alongar") {
+  if (p.comemorando && !andando) {
+    // vendeu! os dois braços para cima
+    const pula = Math.round(Math.abs(Math.sin(tm / 160)) * 2);
+    R(c, x - 9, y - 18 - pula, 3, 12, cor);
+    R(c, x + 6, y - 18 - pula, 3, 12, cor);
+    R(c, x - 10, y - 21 - pula, 4, 4, pele);
+    R(c, x + 6, y - 21 - pula, 4, 4, pele);
+  } else if (pose === "alongar") {
     const sobe = Math.sin(tm / 500) > 0;
     R(c, x - 9, y - (sobe ? 18 : 10), 3, 10, cor);
     R(c, x + 6, y - (sobe ? 10 : 18), 3, 10, cor);
@@ -513,10 +650,33 @@ function personagem(
     R(c, x - 9, y - 4 + (braco > 0 ? -1 : 1), 3, 8, cor);
     R(c, x + 6, y - 4 + (braco > 0 ? 1 : -1), 3, 8, cor);
   }
+  if (p.genero === "mulher") {
+    // cabelo comprido: cai dos dois lados até o ombro, por trás do rosto
+    R(c, x - 8, y - 17, 3, 18, p.cabelo);
+    R(c, x + 5, y - 17, 3, 18, p.cabelo);
+  }
   R(c, x - 6, y - 16, 12, 11, "#101018");
   R(c, x - 5, y - 15, 10, 10, pele);
   R(c, x - 6, y - 18, 12, 5, p.cabelo);
   R(c, x - 6, y - 14, 2, 6, p.cabelo);
+  if (p.genero === "mulher") R(c, x + 4, y - 14, 2, 6, p.cabelo);
+  if (pose !== "dormindo") {
+    const bx = x + (d > 0 ? 0 : -4);
+    const boca = p.genero === "mulher" ? "#c2410c" : "#7c2d12";
+    if (p.humor === "feliz" || p.comemorando) {
+      R(c, bx, y - 8, 1, 1, boca);
+      R(c, bx + 1, y - 7, 2, 1, boca);
+      R(c, bx + 3, y - 8, 1, 1, boca);
+    } else if (bravo) {
+      R(c, bx, y - 7, 1, 1, boca);
+      R(c, bx + 1, y - 8, 2, 1, boca);
+      R(c, bx + 3, y - 7, 1, 1, boca);
+      R(c, bx - 1, y - 13, 2, 1, "#1b1f1b"); // sobrancelha franzida
+      R(c, bx + 3, y - 13, 2, 1, "#1b1f1b");
+    } else if (p.genero === "mulher" || p.visitante) {
+      R(c, bx, y - 8, 3, 1, boca);
+    }
+  }
   if (pose === "dormindo") {
     R(c, x - 4, y - 10, 3, 1, "#1b1f1b");
     R(c, x + 1, y - 10, 3, 1, "#1b1f1b");
@@ -577,14 +737,60 @@ function personagem(
   c.textAlign = "center";
   c.textBaseline = "alphabetic";
   const largura = c.measureText(p.nome).width + 10;
-  A(c, 0.8, () => R(c, x - largura / 2, y + 15, largura, 16, "#0b0e22"));
+  A(c, 0.8, () => R(c, x - largura / 2, y + 15, largura, 16, p.visitante ? "#134e4a" : p.humano ? "#3b0764" : "#0b0e22"));
   c.fillStyle = "#eef0ff";
   c.fillText(p.nome, x, y + 27);
   if (digitando && !andando) {
     R(c, x - 13, y - 29, 26, 5, "rgba(0,0,0,.65)");
     R(c, x - 12, y - 28, 24 * m.progresso, 3, cor);
   }
-  if (selecionado || falaAgora) {
+  if (p.espera && p.espera.minutos >= 1 && !andando) {
+    // o reloginho: há quantos minutos o cliente espera resposta
+    const t = `⏱ ${p.espera.minutos} min`;
+    c.font = "700 10px system-ui, sans-serif";
+    c.textAlign = "center";
+    const w = c.measureText(t).width + 10;
+    const fundo = p.espera.nivel === 2 ? "#dc2626" : p.espera.nivel === 1 ? "#f59e0b" : "#334155";
+    const pisca = p.espera.nivel === 2 ? 0.75 + 0.25 * Math.sin(tm / 150) : 1;
+    A(c, pisca, () => R(c, x - w / 2, y - 36, w, 14, fundo));
+    c.fillStyle = "#fff";
+    c.fillText(t, x, y - 25);
+  }
+  if (p.comemorando && !andando) {
+    // confete caindo em volta
+    const cores = ["#f43f5e", "#facc15", "#22c55e", "#38bdf8", "#a855f7"];
+    for (let i = 0; i < 14; i++) {
+      const fase = ((tm / 900 + i * 0.37) % 1);
+      const cx = x - 18 + ((i * 37) % 36) + Math.sin(tm / 200 + i) * 3;
+      const cy = y - 40 + fase * 46;
+      A(c, 1 - fase * 0.6, () => R(c, cx, cy, 2, 3, cores[i % cores.length]!));
+    }
+  }
+  if (p.destaque && !p.visitante) {
+    // estrela de destaque do dia, girando de leve em cima da cabeça
+    const sy = y - 30 + Math.sin(tm / 400) * 1.5;
+    c.fillStyle = "#facc15";
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 5 : 2.2;
+      const a = (Math.PI / 5) * i - Math.PI / 2;
+      c.lineTo(x + Math.cos(a) * r, sy + Math.sin(a) * r);
+    }
+    c.closePath();
+    c.fill();
+  }
+  if (p.fala && !andando) {
+    // o que ele acabou de mandar, de verdade (balão de conversa, verde)
+    const t = p.fala.length > 40 ? `${p.fala.slice(0, 39)}…` : p.fala;
+    c.font = "500 11px system-ui, sans-serif";
+    const bw = c.measureText(t).width + 16;
+    const topo = y - 62;
+    R(c, x - bw / 2 - 1, topo - 1, bw + 2, 22, "#16a34a");
+    R(c, x - bw / 2, topo, bw, 20, "#f0fdf4");
+    R(c, x - 3, topo + 20, 6, 4, "#16a34a");
+    c.fillStyle = "#14532d";
+    c.fillText(t, x, topo + 14);
+  } else if (selecionado || falaAgora) {
     const t = p.tarefa.length > 34 ? `${p.tarefa.slice(0, 33)}…` : p.tarefa;
     c.font = "600 12px system-ui, sans-serif";
     const bw = c.measureText(t).width + 16;
@@ -646,8 +852,14 @@ export function desenharMundo(
     editando?: boolean;
     /** No editor: `item:<id>` ou `mesa:<id do personagem>`. */
     escolhidoNoEditor?: string | null;
+    /** 0–24: céu das janelas e luz da noite. Sem hora, meio-dia. */
+    hora?: number;
+    placar?: Placar;
+    /** O nível do escritório no mês (0–3): enfeites que o volume real desbloqueia. */
+    nivel?: number;
   } = {},
 ) {
+  horaDoMundo = opcoes.hora ?? 12;
   const k = opcoes.vista?.k ?? 1;
   c.setTransform(dpr * k, 0, 0, dpr * k, opcoes.vista ? -opcoes.vista.x * dpr * k : 0, opcoes.vista ? -opcoes.vista.y * dpr * k : 0);
   c.imageSmoothingEnabled = false;
@@ -657,7 +869,7 @@ export function desenharMundo(
     piso(c, s, opcoes.layout?.salas[s.id]?.piso);
     paredes(c, s);
     if (s.id === "copa") decorCopa(c, s, tm);
-    else if (s.id === "comercial") decorAtendimento(c, s, tm);
+    else if (s.id === "comercial") decorAtendimento(c, s, tm, opcoes.placar, opcoes.nivel ?? 0);
     else if (s.id === "ops") decorOperacoes(c, s, tm);
     else if (s.id === "dados") decorDesempenho(c, s, tm);
     else decorFinanceiro(c, s, tm);
@@ -691,6 +903,7 @@ export function desenharMundo(
     const m = movimentos[p.id];
     if (m) personagem(c, p, m, opcoes.selecionado === p.id, tm, personagens.indexOf(p) === vez, opcoes.atividades?.[p.id]);
   }
+  if (ehNoite()) A(c, 0.22, () => R(c, 0, 0, LARGURA, ALTURA, "#0a1030"));
   for (const s of SETORES) {
     placa(c, s, s.id === "financeiro" || s.id === "ops", opcoes.layout?.salas[s.id]?.nome);
     const aviso = opcoes.avisos?.[s.id];

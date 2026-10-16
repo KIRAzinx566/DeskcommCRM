@@ -16,9 +16,9 @@
  */
 import * as React from 'react';
 
-import { avancar, ALTURA, desenharMundo, LARGURA, type Movimento } from '@/lib/orquestra/mundo/desenho';
+import { avancar, ALTURA, desenharMundo, LARGURA, type Movimento, type Placar, type Vista } from '@/lib/orquestra/mundo/desenho';
 import { CATALOGO, LAYOUT_PADRAO, type LayoutDoEscritorio } from '@/lib/orquestra/mundo/layout';
-import type { Cena, Personagem, SetorId } from '@/lib/orquestra/mundo/personagens';
+import { PORTA_DOS_VISITANTES, type Cena, type Personagem, type SetorId } from '@/lib/orquestra/mundo/personagens';
 import { atividades, caminho, destino, grupoDe, lugaresDoLayout, type Lugares } from '@/lib/orquestra/mundo/rotina';
 
 const frente = (p: Personagem): [number, number] => [p.mesa[0], p.mesa[1] + 26];
@@ -39,8 +39,24 @@ interface Props {
   aoEscolherNoEditor?: (alvo: AlvoDoEditor | null) => void;
   /** Arrastou: o canto superior esquerdo novo (item) ou o centro novo (mesa). */
   aoMover?: (alvo: AlvoDoEditor, x: number, y: number) => void;
+  /** Leads sendo atendidos agora: entram pela porta e vão até o lugar deles. */
+  visitantes?: ReadonlyArray<{ personagem: Personagem; lugar: [number, number] }>;
+  /** O placar do dia na TV do Atendimento. */
+  placar?: Placar;
+  /** Nível do escritório no mês (0–3): enfeites desbloqueados pelo volume real. */
+  nivel?: number;
+  /** Zoom numa sala (celular): o pedaço do mapa que aparece. Sem vista, o mapa inteiro. */
+  vista?: Vista | null;
   rotulo: string;
 }
+
+const SEM_VISITANTES: NonNullable<Props['visitantes']> = [];
+
+/** A hora de agora (0–24) no relógio de quem olha — céu das janelas e luz da noite. */
+const horaAgora = () => {
+  const d = new Date();
+  return d.getHours() + d.getMinutes() / 60;
+};
 
 /** Atividade → lugar de cada personagem, dividindo os lugares de cada grupo. */
 function posicoes(personagens: readonly Personagem[], agora: Record<string, string>, lugares: Lugares) {
@@ -68,6 +84,10 @@ export function MundoDosAgentes({
   escolhidoNoEditor = null,
   aoEscolherNoEditor,
   aoMover,
+  visitantes = SEM_VISITANTES,
+  placar,
+  nivel = 0,
+  vista = null,
   rotulo,
 }: Props) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -75,10 +95,15 @@ export function MundoDosAgentes({
   const lugares = React.useMemo(() => lugaresDoLayout(layout), [layout]);
   // O laço de animação lê o estado mais novo por aqui, sem reiniciar a cada
   // releitura. Atualizado depois do render, nunca durante.
-  const estado = React.useRef({ cena, avisos, selecionado, layout, lugares, editando, escolhidoNoEditor });
+  const estado = React.useRef({ cena, avisos, selecionado, layout, lugares, editando, escolhidoNoEditor, visitantes, placar, nivel, vista });
   React.useEffect(() => {
-    estado.current = { cena, avisos, selecionado, layout, lugares, editando, escolhidoNoEditor };
-  }, [cena, avisos, selecionado, layout, lugares, editando, escolhidoNoEditor]);
+    estado.current = { cena, avisos, selecionado, layout, lugares, editando, escolhidoNoEditor, visitantes, placar, nivel, vista };
+  }, [cena, avisos, selecionado, layout, lugares, editando, escolhidoNoEditor, visitantes, placar, nivel, vista]);
+  // Quem está desenhado agora (agentes, equipe, visitantes) — para o clique achar qualquer um.
+  const desenhados = React.useRef<Personagem[]>([]);
+  // Visitante que saiu da lista ainda anda até a porta antes de sumir: guarda o desenho dele.
+  const saindo = React.useRef<Map<string, Personagem>>(new Map());
+  const visitantesVistos = React.useRef<Map<string, Personagem>>(new Map());
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -140,6 +165,57 @@ export function MundoDosAgentes({
           avancar(m, p.trabalhando || atividade === 'digitando', dt);
         }
       }
+      // ── visitantes: entram pela porta, vão ao lugar; quem sumiu da lista volta e sai ──
+      const presentes = new Set<string>();
+      for (const { personagem: v, lugar } of atual.visitantes) {
+        presentes.add(v.id);
+        saindo.current.delete(v.id);
+        const m = (movimentos.current[v.id] ??= {
+          x: PORTA_DOS_VISITANTES[0],
+          y: PORTA_DOS_VISITANTES[1],
+          dir: 1,
+          passo: 0,
+          progresso: 0,
+          alvo: PORTA_DOS_VISITANTES,
+        });
+        const chave = `${lugar[0]},${lugar[1]}`;
+        if (m.destino !== chave) {
+          m.destino = chave;
+          const [primeiro, ...resto] = caminho([m.x, m.y], lugar);
+          m.alvo = primeiro!;
+          m.rota = resto;
+        }
+        if (parado) {
+          m.x = lugar[0];
+          m.y = lugar[1];
+          m.alvo = lugar;
+          m.rota = [];
+        } else avancar(m, false, dt);
+      }
+      for (const [id, m] of Object.entries(movimentos.current)) {
+        if (!id.startsWith('visita:') || presentes.has(id)) continue;
+        if (!saindo.current.has(id)) {
+          const ultimo = visitantesVistos.current.get(id);
+          if (!ultimo || parado) {
+            delete movimentos.current[id];
+            continue;
+          }
+          saindo.current.set(id, { ...ultimo, tarefa: 'Atendimento encerrado, indo embora' });
+          m.destino = 'saindo';
+          const [primeiro, ...resto] = caminho([m.x, m.y], PORTA_DOS_VISITANTES);
+          m.alvo = primeiro!;
+          m.rota = resto;
+        }
+        avancar(m, false, dt);
+        if (!m.rota?.length && Math.hypot(m.alvo[0] - m.x, m.alvo[1] - m.y) < 1) {
+          delete movimentos.current[id];
+          saindo.current.delete(id);
+        }
+      }
+      for (const { personagem } of atual.visitantes) visitantesVistos.current.set(personagem.id, personagem);
+      const todos = [...atual.cena.personagens, ...atual.visitantes.map((v) => v.personagem), ...saindo.current.values()];
+      desenhados.current = todos;
+
       const jogadores = atual.cena.personagens.filter((p) => agora[p.id] === 'pingpong');
       const pingpong =
         jogadores.length === 2 &&
@@ -147,7 +223,7 @@ export function MundoDosAgentes({
           const m = movimentos.current[p.id]!;
           return !m.rota?.length && Math.hypot(m.alvo[0] - m.x, m.alvo[1] - m.y) < 1;
         });
-      desenharMundo(ctx, dpr, parado ? 0 : tm, atual.cena.personagens, movimentos.current, {
+      desenharMundo(ctx, dpr, parado ? 0 : tm, todos, movimentos.current, {
         selecionado: atual.selecionado ?? undefined,
         avisos: atual.avisos,
         atividades: agora,
@@ -155,6 +231,10 @@ export function MundoDosAgentes({
         layout: atual.layout,
         editando: atual.editando,
         escolhidoNoEditor: atual.escolhidoNoEditor,
+        hora: horaAgora(),
+        placar: atual.placar,
+        nivel: atual.nivel,
+        vista: atual.vista ?? undefined,
       });
     };
 
@@ -187,7 +267,10 @@ export function MundoDosAgentes({
 
   function pontoNoMapa(e: React.PointerEvent<HTMLCanvasElement>): [number, number] {
     const r = e.currentTarget.getBoundingClientRect();
-    return [((e.clientX - r.left) * LARGURA) / r.width, ((e.clientY - r.top) * ALTURA) / r.height];
+    const sx = ((e.clientX - r.left) * LARGURA) / r.width;
+    const sy = ((e.clientY - r.top) * ALTURA) / r.height;
+    // com zoom numa sala, o ponto da tela volta para o mapa
+    return vista ? [sx / vista.k + vista.x, sy / vista.k + vista.y] : [sx, sy];
   }
 
   /** O que está sob o ponteiro no editor: a mesa ou o móvel de cima. */
@@ -220,8 +303,8 @@ export function MundoDosAgentes({
     }
     if (!aoSelecionar) return;
     let melhor: string | null = null;
-    let distancia = 28;
-    for (const p of cena.personagens) {
+    let distancia = 28 / (vista?.k ?? 1);
+    for (const p of desenhados.current.length ? desenhados.current : cena.personagens) {
       const m = movimentos.current[p.id];
       if (!m) continue;
       const d = Math.hypot(m.x - x, m.y - 4 - y);
