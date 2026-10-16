@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MundoDosAgentes } from "@/components/orquestra/MundoDosAgentes";
+import { ComandosDoAgente, PausarTodos } from "@/components/orquestra/ComandosDoAgente";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { useT } from "@/hooks/i18n/useT";
 import { useIdioma } from "@/lib/i18n/IdiomaProvider";
@@ -13,13 +14,15 @@ import { tagDeIdioma } from "@/lib/i18n/datas";
 import { useConversationCounts } from "@/hooks/inbox/useConversationCounts";
 import { usePainelDoOrquestra } from "@/hooks/orquestra/usePainelDoOrquestra";
 import { montarCena, type SetorId } from "@/lib/orquestra/mundo/personagens";
+import { atividades, lugaresDoLayout, type Atividade } from "@/lib/orquestra/mundo/rotina";
+import { LAYOUT_PADRAO } from "@/lib/orquestra/mundo/layout";
 
 /** O nome do setor na língua da tela — literal por setor, para o dicionário enxergar cada chave. */
 function useNomeDoSetor(): (s: SetorId) => string {
   const t = useT();
   return (s) =>
-    s === "marketing"
-      ? t("Marketing")
+    s === "copa"
+      ? t("Copa")
       : s === "comercial"
         ? t("Atendimento")
         : s === "ops"
@@ -27,6 +30,31 @@ function useNomeDoSetor(): (s: SetorId) => string {
           : s === "dados"
             ? t("Desempenho")
             : t("Financeiro");
+}
+
+/** O que o agente livre está fazendo — literal por atividade, para o dicionário enxergar cada chave. */
+function usePausaDoLivre(): (a: Atividade | undefined) => string | null {
+  const t = useT();
+  return (a) => {
+    switch (a) {
+      case "cafe":
+        return t("tomando um café");
+      case "agua":
+        return t("bebendo água");
+      case "sofa":
+        return t("descansando no sofá");
+      case "alongar":
+        return t("se alongando");
+      case "planta":
+        return t("regando as plantas");
+      case "pingpong":
+        return t("jogando ping-pong");
+      case "mesa":
+        return t("arrumando a mesa");
+      default:
+        return null;
+    }
+  };
 }
 
 /** Hora no fuso da organização, no idioma de quem lê (`tagDeIdioma`). */
@@ -37,6 +65,7 @@ function hora(iso: string, fuso: string, idioma: string): string {
 export function Mundo() {
   const t = useT();
   const nomeDoSetor = useNomeDoSetor();
+  const pausaDoLivre = usePausaDoLivre();
   const idioma = tagDeIdioma(useIdioma());
   const { activeOrg } = useAuth();
   const painel = usePainelDoOrquestra("hoje");
@@ -46,19 +75,29 @@ export function Mundo() {
   const fila = contagens.data?.fila ?? contagens.data?.unassigned ?? null;
 
   const cena = React.useMemo(
-    () => (p ? montarCena(p, fila, new Date(p.geradoEm)) : { personagens: [], agentesAlemDasMesas: 0 }),
+    () => (p ? montarCena(p, fila, new Date(p.geradoEm), p.escritorio) : { personagens: [], agentesAlemDasMesas: 0 }),
     [p, fila],
   );
   const avisos = React.useMemo(
     () => ({
-      marketing: t("Nenhum agente de conteúdo aqui ainda"),
       ...(p?.agentes?.length === 0 ? { comercial: t("Nenhum agente de IA criado ainda") } : {}),
       ...(cena.agentesAlemDasMesas > 0 ? { comercial: `+${cena.agentesAlemDasMesas} ${t("agentes além das mesas")}` } : {}),
     }),
     [t, p, cena.agentesAlemDasMesas],
   );
 
+  // A pose de quem está livre muda a cada janela da rotina; o painel acompanha o desenho.
+  const [relogio, setRelogio] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setRelogio(Date.now()), 5_000);
+    return () => clearInterval(id);
+  }, []);
+  const layout = p?.escritorio ?? LAYOUT_PADRAO;
+  const lugares = React.useMemo(() => lugaresDoLayout(layout), [layout]);
+  const poses = React.useMemo(() => atividades(cena.personagens, relogio, lugares), [cena.personagens, relogio, lugares]);
+
   const escolhido = cena.personagens.find((x) => x.id === selecionado) ?? null;
+  const rotuloDaPose = escolhido ? pausaDoLivre(poses[escolhido.id]) : null;
   const agenteEscolhido = escolhido?.id.startsWith("agente:")
     ? p?.agentes?.find((a) => `agente:${a.id}` === escolhido.id)
     : undefined;
@@ -70,19 +109,23 @@ export function Mundo() {
           <h1 className="text-2xl font-semibold tracking-tight">{t("Mundo dos agentes")}</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
             {t(
-              "Cada personagem é um dado de verdade: seus agentes de IA no Atendimento, a fila da equipe em Operações, o caixa do dia no Financeiro. Clique em alguém para ver o que está acontecendo.",
+              "Cada personagem é um dado de verdade: seus agentes de IA no Atendimento, a fila da equipe em Operações, o caixa do dia no Financeiro. Clique em um agente para comandá-lo.",
             )}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/app/orquestra">{t("Visão geral")}</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {p?.agentes ? <PausarTodos agentes={p.agentes} /> : null}
+          <Button asChild variant="outline">
+            <Link href="/app/orquestra">{t("Visão geral")}</Link>
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
         <Card className="overflow-hidden p-2">
           <MundoDosAgentes
             cena={cena}
+            layout={layout}
             avisos={avisos}
             selecionado={selecionado}
             aoSelecionar={setSelecionado}
@@ -99,15 +142,23 @@ export function Mundo() {
                 <p className="mt-2 text-sm">
                   <b>{t("Agora:")}</b> {escolhido.tarefa}
                 </p>
-                {agenteEscolhido ? (
+                {escolhido.rotina && poses[escolhido.id] === "descansando" ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("Fora do ar: descansando na copa até voltar a atender.")}
+                  </p>
+                ) : null}
+                {rotuloDaPose && escolhido.rotina ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("Livre — enquanto isso,")} {rotuloDaPose}. {t("Volta para a mesa assim que chegar trabalho.")}
+                  </p>
+                ) : null}
+                {agenteEscolhido && p ? (
                   <>
                     <p className="mt-2 text-xs text-muted-foreground">
                       {agenteEscolhido.turnosHoje} {t("atendimentos hoje")}
                       {agenteEscolhido.falhasHoje > 0 ? ` · ${agenteEscolhido.falhasHoje} ${t("com erro")}` : ""}
                     </p>
-                    <Link href={`/app/ai/agents/${agenteEscolhido.id}`} className="mt-3 inline-block text-sm underline">
-                      {t("Abrir o agente")}
-                    </Link>
+                    <ComandosDoAgente agente={agenteEscolhido} idioma={idioma} fuso={p.fuso} />
                   </>
                 ) : escolhido.id === "equipe" ? (
                   <Link href="/app/inbox" className="mt-3 inline-block text-sm underline">

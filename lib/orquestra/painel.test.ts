@@ -83,6 +83,14 @@ describe("agentes e diário", () => {
     expect(leo).toMatchObject({ ativo: false, turnosHoje: 0, ultimoTurnoEm: null, ultimaAcao: null });
   });
 
+  it("pausa e pedidos de ajuda vêm do banco, por agente", () => {
+    const pausada = { ...BIA, paused_at: "2026-10-07T12:00:00Z" };
+    const casos = [{ agent_id: "a1" }, { agent_id: "a1" }, { agent_id: "a2" }, { agent_id: null }];
+    const [bia, leo] = montarAgentes([pausada, LEO], turnos, null, casos);
+    expect(bia).toMatchObject({ ativo: true, pausadoEm: "2026-10-07T12:00:00Z", pedidosDeAjuda: 2 });
+    expect(leo).toMatchObject({ pausadoEm: null, pedidosDeAjuda: 1 });
+  });
+
   it("sem auditoria (quem não administra), nenhum agente ganha 'última ação'", () => {
     const [bia] = montarAgentes([BIA], turnos, null);
     expect(bia!.ultimaAcao).toBeNull();

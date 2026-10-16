@@ -15006,7 +15006,7 @@ export const DICIONARIO: Traducoes = {
   "Nenhum agente de conteúdo aqui ainda": { es: "Aún no hay agente de contenido aquí" },
   "Nenhum agente de IA criado ainda": { es: "Aún no se creó ningún agente de IA" },
   "agentes além das mesas": { es: "agentes además de los escritorios" },
-  "Cada personagem é um dado de verdade: seus agentes de IA no Atendimento, a fila da equipe em Operações, o caixa do dia no Financeiro. Clique em alguém para ver o que está acontecendo.": { es: "Cada personaje es un dato real: sus agentes de IA en Atención, la fila del equipo en Operaciones, la caja del día en Finanzas. Haga clic en alguien para ver qué está pasando." },
+  "Cada personagem é um dado de verdade: seus agentes de IA no Atendimento, a fila da equipe em Operações, o caixa do dia no Financeiro. Clique em um agente para comandá-lo.": { es: "Cada personaje es un dato real: sus agentes de IA en Atención, la fila del equipo en Operaciones, la caja del día en Finanzas. Haga clic en un agente para comandarlo." },
   "Mapa do mundo dos agentes": { es: "Mapa del mundo de los agentes" },
   "atendimentos hoje": { es: "atenciones hoy" },
   "Abrir o agente": { es: "Abrir el agente" },
@@ -15022,6 +15022,33 @@ export const DICIONARIO: Traducoes = {
   "Período inválido.": { es: "Período inválido." },
   "O caixa, a fila, o funil e o que cada agente de IA está fazendo agora — num quadro só.": { es: "La caja, la fila, el embudo y lo que cada agente de IA está haciendo ahora — en un solo tablero." },
   "Os agentes de IA e a operação desenhados como um escritório, com o que está acontecendo de verdade.": { es: "Los agentes de IA y la operación dibujados como una oficina, con lo que está pasando de verdad." },
+  // ─── Modo Orquestra: comandos do agente no Mundo (components/orquestra/ComandosDoAgente) ───
+  "Agente desativado. Ative-o na tela do agente.": { es: "Agente desactivado. Actívelo en la pantalla del agente." },
+  "Pausado: ele não responde ninguém até você retomar.": { es: "En pausa: no responde a nadie hasta que usted lo reanude." },
+  "Pausar cala este agente em todas as conversas, sem despublicar nada.": { es: "Pausar silencia a este agente en todas las conversaciones, sin despublicar nada." },
+  "Pedidos de ajuda": { es: "Pedidos de ayuda" },
+  "Não deu para carregar a mesa do agente.": { es: "No se pudo cargar el escritorio del agente." },
+  "Ninguém esperando você aqui.": { es: "Nadie lo está esperando aquí." },
+  "Travou em:": { es: "Se trabó en:" },
+  "Conversas com este agente": { es: "Conversaciones con este agente" },
+  "Nenhuma conversa em andamento com ele.": { es: "Ninguna conversación en curso con él." },
+  "Devolver ao agente": { es: "Devolver al agente" },
+  "Retomar todos": { es: "Reanudar todos" },
+  "Calar todos os agentes agora?": { es: "¿Silenciar a todos los agentes ahora?" },
+  "Pausar todos": { es: "Pausar todos" },
+
+  // ─── Modo Orquestra: a copa e a rotina dos agentes (lib/orquestra/mundo/rotina.ts) ───
+  "Copa": { es: "Cocina" },
+  "tomando um café": { es: "tomando un café" },
+  "bebendo água": { es: "tomando agua" },
+  "descansando no sofá": { es: "descansando en el sofá" },
+  "se alongando": { es: "estirándose" },
+  "regando as plantas": { es: "regando las plantas" },
+  "jogando ping-pong": { es: "jugando ping-pong" },
+  "arrumando a mesa": { es: "ordenando el escritorio" },
+  "Livre — enquanto isso,": { es: "Libre — mientras tanto," },
+  "Volta para a mesa assim que chegar trabalho.": { es: "Vuelve al escritorio en cuanto llegue trabajo." },
+  "Fora do ar: descansando na copa até voltar a atender.": { es: "Fuera de línea: descansando en la cocina hasta volver a atender." },
 };
 
 /**

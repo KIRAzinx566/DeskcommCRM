@@ -94,30 +94,52 @@ describe("a cena do Mundo dos agentes", () => {
         id: "a1",
         nome: "Bia",
         ativo: true,
+        publicado: true,
+        pausadoEm: null,
+        pedidosDeAjuda: 0,
         turnosHoje: 4,
         falhasHoje: 0,
         ultimoTurnoEm: "2026-10-07T14:57:00.000Z",
         ultimaAcao: { rotulo: "Procurar produto na loja", em: "2026-10-07T14:57:00.000Z" },
       },
-      { id: "a2", nome: "Leo", ativo: false, turnosHoje: 0, falhasHoje: 0, ultimoTurnoEm: null, ultimaAcao: null },
+      { id: "a2", nome: "Leo", ativo: false, publicado: true, pausadoEm: null, pedidosDeAjuda: 0, turnosHoje: 0, falhasHoje: 0, ultimoTurnoEm: null, ultimaAcao: null },
     ],
     caixa: { entradasCents: 0, saidasCents: 0, porDia: [], lancamentosHoje: 2 },
     passagensHoje: 1,
   };
 
-  it("cada personagem é um dado: os agentes, a fila, o caixa e o painel — e o Marketing vazio", () => {
+  it("cada personagem é um dado: os agentes, a fila, o caixa e o painel — a copa é lugar, não personagem", () => {
     const { personagens } = montarCena(painel, 3, agora);
     expect(personagens.map((p) => p.id)).toEqual(["agente:a1", "agente:a2", "equipe", "caixa", "painel"]);
-    expect(personagens.some((p) => p.setor === "marketing")).toBe(false);
+    expect(personagens.some((p) => p.setor === "copa")).toBe(false);
+    expect(personagens.filter((p) => p.rotina).map((p) => p.id)).toEqual(["agente:a1", "agente:a2"]);
   });
 
   it("a frase é o fato, nunca sorteada", () => {
     const porId = Object.fromEntries(montarCena(painel, 3, agora).personagens.map((p) => [p.id, p]));
     expect(porId["agente:a1"]).toMatchObject({ tarefa: "Procurar produto na loja", trabalhando: true });
-    expect(porId["agente:a2"]).toMatchObject({ tarefa: "Pausado", trabalhando: false, pausado: true });
+    expect(porId["agente:a2"]).toMatchObject({ tarefa: "Fora do ar: desativado", trabalhando: false, foraDoAr: true });
     expect(porId.equipe!.tarefa).toBe("3 conversas esperando vocês");
     expect(porId.caixa!.tarefa).toBe("2 lançamentos hoje");
     expect(porId.painel!.tarefa).toBe("4 atendimentos de IA · 1 passagem");
+  });
+
+  it("pausado pela tela (paused_at) aparece pausado, mesmo ativo e com turno recente", () => {
+    const pausada = { ...painel, agentes: [{ ...painel.agentes![0]!, pausadoEm: "2026-10-07T14:58:00.000Z" }] };
+    const [bia] = montarCena(pausada, null, agora).personagens;
+    expect(bia).toMatchObject({ tarefa: "Pausado", trabalhando: false, pausado: true });
+  });
+
+  it("ativo mas sem versão publicada também está fora do ar — o motor não atende sem versão", () => {
+    const semVersao = { ...painel, agentes: [{ ...painel.agentes![0]!, publicado: false }] };
+    const [bia] = montarCena(semVersao, null, agora).personagens;
+    expect(bia).toMatchObject({ tarefa: "Fora do ar: ainda não publicado", foraDoAr: true, trabalhando: false });
+  });
+
+  it("pedido de ajuda aberto vira a frase do balão — é o que o dono precisa ver primeiro", () => {
+    const comCasos = { ...painel, agentes: [{ ...painel.agentes![0]!, pedidosDeAjuda: 2 }] };
+    const [bia] = montarCena(comCasos, null, agora).personagens;
+    expect(bia).toMatchObject({ tarefa: "Precisa de você: 2 pedidos de ajuda", ajuda: true });
   });
 
   it("turno antigo não é 'trabalhando agora'", () => {
@@ -133,8 +155,16 @@ describe("a cena do Mundo dos agentes", () => {
   });
 
   it("mais agentes que mesas: os que sobram são contados, não escondidos em silêncio", () => {
-    const muitos = Array.from({ length: 7 }, (_, i) => ({ ...painel.agentes![1]!, id: `x${i}`, nome: `A${i}` }));
+    const muitos = Array.from({ length: 12 }, (_, i) => ({ ...painel.agentes![1]!, id: `x${i}`, nome: `A${i}` }));
     const cena = montarCena({ ...painel, agentes: muitos }, 0, agora);
     expect(cena.agentesAlemDasMesas).toBe(2);
+  });
+
+  it("o layout do editor manda: mesa movida e visual escolhido chegam ao personagem", () => {
+    const [bia] = montarCena(painel, null, agora, {
+      mesas: { a1: [300, 520] },
+      visual: { a1: { cabelo: "#ff0000", camisa: "#00ff00", acessorio: null } },
+    }).personagens;
+    expect(bia).toMatchObject({ mesa: [300, 520], cabelo: "#ff0000", camisa: "#00ff00", acessorio: null });
   });
 });

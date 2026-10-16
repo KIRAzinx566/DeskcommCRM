@@ -38,6 +38,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "@/lib/logger";
 import { TOOL_CATALOG } from "@/lib/mcp/tools/catalog";
+import { normalizarLayout, type LayoutDoEscritorio } from "@/lib/orquestra/mundo/layout";
 import { isoLocalComOffset } from "@/lib/tempo/agora";
 import { FUSO_PADRAO, fusoValido } from "@/lib/tempo/fusos";
 
@@ -55,6 +56,16 @@ export interface AgenteNoPainel {
   id: string;
   nome: string;
   ativo: boolean;
+  /** Tem versão publicada — sem ela o motor não atende, mesmo ativo. */
+  publicado: boolean;
+  /**
+   * Pausado pela tela (`POST .../pause` grava `paused_at`): segue publicado, mas
+   * o turno não roda. É diferente de `ativo=false` — e o Mundo precisa mostrar
+   * os dois, senão o botão "Pausar" não muda nada no desenho.
+   */
+  pausadoEm: string | null;
+  /** Casos que ele abriu e esperam uma pessoa (`agent_cases` em `awaiting_human`). */
+  pedidosDeAjuda: number;
   /** Turnos de atendimento hoje (no fuso da organização). */
   turnosHoje: number;
   /** Turnos que terminaram em erro hoje. */
@@ -96,6 +107,11 @@ export interface PainelDoOrquestra {
   diario: EntradaDoDiario[];
   /** O diário diz O QUE os agentes fizeram (auditoria) ou só QUANDO atenderam (turnos). */
   diarioDetalhado: boolean;
+  /**
+   * O escritório montado no editor do FBhub (`organizations.settings.escritorio`,
+   * gravado pela edge function crm-office-layout de lá). Sem nada salvo, o padrão.
+   */
+  escritorio: LayoutDoEscritorio;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,9 +208,16 @@ interface LinhaDaAuditoria {
 }
 
 export function montarAgentes(
-  agentes: ReadonlyArray<{ id: string; name: string; is_active: boolean }>,
+  agentes: ReadonlyArray<{
+    id: string;
+    name: string;
+    is_active: boolean;
+    paused_at?: string | null;
+    published_version_id?: string | null;
+  }>,
   turnos: readonly LinhaDoTurno[],
   auditoria: readonly LinhaDaAuditoria[] | null,
+  casosAbertos: ReadonlyArray<{ agent_id: string | null }> = [],
 ): AgenteNoPainel[] {
   return agentes.map((a) => {
     const meus = turnos.filter((t) => t.agent_id === a.id);
@@ -206,6 +229,9 @@ export function montarAgentes(
       id: a.id,
       nome: a.name,
       ativo: a.is_active,
+      publicado: !!a.published_version_id,
+      pausadoEm: a.paused_at ?? null,
+      pedidosDeAjuda: casosAbertos.filter((c) => c.agent_id === a.id).length,
       turnosHoje: meus.length,
       falhasHoje: meus.filter((t) => t.status !== null && t.status !== "ok").length,
       ultimoTurnoEm: ultimoTurno,
@@ -286,16 +312,18 @@ export async function carregarPainel(
   const { orgId } = input;
 
   const org = await secao("organizacao", orgId, async () =>
-    semErro(await db.from("organizations").select("timezone, currency").eq("id", orgId).maybeSingle()),
+    semErro(
+      await db.from("organizations").select("timezone, currency, escritorio:settings->escritorio").eq("id", orgId).maybeSingle(),
+    ),
   );
-  const linhaDaOrg = org as { timezone?: string | null; currency?: string | null } | null;
+  const linhaDaOrg = org as { timezone?: string | null; currency?: string | null; escritorio?: unknown } | null;
   const fuso = linhaDaOrg?.timezone && fusoValido(linhaDaOrg.timezone) ? linhaDaOrg.timezone : FUSO_PADRAO;
   const moeda = linhaDaOrg?.currency || "BRL";
   const hoje = diaNoFuso(agora, fuso);
   const inicioDeHoje = meiaNoite(hoje, fuso, agora).toISOString();
   const primeiroDia = primeiroDiaDoPeriodo(input.periodo, agora, fuso);
 
-  const [caixa, funil, canais, agentesBrutos, turnos, auditoria, passagensHoje, produtosAtivos] = await Promise.all([
+  const [caixa, funil, canais, agentesBrutos, turnos, auditoria, passagensHoje, produtosAtivos, casosAbertos] = await Promise.all([
     secao("caixa", orgId, async () => {
       const linhas = semErro<LinhaDoCaixa[]>(
         await db
@@ -372,10 +400,12 @@ export async function carregarPainel(
       }));
     }),
     secao("agentes", orgId, async () =>
-      semErro<Array<{ id: string; name: string; is_active: boolean }>>(
+      semErro<
+        Array<{ id: string; name: string; is_active: boolean; paused_at: string | null; published_version_id: string | null }>
+      >(
         await db
           .from("ai_agents")
-          .select("id, name, is_active")
+          .select("id, name, is_active, paused_at, published_version_id")
           .eq("organization_id", orgId)
           .is("archived_at", null)
           .order("priority", { ascending: true }),
@@ -425,6 +455,16 @@ export async function carregarPainel(
       if (r.error) throw new Error(r.error.message);
       return r.count ?? 0;
     }),
+    secao("casos", orgId, async () =>
+      semErro<Array<{ agent_id: string | null }>>(
+        await db
+          .from("agent_cases")
+          .select("agent_id")
+          .eq("organization_id", orgId)
+          .eq("status", "awaiting_human")
+          .limit(500),
+      ),
+    ),
   ]);
 
   const listaDeAgentes = agentesBrutos ?? [];
@@ -437,10 +477,11 @@ export async function carregarPainel(
     caixa,
     funil,
     canais,
-    agentes: agentesBrutos ? montarAgentes(listaDeAgentes, listaDeTurnos, auditoria) : null,
+    agentes: agentesBrutos ? montarAgentes(listaDeAgentes, listaDeTurnos, auditoria, casosAbertos ?? []) : null,
     passagensHoje,
     produtosAtivos,
     diario: montarDiario(listaDeAgentes, listaDeTurnos, auditoria),
     diarioDetalhado: auditoria !== null,
+    escritorio: normalizarLayout(linhaDaOrg?.escritorio),
   };
 }

@@ -97,7 +97,7 @@ export function VisaoGeral() {
   const semDado = t("Sem dado para mostrar");
 
   const cena = React.useMemo(
-    () => (p ? montarCena(p, fila, new Date(p.geradoEm)) : { personagens: [], agentesAlemDasMesas: 0 }),
+    () => (p ? montarCena(p, fila, new Date(p.geradoEm), p.escritorio) : { personagens: [], agentesAlemDasMesas: 0 }),
     [p, fila],
   );
 
@@ -328,7 +328,7 @@ export function VisaoGeral() {
           </Button>
         </div>
         <Link href="/app/orquestra/mundo" className="mt-3 block" aria-label={t("Abrir o mundo dos agentes")}>
-          <MundoDosAgentes cena={cena} compacto rotulo={t("Miniatura do mundo dos agentes")} />
+          <MundoDosAgentes cena={cena} layout={p?.escritorio} compacto rotulo={t("Miniatura do mundo dos agentes")} />
         </Link>
       </Card>
     </div>

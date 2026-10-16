@@ -13,14 +13,19 @@
  *     da Fila do Inbox).
  *   - FINANCEIRO: o Caixa — os lançamentos pagos de hoje.
  *   - DESEMPENHO: o Painel — quantos turnos de IA hoje, e quantas passagens.
- *   - MARKETING: vazio. O produto não tem agente de conteúdo, e desenhar um
- *     seria exatamente o dado de mentira que esta versão existe para tirar.
+ *   - COPA: onde o agente LIVRE passa o tempo (café, sofá, ping-pong — ver
+ *     `./rotina.ts`). Antes era o "Marketing", vazio de propósito: o produto não
+ *     tem agente de conteúdo, e desenhar um seria dado de mentira. A copa não
+ *     inventa trabalho: só quem está livre vai para lá, e o balão segue dizendo
+ *     o fato da cena.
  *
  * Pura e client-safe: recebe a foto do painel e o relógio, devolve a cena.
  */
-import type { PainelDoOrquestra } from "@/lib/orquestra/painel";
+import type { AgenteNoPainel, PainelDoOrquestra } from "@/lib/orquestra/painel";
 
-export type SetorId = "marketing" | "comercial" | "ops" | "dados" | "financeiro";
+import type { Acessorio, LayoutDoEscritorio } from "./layout";
+
+export type SetorId = "copa" | "comercial" | "ops" | "dados" | "financeiro";
 
 export interface Personagem {
   id: string;
@@ -29,12 +34,21 @@ export interface Personagem {
   /** Onde fica a mesa, nas coordenadas do mapa (960×620). */
   mesa: [number, number];
   cabelo: string;
-  acessorio: "headset" | "oculos" | "viseira" | "gravata" | "coroa" | null;
+  acessorio: Acessorio;
+  /** Visual escolhido no editor do hub; sem escolha, o padrão (pele clara, camisa da cor da sala). */
+  pele?: string;
+  camisa?: string;
   /** A frase do balão — sempre um fato, nunca sorteada. */
   tarefa: string;
   /** Movimento recente: anda até a mesa e trabalha. Parado: fica de pé, sem balão de progresso. */
   trabalhando: boolean;
   pausado: boolean;
+  /** Abriu caso que espera uma pessoa: fica na mesa com a mão levantada. */
+  ajuda: boolean;
+  /** Desativado ou sem versão publicada: descansa na copa, e a mesa fica com a placa. */
+  foraDoAr: boolean;
+  /** Agente de IA: segue a rotina (mesa ↔ copa). Os demais são dados parados na mesa. */
+  rotina: boolean;
 }
 
 /** Mesas do Atendimento, na ordem em que os agentes ocupam. */
@@ -58,33 +72,65 @@ export interface Cena {
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
+/** A frase do balão de um agente — o fato mais urgente primeiro. */
+/**
+ * O nome no mapa: só a parte antes do " — " ("Bia — Consultora FB Digital" vira
+ * "Bia"). Nome inteiro não cabe entre duas mesas e atropela o vizinho; o nome
+ * completo continua no painel ao lado.
+ */
+export function nomeCurto(nome: string): string {
+  const curto = nome.split(/\s+[—–-]\s+/)[0]!.trim();
+  return curto.length > 14 ? `${curto.slice(0, 13)}…` : curto;
+}
+
+function tarefaDoAgente(a: AgenteNoPainel, pausado: boolean, recente: boolean): string {
+  if (!a.ativo) return "Fora do ar: desativado";
+  if (!a.publicado) return "Fora do ar: ainda não publicado";
+  if (pausado) return "Pausado";
+  if (a.pedidosDeAjuda > 0) return `Precisa de você: ${plural(a.pedidosDeAjuda, "pedido de ajuda", "pedidos de ajuda")}`;
+  if (recente && a.ultimaAcao) return a.ultimaAcao.rotulo;
+  if (a.turnosHoje > 0) return `${plural(a.turnosHoje, "atendimento", "atendimentos")} hoje`;
+  return "Esperando cliente";
+}
+
+/** A mesa padrão do i-ésimo agente — as cinco do Atendimento, e depois uma fileira embaixo. */
+export function mesaPadrao(i: number): [number, number] {
+  return MESAS_DO_ATENDIMENTO[i] ?? [560 + ((i - MESAS_DO_ATENDIMENTO.length) % 5) * 80, 252];
+}
+
+/** Quantos agentes o escritório desenha (com o editor dá para mover mesas, então cabem mais que cinco). */
+const AGENTES_NO_ESCRITORIO = 10;
+
 export function montarCena(
   painel: Pick<PainelDoOrquestra, "agentes" | "caixa" | "passagensHoje">,
   fila: number | null,
   agora: Date,
+  layout?: Pick<LayoutDoEscritorio, "mesas" | "visual">,
 ): Cena {
   const personagens: Personagem[] = [];
   const agentes = painel.agentes ?? [];
 
-  agentes.slice(0, MESAS_DO_ATENDIMENTO.length).forEach((a, i) => {
+  agentes.slice(0, AGENTES_NO_ESCRITORIO).forEach((a, i) => {
     const recente = !!a.ultimoTurnoEm && agora.getTime() - new Date(a.ultimoTurnoEm).getTime() < RECENTE_MS;
-    const tarefa = !a.ativo
-      ? "Pausado"
-      : recente && a.ultimaAcao
-        ? a.ultimaAcao.rotulo
-        : a.turnosHoje > 0
-          ? `${plural(a.turnosHoje, "atendimento", "atendimentos")} hoje`
-          : "Esperando cliente";
+    const foraDoAr = !a.ativo || !a.publicado;
+    const pausado = foraDoAr || !!a.pausadoEm;
+    const tarefa = tarefaDoAgente(a, pausado, recente);
+    const visual = layout?.visual[a.id];
     personagens.push({
       id: `agente:${a.id}`,
-      nome: a.nome,
+      nome: nomeCurto(a.nome),
       setor: "comercial",
-      mesa: MESAS_DO_ATENDIMENTO[i]!,
-      cabelo: CABELOS[i % CABELOS.length]!,
-      acessorio: "headset",
+      mesa: layout?.mesas[a.id] ?? mesaPadrao(i),
+      cabelo: visual?.cabelo ?? CABELOS[i % CABELOS.length]!,
+      acessorio: visual?.acessorio === undefined ? "headset" : visual.acessorio,
+      pele: visual?.pele,
+      camisa: visual?.camisa,
       tarefa,
-      trabalhando: a.ativo && recente,
-      pausado: !a.ativo,
+      trabalhando: !pausado && recente,
+      pausado,
+      ajuda: !pausado && a.pedidosDeAjuda > 0,
+      foraDoAr,
+      rotina: true,
     });
   });
 
@@ -99,6 +145,9 @@ export function montarCena(
       tarefa: fila > 0 ? `${plural(fila, "conversa esperando", "conversas esperando")} vocês` : "Ninguém esperando",
       trabalhando: fila > 0,
       pausado: false,
+      ajuda: false,
+      foraDoAr: false,
+      rotina: false,
     });
   }
 
@@ -114,6 +163,9 @@ export function montarCena(
       tarefa: n > 0 ? `${plural(n, "lançamento", "lançamentos")} hoje` : "Nenhum lançamento hoje",
       trabalhando: n > 0,
       pausado: false,
+      ajuda: false,
+      foraDoAr: false,
+      rotina: false,
     });
   }
 
@@ -133,8 +185,11 @@ export function montarCena(
           : "Sem atendimento de IA hoje",
       trabalhando: turnos > 0,
       pausado: false,
+      ajuda: false,
+      foraDoAr: false,
+      rotina: false,
     });
   }
 
-  return { personagens, agentesAlemDasMesas: Math.max(0, agentes.length - MESAS_DO_ATENDIMENTO.length) };
+  return { personagens, agentesAlemDasMesas: Math.max(0, agentes.length - AGENTES_NO_ESCRITORIO) };
 }
