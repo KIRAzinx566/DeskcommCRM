@@ -49,6 +49,7 @@ function estado(patch: Partial<EstadoDoAviso> = {}): EstadoDoAviso {
       telefone: "+5531998966398",
       rotulo: "Plantão da Ana",
       ligado: true,
+      resposta_whatsapp_habilitada: false,
       atualizado_em: "2026-09-18T12:00:00.000Z",
       canal_direto_ligado: false,
       canal_direto_agente_id: null,
@@ -152,6 +153,27 @@ describe("os avisos de estado viram frase", () => {
     const bloco = screen.getByTestId("descarte-de-hoje");
     expect(bloco.textContent).toContain("3");
     expect(bloco.textContent).toContain("17/09");
+  });
+
+  it("o texto do descarte segue a opção de responder casos pelo WhatsApp", () => {
+    const descarte = (comandos: number) =>
+      estado({
+        avisos: [
+          {
+            codigo: "descarte_acontecendo",
+            bloqueia: false,
+            dados: { ignoradas: 3, ultimaEm: "2026-09-17T15:30:00.000Z", comandos },
+          },
+        ],
+      });
+    const { unmount } = montar(descarte(0));
+    expect(screen.getByTestId("alerta-descarte_acontecendo").textContent).toContain(
+      "não chega ao CRM",
+    );
+    expect(screen.getByTestId("alerta-descarte_acontecendo").textContent).not.toContain("RESPONDER");
+    unmount();
+    montar(descarte(1));
+    expect(screen.getByTestId("alerta-descarte_acontecendo").textContent).toContain("RESPONDER");
   });
 
   it("instalação saudável não mostra bloco de alerta nenhum", () => {

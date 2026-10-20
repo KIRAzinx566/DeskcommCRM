@@ -41,6 +41,7 @@ export interface ConfigDoAvisoNaTela {
   telefone: string;
   rotulo: string | null;
   ligado: boolean;
+  resposta_whatsapp_habilitada: boolean;
   atualizado_em: string;
   canal_direto_ligado: boolean;
   canal_direto_agente_id: string | null;
@@ -111,6 +112,7 @@ export interface EntradaDoSalvar {
   telefone: string;
   rotulo: string | null;
   ligado: boolean;
+  resposta_whatsapp_habilitada: boolean;
   /** `true` = "eu sei que esse número é um cliente meu, e quero mesmo assim". */
   confirma_contato?: boolean;
   /** Ausente = não mexer no canal direto. */
