@@ -53,6 +53,10 @@ vi.mock("@/lib/api/client", () => ({
 vi.mock("@/hooks/webhooks/useAutomationRules", () => ({
   useCreateAutomationRule: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useUpdateAutomationRule: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  // "Testar a regra" (fork): o editor lê os eventos de teste e o botão de testar;
+  // este teste mede os seletores de data, então os dois respondem vazio e parados.
+  useEventosParaTestarRegra: () => ({ data: undefined }),
+  useTestarRegra: () => ({ isPending: false, mutate: () => {}, reset: () => {}, data: undefined }),
 }));
 vi.mock("@/hooks/webhooks/useWebhookSources", () => ({
   useWebhookSources: () => ({ data: { data: [] } }),
