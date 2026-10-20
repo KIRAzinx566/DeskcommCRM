@@ -69,6 +69,7 @@ export interface ConfigNaResposta {
   telefone: string;
   rotulo: string | null;
   ligado: boolean;
+  resposta_whatsapp_habilitada: boolean;
   atualizado_em: string;
   canal_direto_ligado: boolean;
   canal_direto_agente_id: string | null;
@@ -96,6 +97,7 @@ interface LinhaDeConfig {
   telefone_destino: string;
   rotulo: string | null;
   ligado: boolean;
+  resposta_whatsapp_habilitada: boolean;
   mensagens_ignoradas: number;
   ultima_mensagem_ignorada_em: string | null;
   updated_at: string;
@@ -135,6 +137,7 @@ export async function lerEstadoDaTelaDeAviso(entrada: {
         telefone: config.telefone_destino,
         rotulo: config.rotulo,
         ligado: config.ligado,
+        respostaWhatsappHabilitada: config.resposta_whatsapp_habilitada,
       }
     : null;
 
@@ -162,6 +165,7 @@ export async function lerEstadoDaTelaDeAviso(entrada: {
           telefone: config.telefone_destino,
           rotulo: config.rotulo,
           ligado: config.ligado,
+          resposta_whatsapp_habilitada: config.resposta_whatsapp_habilitada,
           atualizado_em: config.updated_at,
           canal_direto_ligado: config.canal_direto_ligado,
           canal_direto_agente_id: config.canal_direto_agente_id,
@@ -180,7 +184,7 @@ async function lerConfig(db: SupabaseClient, orgId: string): Promise<LinhaDeConf
   const { data, error } = await db
     .from("config_aviso_de_caso")
     .select(
-      "channel_session_id, telefone_destino, rotulo, ligado, mensagens_ignoradas, ultima_mensagem_ignorada_em, updated_at, canal_direto_ligado, canal_direto_agente_id",
+      "channel_session_id, telefone_destino, rotulo, ligado, resposta_whatsapp_habilitada, mensagens_ignoradas, ultima_mensagem_ignorada_em, updated_at, canal_direto_ligado, canal_direto_agente_id",
     )
     .eq("organization_id", orgId)
     .maybeSingle();

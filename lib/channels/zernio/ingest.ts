@@ -31,16 +31,11 @@ import { canonicalPhoneBR } from "@/lib/channels/phone-variants";
 import { marcarConversaComMensagem } from "@/lib/channels/marcar-conversa";
 
 import { extrairAtribuicaoMeta } from "@/lib/channels/atribuicao-de-anuncio-oficial";
-import { estamparAtribuicaoDoContato } from "@/lib/leads/atribuicao-de-anuncio";
+import { estamparAtribuicaoDoContato, metadataDoAnuncio } from "@/lib/leads/atribuicao-de-anuncio";
 import { extrairEEstamparAtribuicaoGoogle } from "@/lib/plataformas-de-anuncio/google/atribuicao";
 import { pausarIaPorAtendimentoManual } from "@/lib/escalacao/atendimento-manual";
-import {
-  ehNumeroInternoDeAviso,
-  registrarMensagemIgnorada,
-} from "@/lib/escalacao/numero-interno-de-aviso";
-import { lerConfigCanalDireto } from "@/lib/escalacao/canal-direto/config";
-import { processarMensagemDoCanalDireto } from "@/lib/escalacao/canal-direto/entrada";
-import { criarEnviadorDoCanal } from "@/lib/escalacao/canal-direto/transporte";
+import { consumirRespostaDoSuporteNoWhatsApp } from "@/lib/escalacao/resposta-whatsapp-ao-caso";
+import { entregarAoCanalDireto } from "@/lib/escalacao/canal-direto/do-numero-interno";
 
 import { aplicarEfeitosPosEntrada } from "../pos-entrada";
 
@@ -126,39 +121,31 @@ export async function ingestZernioInbound(
   // é do provedor, não o identificador de privacidade do WhatsApp, e casar por
   // ela exigiria um segundo campo na configuração sem consumidor nenhum hoje.
   if (
-    msg.identity.phone &&
-    (await ehNumeroInternoDeAviso(admin, input.organizationId, {
-      kind: "phone",
-      phone: msg.identity.phone,
-      lid: null,
-    }))
+    await entregarAoCanalDireto(admin, {
+      organizationId: input.organizationId,
+      channelSessionId: input.channelSessionId,
+      identidade: { kind: msg.identity.phone ? "phone" : "unknown", phone: msg.identity.phone, lid: null },
+      direction: msg.direction,
+      texto: msg.text ?? null,
+      externalId: msg.externalId,
+    })
   ) {
-    const configCanalDireto = await lerConfigCanalDireto(admin, input.organizationId);
-    if (configCanalDireto?.ligado && configCanalDireto.telefoneDestino) {
-      const enviar = await criarEnviadorDoCanal(admin, {
-        channelSessionId: input.channelSessionId,
-        telefoneDestino: configCanalDireto.telefoneDestino,
-      });
-      if (enviar) {
-        await processarMensagemDoCanalDireto(admin, {
-          organizationId: input.organizationId,
-          channelSessionId: input.channelSessionId,
-          corpo: msg.text ?? "",
-          externalId: msg.externalId,
-          agenteIdSelecionado: configCanalDireto.agenteId,
-          selecionadoEm: configCanalDireto.selecionadoEm,
-          enviar,
-        });
-        return { status: "ignored", reason: "numero_interno_de_aviso" };
-      }
-      logger.warn("[canal-direto] canal indisponível para responder — mensagem descartada como aviso comum", {
-        organizationId: input.organizationId,
-      });
-    }
-    await registrarMensagemIgnorada(admin, input.organizationId, {
-      direction: "inbound",
-      sessionId: input.channelSessionId,
-    });
+    return { status: "ignored", reason: "numero_interno_de_aviso" };
+  }
+  if (
+    await consumirRespostaDoSuporteNoWhatsApp(admin, {
+      organizationId: input.organizationId,
+      channelSessionId: input.channelSessionId,
+      identidade: {
+        kind: msg.identity.phone ? "phone" : "unknown",
+        phone: msg.identity.phone,
+        lid: null,
+      },
+      direction: msg.direction,
+      texto: msg.text,
+      externalId: msg.externalId,
+    })
+  ) {
     return { status: "ignored", reason: "numero_interno_de_aviso" };
   }
 
@@ -598,6 +585,12 @@ async function insertMessage(
   const { msg } = input;
   const temAnexo = msg.attachments.length > 0;
   const primeiro = msg.attachments[0];
+  // O anúncio DESTA mensagem, quando ela nasceu de um clique. O contato guarda
+  // só o primeiro (primeiro toque, em `efeitosDaEntrada`); sem este rastro, quem
+  // volta por OUTRO anúncio aparece na conversa como se viesse do antigo.
+  // Só na entrada: eco de saída não vem de clique de ninguém.
+  const anuncio =
+    msg.direction === "inbound" ? metadataDoAnuncio(extrairAtribuicaoMeta(msg.referral)) : {};
 
   const { data, error } = await admin
     .from("messages")
@@ -648,11 +641,14 @@ async function insertMessage(
       ...(temAnexo && primeiro?.url
         ? { media_url: primeiro.url, media_mime: mimeDoAnexo(primeiro.type) }
         : {}),
-      metadata: temAnexo
-        ? { provider_attachments: msg.attachments }
-        : msg.location
-          ? { location: msg.location }
-          : {},
+      metadata: {
+        ...(temAnexo
+          ? { provider_attachments: msg.attachments }
+          : msg.location
+            ? { location: msg.location }
+            : {}),
+        ...anuncio,
+      },
       ...(msg.sentAt ? { sent_at: msg.sentAt } : {}),
     })
     .select("id")
