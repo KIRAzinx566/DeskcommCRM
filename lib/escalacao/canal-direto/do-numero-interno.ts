@@ -1,5 +1,5 @@
 /**
- * A PORTA DO CANAL DIRETO nos três ingestores (WAHA, Meta, Zernio).
+ * A PORTA DO CANAL DIRETO nos três ingestores de mensagem.
  *
  * O número interno de avisos tem dois donos para a mesma mensagem: o canal
  * direto deste fork (a equipe conversa com o agente pelo WhatsApp) e a
