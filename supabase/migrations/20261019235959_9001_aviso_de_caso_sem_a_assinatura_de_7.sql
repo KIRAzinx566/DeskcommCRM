@@ -1,0 +1,3 @@
+-- manifest: **A troca de nome do último parâmetro do aviso de caso não quebra mais a atualização.** A 0507 deste fork acrescentou `p_canal_direto_ligado` como 7º parâmetro de `fn_definir_aviso_de_caso`; a 0687 do upstream acrescentou `p_resposta_whatsapp_habilitada` na MESMA posição e com o mesmo tipo. Para o Postgres é a mesma assinatura, e `create or replace` não renomeia parâmetro: a 0687 parava com erro. Esta migration tira a versão de 7 parâmetros antes da 0687; a 9002 junta as duas opções numa versão de 8. Idempotente: `drop function if exists`.
+
+drop function if exists public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean,boolean);
