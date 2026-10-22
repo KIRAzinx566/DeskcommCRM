@@ -55900,9 +55900,9 @@ begin
     );
 end $$;
 
--- ---- o aviso de caso sem a assinatura de 7 (migration 0704) ----
+-- ---- o aviso de caso sem a assinatura de 7 (migration 9001) ----
 -- A 0507 (fork) e a 0687 (upstream) dão nomes diferentes ao 7º parâmetro; `create or
--- replace` não renomeia. Sai antes da 0687, e a 0705 junta as duas. Idempotente.
+-- replace` não renomeia. Sai antes da 0687, e a 9002 junta as duas. Idempotente.
 drop function if exists public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean,boolean);
 
 -- ---- resposta do suporte ao caso pelo WhatsApp (migration 0687) ----
@@ -56177,7 +56177,7 @@ revoke all on function public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boole
 grant execute on function public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean,boolean) to authenticated;
 drop function if exists public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean);
 
--- ---- o aviso de caso com as duas opções (migration 0705) ----
+-- ---- o aviso de caso com as duas opções (migration 9002) ----
 -- Corpo da 0687 + `p_canal_direto_ligado` da 0507 (null = não mexer). Idempotente.
 drop function if exists public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean,boolean);
 
