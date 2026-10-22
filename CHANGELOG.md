@@ -8,6 +8,97 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.6.0] — 2026-10-22
+
+### ⚠️ Requer atenção
+
+- **O filtro de palavras do agente passa a valer** Se algum agente seu tem esse campo preenchido, ele vai passar a ficar calado em toda mensagem sem uma das palavras, inclusive no meio da conversa. Antes de atualizar, confira o campo na tela de cada agente. Se não quiser o filtro, deixe-o em branco e publique a versão de novo.
+- **As condições das automações ganham "não contém", "está vazio", "está preenchido", comparação por número/data e o grupo "qualquer uma"** Revise as regras que usam "não é" (`neq`) num campo que pode estar AUSENTE (nulo, ou nunca preenchido): elas disparavam quando o campo não estava preenchido e agora não disparam mais. Para voltar a pegar o "não preencheu", troque a condição por "está vazio"; para "não é X e está preenchido", use "está preenchido" junto do "não é X". Em campo cujo valor é texto vazio nada muda — ali o `neq` continua igual.
+
+  Não volte para a versão anterior DEPOIS de gravar uma regra "qualquer uma": a versão antiga não conhece o formato de grupo e a leitura das condições dela estoura ao avaliar, o que derruba as automações daquele gatilho inteiro — não só a regra nova. Se precisar voltar, desfaça antes as regras "qualquer uma" pelo formulário.
+
+  Contribuição de @webtecnica (refs #2727).
+
+### Adicionado
+
+- **Agenda por serviço com turmas, capacidade e calendários compartilhados** Tipos de atendimento podem adotar uma programação própria, com atendimento individual por profissional, reserva coletiva com capacidade ou sem limite automático.
+
+- **O sistema pode ser instalado no celular como app, com uma tela que guia a instalação por sistema e avisa quando o endereço não permite** Em Configurações › Sua conta › App no celular (também a partir de Notificações), cada pessoa vê o passo a passo para o aparelho que está usando: no iPhone, pelo Compartilhar; no Android, pelo botão Instalar app ou pelo menu do navegador.
+
+- **O agente consulta os produtos de uma loja WooCommerce pelo banco externo** Em Integração de dados, uma conexão MySQL com uma loja WooCommerce ganha a receita pronta "Produtos da loja WooCommerce".
+
+- **As etiquetas em "Editar contato" passam a sugerir as que já existem na empresa** O campo de etiquetas de "Editar contato" deixou de ser texto livre separado por vírgula.
+
+- **As condições das automações ganham "não contém", "está vazio", "está preenchido", comparação por número/data e o grupo "qualquer uma"** Uma regra de automação só sabia perguntar "é", "não é" e "contém", e sempre exigia TODAS as condições ao mesmo tempo.
+
+- **Campo personalizado pode exigir um formato, com a frase de erro que você escrever** Um campo personalizado do funil pode ganhar duas propriedades opcionais: `padrao` (o formato esperado, como expressão regular) e `mensagem_padrao` (a frase que aparece para quem digitar fora dele).
+
+- **Os avisos com o app fechado passam a funcionar sem configurar nada, porque a instalação e a atualização criam o par de chaves uma única vez** Até aqui, receber os avisos do sistema com a aba ou o app fechado exigia que quem administra o servidor gerasse um par de chaves (VAPID) à mão e o colasse no `.env`.
+
+- **Prospecção mostra auditoria do site de cada empresa** Na tela de Prospecção, cada empresa da fila passa a mostrar a auditoria do site (veredito, o que o site tem e o que falta, estratégia de abordagem com objeções prontas), a fila pode ser ordenada por score, e há botões para reanalisar o site e…
+
+- **A prospecção deixa escolher quando oferecer a opção de parar de receber: na 1ª ou na 2ª mensagem** A campanha de prospecção passa a ter o rádio "Quando oferecer a opção de parar de receber", nascendo em "Na primeira mensagem (recomendado)".
+
+- **Respostas rápidas viram botões de um clique no Inbox, e podem ser de áudio** O compositor do Inbox ganha uma barra com um botão por resposta rápida cadastrada.
+
+- **Contatos ganham o botão "Sincronizar agenda" que importa os contatos salvos no celular conectado** Na tela de Contatos, ao lado de "Importar CSV", o botão "Sincronizar agenda" lê a agenda do número de WhatsApp conectado pelo aplicativo e cria no CRM, até 500 por vez, os contatos salvos no aparelho que têm WhatsApp.
+
+- **O telefone que o cliente informa pode entrar sozinho na ficha sem número** Nova opção em Configurações › Distribuição de atendimento.
+
+- **O passo de modelo do fluxo preenche as variáveis do modelo aprovado** O passo "modelo de mensagem" de um fluxo agora aceita modelo aprovado com variáveis (`{{1}}`, `{{2}}`…).
+
+### Alterado
+
+- **Configuração de agenda organizada por serviço** A configuração da agenda prioriza a lista de serviços e separa Serviço, Horários, Google e Bloqueios em quatro abas.
+
+- **O pedido de exclusão avisa o titular por e-mail depois de apagar, e o rótulo de anonimizado não deriva mais do id** O pedido de exclusão de dados de organizações FORA do Brasil agora avisa o titular por e-mail DEPOIS de apagar (art.
+
+- **As telas do CRM abrem mais depressa, com menos esperas pelo banco a cada clique** Antes de desenhar qualquer tela, o CRM confere quem está logado, a política de verificação em duas etapas e a aparência da organização.
+
+- **As telas do CRM deixam de consultar o login duas vezes só para conferir a verificação em duas etapas** Ao abrir uma tela, o CRM perguntava duas vezes ao servidor de autenticação quem está logado: uma para saber quem é a pessoa e outra para saber se ela tem a verificação em duas etapas cadastrada.
+
+- **Avisos fora do app deixam a empresa escolher o que aparece, param ao sair e respeitam o plantão** Em Configurações › Notificações, quem administra a empresa escolhe o que os avisos mostram fora do app — com o celular bloqueado e nas notificações do computador: nada além de que chegou um aviso, só quem mandou (nome e foto, sem a mensagem), ou quem…
+
+### Corrigido
+
+- **Identifique os responsáveis da agenda pelo nome ou e-mail** Os seletores da agenda mostram o nome válido do responsável e, quando falta nome, seu e-mail.
+
+- **Criar modelo com botões no número oficial intermediado funciona** Criar ou editar pela tela um modelo com botões de resposta rápida, link ou telefone no número oficial intermediado era recusado pela plataforma ("Invalid discriminator value"): o tipo de cada botão ia em maiúscula.
+
+- **Duas campanhas no mesmo número passam a dividir o dia** Com duas campanhas rodando pelo mesmo número, quando a mais antiga batia o limite diário dela (ou esperava o intervalo ou a janela dela), a outra ficava sem mandar nada até a primeira terminar, o que podia levar dias.
+
+- **As campanhas respeitam o intervalo do número também quando dividem números no rodízio** Quando duas campanhas compartilhavam um número no rodízio, esse número podia mandar duas mensagens de campanha no mesmo minuto, uma de cada campanha.
+
+- **O custo de IA bate com a fatura do provedor** O gasto de IA que o CRM calcula — o que aparece em Uso e orçamento, no plano da empresa e no teto mensal — cobrava toda gravação de cache da Anthropic pelo preço de 1 hora, e a maior parte dela é de 5 minutos, mais barata.
+
+- **O editor de sequência e as automações deixam de mostrar vários textos em português quando o idioma é espanhol, e o cartão do e-mail deixa de dizer « send_email »** No editor de sequência e no designer de automação, vários textos saíam em português em qualquer idioma, inclusive em espanhol: o exemplo e o botão da regra de resposta, o placeholder da etapa e o rótulo dos segmentos do gatilho, os exemplos dos campos das…
+
+- **Sequências em espanhol: «Atualizado em», a aba «Fila» e a política de handoff** Com o perfil em espanhol, a lista de sequências ainda mostrava «Atualizado em» e «Fila» em português, e o cartão exibia o valor cru da política de handoff («Transferencia: pause»).
+
+- **O filtro de palavras do agente passa a valer** Na tela do agente, o campo "Só responder quando a mensagem falar de algo específico" era gravado e nunca consultado: o agente respondia a tudo.
+
+- **A foto de perfil do contato volta a aparecer quando a empresa tem Instagram ou Facebook ligado** A busca da foto passa a usar a conexão por onde o contato conversa.
+
+- **Os interruptores de Push voltam a responder depois de recarregar Configurações › Notificações** Com as notificações do navegador liberadas, recarregar a tela de Configurações › Notificações deixava os seis interruptores da coluna Push travados, sem como ligar ou desligar.
+
+- **Follow-up escrito pela IA fora do horário de envio espera a janela em vez de morrer** Quando um passo de follow-up em que a própria IA escreve a mensagem caía fora do horário de envio do número (por exemplo, à noite com envio das 9h às 18h), o envio era guardado para a abertura, mas o follow-up não ficava sabendo da espera.
+
+- **A abertura da campanha de prospecção passou a respeitar o "Estilo de resposta" do agente e a dividir a mensagem fria em várias bolhas** A primeira mensagem da campanha de prospecção ignorava a opção "Responder em várias mensagens curtas" da tela do agente: ela saía sempre num balão só, por mais que o agente estivesse configurado para fatiar.
+
+- **Sair da conta encerra os avisos em todos os aparelhos que ela desconecta** "Sair" desconecta a conta em todos os aparelhos em que ela estava aberta, mas só apagava os avisos (push) do aparelho em que se clicou: os outros, já desconectados, seguiam recebendo avisos da empresa.
+
+- **O push segue o vínculo e o papel de quem recebe** As notificações no celular e no computador passam a seguir a mesma regra de acesso das telas.
+
+- **As receitas prontas do banco externo seguem à risca o que o administrador configurou** O assistente só executa receitas prontas que estão ativas na conexão, a mesma lista que ele já via ao consultar as receitas disponíveis.
+
+- **Seletor de tipo de campo do funil fala em português, não em nome técnico** Em Configurações › Funis, o seletor "Tipo do campo" mostrava o nome interno de cada tipo (`text`, `multiselect`, `searchable_select`…), e quem configurava via `multiselect` e `searchable_select` sem saber qual era a lista de várias escolhas e qual era a…
+
+- **O mesmo tipo de campo tem o mesmo nome na captação e nos funis** O mesmo tipo de campo personalizado aparecia com dois nomes: a captação por webhook dizia "Texto", "Link" e "Sim/Não", e Configurações › Funis dizia "Texto curto", "Link (URL)" e "Sim ou não".
+
+- **"Sugerir resposta" deixa de culpar a configuração quando o agente termina sem propor resposta** Quando o agente terminava sem propor resposta — por exemplo, diante da saudação automática do WhatsApp Business de uma empresa abordada —, o painel de "Sugerir resposta" mostrava "Confira a configuração do agente e tente gerar novamente", como se algo…
+
+- **O cadastro e o login seguem o idioma do navegador, e as telas de sequência deixam de mostrar português em espanhol** Quem chegava ao cadastro, ao login ou à recuperação de senha sem estar conectado, com o navegador em espanhol, via o título em espanhol e o formulário inteiro em português (« Senha », « Força da senha », « Criar conta », « Entrar com Google »).
+
 ## [2.5.0] — 2026-10-20
 
 ### Adicionado
@@ -12631,7 +12722,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.5.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.1...v2.4.0
 [2.3.1]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.0...v2.3.1
