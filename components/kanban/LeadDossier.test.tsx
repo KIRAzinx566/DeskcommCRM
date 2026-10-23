@@ -60,6 +60,9 @@ vi.mock("@/hooks/leads/useLeadTimeline", () => ({
 vi.mock("./ContatoDoNegocio", () => ({ ContatoDoNegocio: () => <div data-peca="contato" /> }));
 vi.mock("./LeadFieldsForm", () => ({ LeadFieldsForm: () => <div data-peca="campos" /> }));
 vi.mock("./TarefasDoNegocio", () => ({ TarefasDoNegocio: () => <div data-peca="tarefas" /> }));
+// A "próxima ação" do fork busca a tarefa do lead pelo react-query; este arquivo
+// mede as seções do dossiê, não ela.
+vi.mock("./LeadTasksSection", () => ({ LeadTasksSection: () => null }));
 vi.mock("./PropostasDoNegocio", () => ({ PropostasDoNegocio: () => null }));
 vi.mock("./ConversaNoDossie", () => ({ ConversaNoDossie: () => null }));
 vi.mock("./ScoreSlot", () => ({ ScoreSlot: () => null }));

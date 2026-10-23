@@ -24,7 +24,12 @@ vi.mock("sonner", () => ({
 // CustomFieldsEditor (usado pelo editor de campos do funil) passou a ler
 // useActiveOrg() para o exemplo de telefone por país — sem o mock, qualquer
 // render deste arquivo quebra com "useAuth must be used inside <AuthProvider>".
-vi.mock("@/hooks/auth/AuthProvider", () => ({ useActiveOrg: () => ({ orgId: "org-1" }) }));
+// `useMoedaDaOrgAtiva` (upstream, #3176): o mock substitui o módulo inteiro, então
+// o hook da moeda precisa vir junto — `null` cai na moeda padrão, como sem org.
+vi.mock("@/hooks/auth/AuthProvider", () => ({
+  useActiveOrg: () => ({ orgId: "org-1" }),
+  useMoedaDaOrgAtiva: () => null,
+}));
 vi.mock("@/app/actions/settings/updatePipelineConfig", () => ({
   updatePipelineConfig: vi.fn(async () => ({ ok: true })),
 }));
