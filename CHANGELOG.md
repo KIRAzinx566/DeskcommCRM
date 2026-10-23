@@ -8,6 +8,218 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.7.0] — 2026-10-23
+
+### ⚠️ Requer atenção
+
+- **Regras de "negócio criado" passam a rodar também para o negócio aberto pela Prospecção** Antes de atualizar, confira as suas regras com gatilho "Negócio criado" que **enviam mensagem** (WhatsApp, IA ou fluxo de mensagens). Elas vão passar a disparar também para as empresas abordadas pela Prospecção.
+  - Na campanha que cria o negócio **na hora do envio**, a regra escreve logo depois da primeira mensagem da campanha.
+  - Na campanha que cria os negócios **ao iniciar**, a regra dispara para a fila inteira no momento em que você clica em Iniciar, antes de a campanha mandar qualquer coisa, e a campanha pode pausar no primeiro contato com "Contato já atendido".
+
+  Se a regra não deve valer para a Prospecção, acrescente nela a condição em modo avançado: campo `lead.source`, operador "diferente de", valor `prospecting`. Não use o campo "Origem (utm_source)": ele é outro dado, e com "diferente de" a regra para de rodar para todo negócio sem UTM.
+
+### Adicionado
+
+- **o negócio ganha quem adiciona, remove e dá papel às pessoas relacionadas**
+
+- **Mensagem apagada fica cinza, diz quem apagou, e o apagamento pelo aplicativo entra na auditoria**
+
+- **a assinatura da IA pode usar o nome de cada agente**
+
+- **Lead de formulário passa a guardar de qual anúncio veio**
+
+- **O clique do anúncio também chega à atribuição pelo Elementor, RD Station e Respondi**
+
+- **Aviso de agendamento no WhatsApp do dono, com resumo do dia às 7h**
+
+- **O agente consulta o conteúdo de um site WordPress de qualquer nicho pelo banco externo**
+
+- **Caixa de mensagem bloqueada até o atendente assumir a conversa**
+
+- **Campanhas pelo número oficial, com modelo aprovado**
+
+- **Fonte de webhook com assinatura pode reaproveitar o card aberto do contato**
+
+- **Contato interno (equipe, família, fornecedor) não vira lead e a IA não responde a ele**
+
+- **A conversa entregue pelo rodízio e não respondida pode voltar para a fila**
+
+- **Os ícones de anexo e de emoji do compositor mostram a dica ao passar o mouse**
+
+- **No chat, uma mensagem pode ser encaminhada para outra conversa**
+
+- **Ler o material do acervo na própria tela**
+
+- **A tela Desempenho mostra a mediana da 1ª resposta ao lado da média**
+
+- **Automação nova « Mensagem para a equipe », e o e-mail da automação passa a poder ir para uma pessoa da equipe com o resumo do negócio**
+
+- **"Confiar neste dispositivo" na verificação em duas etapas**
+
+- **O agente de IA ganha personalidade — quem ele é e o jeito dele de falar**
+
+- **Mensagem que falhou mostra o motivo e pode ser enviada de novo pela própria conversa**
+
+- **O e-mail que as automações mandam ao seu cliente passa a sair com o nome e o "responder para" da sua empresa**
+
+- **Respostas rápidas se reordenam por arrastar e soltar, e o Inbox respeita a ordem**
+
+- **O Desempenho ganha o gráfico da evolução dos ganhos por dia, semana ou mês**
+
+- **Cadastro de contato aceita o telefone como o brasileiro escreve e grava o +55 sozinho**
+
+- **Cada turno do agente passa a deixar o registro do que aconteceu nele**
+
+- **Últimas compras do contato no Inbox e na ficha**
+
+- **Voltar para a versão anterior em um clique, e o sistema volta sozinho quando o app cai depois de uma atualização**
+
+### Alterado
+
+- **No celular, a lista de contatos aparece em cartões que cabem na tela**
+
+- **No celular, a conversa aberta ocupa a tela inteira e o voltar leva de volta à lista sem reabrir a conversa**
+
+- **Dossiê do negócio com os campos antes da linha do tempo e seções recolhíveis**
+
+- **Etiquetas podem ser pesquisadas e paginadas além das primeiras 500**
+
+### Corrigido
+
+- **Na tela Funis, o nome do funil não some mais sob os selos e os botões ficam dentro do cartão**
+
+- **A interface simplificada mostra as quatro portas pessoais de Configurações, incluindo Notificações e App no celular**
+
+- **A tela de Agentes de IA deixa de dizer "agent" no menu, na janela de renomear e no formulário**
+
+- **Assistência do agente deixa de ocupar faixa sem sugestão**
+
+- **Na instalação com o Supabase na mesma VPS, os e-mails de acesso chegam com assunto em português**
+
+- **Quem não tem nome no cadastro aparece como "Atendente sem nome", e não como um código**
+
+- **A condição "Etapa de destino" das automações passa a listar as etapas de todos os funis**
+
+- **Menos recálculos de permissões em operações administrativas**
+
+- **"Lead atribuído a você" volta a avisar só quando o responsável muda de verdade**
+
+- **O aviso "o assistente quis marcar um negócio como perdido" passa a abrir o negócio**
+
+- **A campanha pausa quando a Meta recusa o modelo, em vez de seguir tentando**
+
+- **O quadro do designer de automações não depende mais da altura da página para aparecer**
+
+- **As telas pedem a verificação em duas etapas a quem já a tem cadastrada**
+
+- **Abra os detalhes de um Caso no celular em orientação vertical**
+
+- **O catálogo da Nuvemshop passa a chegar à base de conhecimento do agente**
+
+- **A Central de avisos não diz mais "nenhum aviso em aberto" a quem não alcança a Central**
+
+- **No celular, a tecla de retorno quebra linha, os campos não ampliam a tela e o áudio que o aparelho não toca é convertido na hora**
+
+- **Os links de Conversões abrem o negócio, não a lista de funis**
+
+- **O funil volta a ter os 50 campos do negócio — os campos do contato não ocupam mais essa cota**
+
+- **CPF ou e-mail já usado por outro contato responde 409, não "erro interno"**
+
+- **O cadastro da assinatura do ChatGPT explica que a conta se conecta pelo login, em vez de pedir uma chave**
+
+- **Desambiguação de relacionamento no PostgREST para organizações (#3219)**
+
+- **O prazo do desligamento do worker começa no sinal e cabe no prazo do kit**
+
+- **O divisor da lista aproveita o espaço do painel do contato recolhido**
+
+- **A resposta enviada pelo CRM parou de ser confundida com alguém digitando no celular**
+
+- **O eco da mensagem que a IA acabou de enviar não pausa mais a IA**
+
+- **Servidor de e-mail aceita nome de relé com "_" e explica o formato sem erro cru do banco**
+
+- **As etiquetas sugeridas filtram pelo que se digita, e as mais usadas vêm primeiro**
+
+- **O aviso de sugestão que falhou sai da tela quando a conversa anda**
+
+- **Um acompanhamento que espera "imune à resposta" agora espera o outro acompanhamento terminar, em vez de virar alerta de erro na Central**
+
+- **Publicar um fluxo de follow-up deixa de ser impossível em conta com WhatsApp por QR e Instagram/Facebook**
+
+- **Configurações › Funis abre rápido com listas longas, e a lista agora exporta CSV**
+
+- **A regra com gatilho de data do funil voltou a enviar a mensagem no WhatsApp**
+
+- **O menu do robô do outro lado não passa mais a conversa para uma pessoa**
+
+- **A caixa de entrada para de pesar por conversa: listar e contar ficam imediatos**
+
+- **A lista de conversas da Inbox deixa de travar quando a organização tem muitas conversas**
+
+- **A linha do gráfico de mensagens do painel da instalação passa a aparecer, e as caixas de detalhe ganham a borda e o fundo do tema**
+
+- **A falha ao ativar a verificação em duas etapas deixa o motivo no log do servidor**
+
+- **Modelo pelo provedor parceiro leva a imagem, a variável do cabeçalho e o link do botão**
+
+- **O campo de moeda, o convite e os exemplos de telefone seguem a organização**
+
+- **Mensagem que falhou não mostra mais o texto técnico do canal, e a recusa de um modelo diz a causa**
+
+- **O formulário de novo lead mostra os campos que a etapa exige**
+
+- **O PARAR que vem depois da assinatura da atendente passa a bloquear o contato**
+
+- **Quando o contato pede PARAR, a demanda aberta dele é encerrada como encerrada pelo cliente**
+
+- **A passagem para humano deixa de ser anunciada como opt-out — e a escalação do próprio agente deixa de dizer que o cliente pediu uma pessoa**
+
+- **A IA passa a ser instruída a não dizer que a equipe foi acionada quando ninguém foi avisado**
+
+- **Sugerir resposta diz se o agente decidiu não responder ou se a geração parou**
+
+- **A prospecção passa a abordar empresas de fora do Brasil quando o telefone já vem com o código do país**
+
+- **Regras de "negócio criado" passam a rodar também para o negócio aberto pela Prospecção**
+
+- **As execuções de IA passam a mostrar o provedor configurado no painel para cada finalidade**
+
+- **No quadro do funil, a coluna vazia acompanha a rolagem e o cabeçalho preso mantém o topo**
+
+- **Uma queda de segundos da conexão não pausa mais a campanha de prospecção**
+
+- **A recusa da inscrição de push aparece na tela, e o interruptor não fica ligado mentindo**
+
+- **O nome de exibição do remetente dos e-mails passa a ser formatado de forma padronizada**
+
+- **O restore do backup só diz que deu certo quando confere que os dados voltaram**
+
+- **A faixa vazia embaixo do conteúdo sai quando a barra de abas do celular é escondida**
+
+- **Especialista de um roteador de intenções pode ser publicado sem número próprio**
+
+- **O sino de avisos deixa de aparecer para quem não alcança a Central**
+
+- **As telas de acesso deixam de mostrar mensagem técnica, e a aba segue o idioma da tela**
+
+- **O telefone gravado sozinho na ficha também acorda a regra "Quando um contato ganhar um telefone"**
+
+- **Automação "contato ganhou telefone" passa a rodar também na ingestão de canal e no cron de telefones**
+
+- **Os avisos sobre funil apontam para onde as coisas realmente estão**
+
+- **A instalação atrás de Traefik volta a conferir que a rota do Supabase chegou ao serviço de login**
+
+- **Transferir a conversa leva o negócio aberto do contato no funil, e assumir dá dono ao negócio sem responsável**
+
+- **O turno adiado pelo horário do agente não conta roteamento duas vezes**
+
+- **A segunda trava das receitas prontas confere de novo as tabelas**
+
+- **Um PDF recebido no WhatsApp não derruba mais o worker**
+
 ## [2.6.0] — 2026-10-22
 
 ### ⚠️ Requer atenção
@@ -12850,7 +13062,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.6.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.3.1...v2.4.0
