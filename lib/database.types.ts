@@ -1841,6 +1841,7 @@ export type Database = {
           operator_enabled: boolean
           operator_model: string | null
           operator_tool_ids: string[]
+          personality: Json
           organization_id: string
           pipeline_ids: string[]
           provider: string
@@ -1881,6 +1882,7 @@ export type Database = {
           operator_enabled?: boolean
           operator_model?: string | null
           operator_tool_ids?: string[]
+          personality?: Json
           organization_id: string
           pipeline_ids?: string[]
           provider: string
@@ -1921,6 +1923,7 @@ export type Database = {
           operator_enabled?: boolean
           operator_model?: string | null
           operator_tool_ids?: string[]
+          personality?: Json
           organization_id?: string
           pipeline_ids?: string[]
           provider?: string

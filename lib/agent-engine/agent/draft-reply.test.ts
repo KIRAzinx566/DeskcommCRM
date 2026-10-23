@@ -29,6 +29,7 @@ const AGENT: PublishedAgentConfig = {
   versionId: "version-1",
   agentName: "Bot Deskcomm",
   systemPrompt: "Você é a vendedora da loja X.",
+  personality: {},
   provider: "anthropic",
   model: "claude-sonnet-4-6",
   baseUrl: null,

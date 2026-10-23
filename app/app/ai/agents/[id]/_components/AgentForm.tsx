@@ -59,6 +59,8 @@ import { FunisDoAgente, type CoberturaPorFunil } from "./FunisDoAgente";
 import { PublishConfirmDialog } from "./PublishConfirmDialog";
 import { ComandosDoCelular } from "./ComandosDoCelular";
 import { ServidorExternoNoAtendimento } from "./ServidorExternoNoAtendimento";
+import { PersonalidadeDoAgente } from "./PersonalidadeDoAgente";
+import { lerPersonalidade, type Personalidade } from "@/lib/agent-engine/agent/personalidade";
 import {
   saveAgentDraftAction,
   publishAgentAction,
@@ -200,6 +202,8 @@ interface FormState {
   cases_enabled: boolean;
   split_messages: boolean;
   split_max_chars: number;
+  /** Personalidade da versão (migration 9003). `{}` = sem personalidade. */
+  personality: Personalidade;
   /** Janela de rajada (ms) do agente. `null` = usa a env da instalação. */
   inbound_debounce_ms: number | null;
   followup: FollowupValue;
@@ -312,6 +316,7 @@ export function buildState(args: {
     cases_enabled: version?.cases_enabled ?? false,
     split_messages: version?.split_messages ?? false,
     split_max_chars: version?.split_max_chars ?? 600,
+    personality: lerPersonalidade(version?.personality),
     inbound_debounce_ms: version?.inbound_debounce_ms ?? null,
     followup: version?.followup
       ? {
@@ -378,6 +383,7 @@ function toVersionPayload(s: FormState) {
     cases_enabled: s.cases_enabled,
     split_messages: s.split_messages,
     split_max_chars: s.split_max_chars,
+    personality: s.personality,
     inbound_debounce_ms: s.inbound_debounce_ms,
     followup: s.followup,
     operator_enabled: s.operator_enabled,
@@ -1235,6 +1241,14 @@ export function AgentForm(props: Props) {
               <p className="text-xs text-destructive">{validation.system_prompt}</p>
             ) : null}
           </Card>
+
+          {/* Personalidade (migration 9003): estilo por cima das instruções. */}
+          <PersonalidadeDoAgente
+            valor={form.personality}
+            aoMudar={(p) => patch({ personality: p })}
+            nomeDoAgente={form.name}
+            readOnly={disabled}
+          />
 
           {/* Estilo de resposta (split de mensagens — Onda 4) */}
           <Card className="space-y-3 p-4">

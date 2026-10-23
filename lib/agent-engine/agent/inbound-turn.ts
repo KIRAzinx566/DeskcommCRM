@@ -1,3 +1,4 @@
+import { blocoDaPersonalidade } from './personalidade';
 import { prospectingConversationContext } from "@/lib/prospecting/context";
 import { setExecutionAgentOperation } from '@/lib/atendimento/fronteira-server';
 import { TIPOS_DE_CASO, TIPOS_DE_CASO_PARA_A_IA } from "@/lib/ai/case-copy";
@@ -2361,7 +2362,17 @@ async function executarTurnoDoAgente(
         return loadPlaybook(
           pool,
           tenantId,
-          agentConfig !== null ? { agentLayer: agentConfig.systemPrompt + prospectingContext } : undefined,
+          agentConfig !== null
+            ? {
+                // A personalidade (9003) entra logo depois das instruções do
+                // próprio agente: é estilo, e o bloco termina dizendo que nunca
+                // vence as instruções. Sem personalidade, o bloco é ''.
+                agentLayer:
+                  agentConfig.systemPrompt +
+                  blocoDaPersonalidade(agentConfig.personality, agentConfig.agentName) +
+                  prospectingContext,
+              }
+            : undefined,
         );
       })(),
       // Skills situacionais (F3-09): índice (name+description) SEMPRE residente — vai junto do

@@ -13,6 +13,7 @@
  *   - sem agente publicado para a sessão ⇒ null (o turno cai no comportamento
  *     de fallback: playbook por ponteiro + settings.llm da org + knobs de env).
  */
+import { lerPersonalidade, type Personalidade } from './personalidade';
 import type pg from 'pg';
 
 import { lerJanelaDeAtendimento, type JanelaDeAtendimento } from './janela-de-atendimento';
@@ -27,6 +28,12 @@ export interface PublishedAgentConfig {
   versionId: string;
   agentName: string;
   systemPrompt: string;
+  /**
+   * Personalidade da versão publicada (migration 9003), já lida campo a campo
+   * por `lerPersonalidade` — `{}` quando não há. O turno a junta DEPOIS das
+   * instruções (`blocoDaPersonalidade`).
+   */
+  personality: Personalidade;
   provider: string;
   model: string;
   /** Endpoint compatível com a API da OpenAI, próprio desta versão — ver `ai_agent_versions.base_url`. */
@@ -140,6 +147,7 @@ interface Row {
   version_id: string;
   agent_name: string;
   system_prompt: string;
+  personality: unknown;
   provider: string;
   model: string;
   base_url: string | null;
@@ -174,6 +182,7 @@ const SELECT_AGENT_CONFIG_COLUMNS = `a.operation_mode,a.paused_at,a.operation_re
             v.id as version_id,
             a.name as agent_name,
             v.system_prompt,
+            v.personality,
             v.provider,
             v.model,
             v.base_url,
@@ -236,6 +245,7 @@ function mapAgentConfigRow(r: Row): PublishedAgentConfig {
     versionId: r.version_id,
     agentName: r.agent_name,
     systemPrompt: r.system_prompt,
+    personality: lerPersonalidade(r.personality),
     provider: r.provider,
     model: r.model,
     baseUrl: r.base_url,

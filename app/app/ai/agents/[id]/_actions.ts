@@ -39,7 +39,7 @@ import { VALID_TOOL_IDS } from "@/lib/mcp/tools";
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const VERSION_COLUMNS =
-  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, handoff_legal_enabled, proposal_ai_draft_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids,provisioning_origin,inbound_debounce_ms";
+  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, handoff_legal_enabled, proposal_ai_draft_enabled, cases_enabled, split_messages, split_max_chars, followup, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids,provisioning_origin,inbound_debounce_ms,personality";
 
 type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -334,6 +334,7 @@ export async function saveAgentDraftAction(
         knowledge_source_ids: v.knowledge_source_ids,
         split_messages: v.split_messages,
         split_max_chars: v.split_max_chars,
+        personality: v.personality,
         inbound_debounce_ms: v.inbound_debounce_ms ?? null,
         followup: v.followup,
         status: "draft",
@@ -564,6 +565,7 @@ export async function revertToVersionAction(
     knowledge_source_ids: string[];
     split_messages: boolean;
     split_max_chars: number;
+    personality: unknown;
     inbound_debounce_ms: number | null;
     followup: unknown;
   };
@@ -620,6 +622,9 @@ export async function revertToVersionAction(
         knowledge_source_ids: src.knowledge_source_ids ?? [],
         split_messages: src.split_messages,
         split_max_chars: src.split_max_chars,
+        // Reverter leva o jeito de falar junto (migration 9003): voltar para a
+        // versão e não voltar a personalidade seria publicar uma que nunca existiu.
+        personality: src.personality ?? {},
         inbound_debounce_ms: src.inbound_debounce_ms ?? null,
         followup: src.followup,
         status: "draft",
@@ -796,6 +801,7 @@ export async function createMcpAgentAction(
     cases_enabled: v.cases_enabled,
     split_messages: v.split_messages,
     split_max_chars: v.split_max_chars,
+    personality: v.personality,
     inbound_debounce_ms: v.inbound_debounce_ms ?? null,
     followup: v.followup,
     // O corpo ACEITAVA estes cinco e o INSERT os descartava: criar o assistente
