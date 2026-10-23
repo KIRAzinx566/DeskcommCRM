@@ -81,7 +81,8 @@ export function lerPersonalidade(bruto: unknown): Personalidade {
 }
 
 /** Algum traço que muda o jeito de falar (gostos não contam: são só do escritório). */
-export function temPersonalidade(p: Personalidade): boolean {
+export function temPersonalidade(p: Personalidade | null | undefined): boolean {
+  if (!p) return false;
   return (
     !!p.apresentacao ||
     p.formalidade !== undefined ||
@@ -139,8 +140,10 @@ const citar = (s: string) => `"${s.replace(/"/g, "'")}"`;
  * O trecho que vai para o prompt, DEPOIS das instruções do agente. Vazio
  * quando não há traço nenhum — e aí nada muda no atendimento.
  */
-export function blocoDaPersonalidade(p: Personalidade, nomeDoAgente: string): string {
-  if (!temPersonalidade(p)) return '';
+export function blocoDaPersonalidade(p: Personalidade | null | undefined, nomeDoAgente: string): string {
+  // Sem personalidade (config antiga, ou montada sem o campo) = bloco vazio:
+  // o turno nunca cai por causa do estilo.
+  if (!p || !temPersonalidade(p)) return '';
   const linhas: string[] = ['', '', '## Sua personalidade'];
   const nome = nomeDoAgente.trim();
   if (p.apresentacao) linhas.push(nome ? `Você é ${nome}. ${p.apresentacao}` : p.apresentacao);

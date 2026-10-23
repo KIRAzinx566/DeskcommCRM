@@ -60,4 +60,9 @@ describe('personalidade do agente', () => {
     expect(temPersonalidade({ apresentacao: 'Oi' })).toBe(true);
     expect(temPersonalidade({ formalidade: 0 })).toBe(true);
   });
+  it("config sem o campo (undefined/null) vira bloco vazio, sem lançar", () => {
+    expect(blocoDaPersonalidade(undefined, "Ana")).toBe("");
+    expect(blocoDaPersonalidade(null, "Ana")).toBe("");
+    expect(temPersonalidade(undefined)).toBe(false);
+  });
 });
