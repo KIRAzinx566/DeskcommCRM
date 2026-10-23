@@ -13,6 +13,7 @@ import { CsatPanel } from "./CsatPanel";
 import { CanaisPanel } from "./CanaisPanel";
 import { PerdasPanel } from "./PerdasPanel";
 import { PrevisaoPanel } from "./PrevisaoPanel";
+import { SeriePanel } from "./SeriePanel";
 import { useTeamMembers } from "@/hooks/team/useTeamMembers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -218,7 +219,7 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
                     <TableHead className="text-right">{t("Ganhos")}</TableHead>
                     <TableHead className="text-right">{t("Perdidos")}</TableHead>
                     <TableHead className="text-right">{t("Conversas")}</TableHead>
-                    <TableHead className="text-right">{t("1ª resposta (média)")}</TableHead>
+                    <TableHead className="text-right">{t("1ª resposta (média / mediana)")}</TableHead>
                     <TableHead className="text-right">{t("Em atendimento agora")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -237,7 +238,8 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
                         {a.conversations_handled}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatarDuracao(a.avg_first_response_seconds)}
+                        {formatarDuracao(a.avg_first_response_seconds)} ·{" "}
+                        {formatarDuracao(a.median_first_response_seconds)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         <CargaAtual atendente={a} t={t} />
@@ -253,6 +255,7 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
         {/* Relatório "Por canal" (issue #2390, upstream): o mesmo corte de período e de
             atendente da página, pelo NÚMERO. Mora na aba de desempenho do fork. */}
         <CanaisPanel owner={selectedOwner} />
+        <SeriePanel />
       </TabsContent>
 
       <TabsContent value="csat">
