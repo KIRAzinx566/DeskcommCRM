@@ -8,6 +8,7 @@
  * Postgres function (defense in depth).
  */
 import { z } from "zod";
+import { personalidadeSchema } from "@/lib/agent-engine/agent/personalidade";
 import { ehToolIdRemoto } from "@/lib/mcp/servidor-externo/ids";
 import { VALID_TOOL_IDS } from "@/lib/mcp/tools/catalog";
 import { TETO_TOOLS_POR_AGENTE } from "@/lib/mcp/tools/selecao-por-pacote";
@@ -202,6 +203,9 @@ const versionShapeSchema = z
      * ninguém travar o atendimento sem querer (#1856).
      */
     inbound_debounce_ms: z.number().int().min(0).max(60000).nullable().optional(),
+    // Personalidade (migration 9003): `{}` = sem personalidade, e é o default —
+    // quem não mexer na seção fica com o atendimento de sempre.
+    personality: personalidadeSchema.default({}),
     followup: followupConfigSchema,
     // ── Papel OPERADOR (spec 16 §3.2) ───────────────────────────────────────
     // Todos com `.default(...)`, e é o que mantém retrocompatível: agent e
@@ -285,6 +289,7 @@ export const versionPatchSchema = versionShapeSchema
     cases_enabled: versionShapeSchema.shape.cases_enabled.removeDefault(),
     split_messages: versionShapeSchema.shape.split_messages.removeDefault(),
     split_max_chars: versionShapeSchema.shape.split_max_chars.removeDefault(),
+    personality: versionShapeSchema.shape.personality.removeDefault(),
     followup: followupPatchSchema,
     operator_enabled: versionShapeSchema.shape.operator_enabled.removeDefault(),
     operator_model: versionShapeSchema.shape.operator_model.removeDefault(),

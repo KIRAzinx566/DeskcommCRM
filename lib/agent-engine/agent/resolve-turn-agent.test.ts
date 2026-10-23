@@ -15,6 +15,7 @@ function fakeConfig(agentId: string): PublishedAgentConfig {
     versionId: `v-${agentId}`,
     agentName: agentId,
     systemPrompt: 'prompt',
+    personality: {},
     provider: 'anthropic',
     model: 'claude-haiku-4-5',
     baseUrl: null,

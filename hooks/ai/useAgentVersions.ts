@@ -35,6 +35,8 @@ export interface AgentVersionRow {
   knowledge_source_ids: string[];
   split_messages: boolean;
   split_max_chars: number;
+  /** Personalidade da versão (migration 9003); `{}` quando não há. */
+  personality?: unknown;
   inbound_debounce_ms: number | null;
   followup: {
     enabled: boolean;
