@@ -207,7 +207,8 @@ describe("o ranking e Por canal no celular", () => {
 
         // O rótulo é o cabeçalho da coluna, palavra por palavra — e existe.
         expect(ranking.rotulos).toEqual(ranking.colunas);
-        expect(ranking.rotulos).toHaveLength(4);
+        // 5 no fork: a coluna "Em atendimento agora" (carga atual) vem depois.
+        expect(ranking.rotulos).toHaveLength(5);
         expect(canais.rotulos).toEqual(canais.colunas);
         expect(canais.rotulos).toHaveLength(3);
 
@@ -215,11 +216,11 @@ describe("o ranking e Por canal no celular", () => {
         const esperado =
           lingua === "es"
             ? {
-                ranking: ["Ganados", "Perdidos", "Conversaciones", "1ª respuesta (promedio / mediana)"],
+                ranking: ["Ganados", "Perdidos", "Conversaciones", "1ª respuesta (promedio / mediana)", "En atención ahora"],
                 canais: ["Conversaciones", "1ª respuesta (promedio)", "Sin respuesta"],
               }
             : {
-                ranking: ["Ganhos", "Perdidos", "Conversas", "1ª resposta (média / mediana)"],
+                ranking: ["Ganhos", "Perdidos", "Conversas", "1ª resposta (média / mediana)", "Em atendimento agora"],
                 canais: ["Conversas", "1ª resposta (média)", "Sem resposta"],
               };
         expect(ranking.rotulos).toEqual(esperado.ranking);
