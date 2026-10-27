@@ -140,6 +140,20 @@ export const AUDIT_ACTIONS = [
   "contact.field_proposed",
   "contact.field_confirmed",
   "contact.field_rejected",
+  // O MESMO par de fila, no CARD do negócio (issue #3316): a IA lê um documento
+  // (voucher, bilhete, apólice) e propõe os campos de `pipeline.settings.fields`;
+  // ninguém grava `crm_leads.custom_fields` sem confirmação humana. As três
+  // entram pelo mesmo motivo das de contato: proposta é intenção auditável mesmo
+  // quando nunca vira escrita, e "ninguém confirmou" é informação, não ausência
+  // dela.
+  //
+  // ⚠️ SÓ METADADO nesta família: `proposal_id`, `campo`, `origem`, decisão.
+  // O valor lido do documento NUNCA entra aqui — o audit é append-only, não tem
+  // `lead_id` nem caminho de limpeza, e copiá-lo criava a segunda fonte
+  // permanente de conteúdo pessoal que fechou o #3415.
+  "lead.field_proposed",
+  "lead.field_confirmed",
+  "lead.field_rejected",
   "lead.tags_changed",
   "message.sent",
   "message.received",
@@ -281,6 +295,15 @@ export const AUDIT_ACTIONS = [
   "channel.social_webhook_ressincronizado",
   "channel.ai_access_updated",
   "channel.acervo_updated",
+  // A importação do histórico do número (#999): prévia, início, cancelamento e
+  // retomada depois de erro (rotas), e o fim, concluída ou em erro (cron). A
+  // rodada que só anda o cursor não audita.
+  "channel.historico_previa",
+  "channel.historico_import_started",
+  "channel.historico_import_cancelled",
+  "channel.historico_import_resumed",
+  "channel.historico_import_completed",
+  "channel.historico_import_failed",
   "channel.reconnected",
   // Duas ações distintas de propósito: `deleted` apagou a linha (canal virgem),
   // `archived` só a escondeu porque conversas/mensagens ainda a referenciam.
@@ -795,6 +818,14 @@ export const AUDIT_ACTIONS = [
   "crm_task.updated",
   "crm_task.deleted",
 
+  // A meta mensal da empresa (migration 0756, #3025): o número pelo qual a
+  // empresa cobra o próprio time. Quem mudou o alvo, de quanto para quanto e
+  // quando é a disputa clássica do fim do mês — o metadata leva `alvo` e
+  // `alvo_anterior` justamente para a resposta ser "de 40 para 25", e não só
+  // "existe um 25".
+  "crm_meta.created",
+  "crm_meta.updated",
+
   // A proposta comercial. Rascunho, edição, ajuste pelo assistente, envio e
   // decisão do cliente — cada um muda o que o negócio vale ou o que foi
   // oferecido, e é disputa comum entre quem atende e quem fecha.
@@ -1193,6 +1224,12 @@ export const AUDIT_ACTIONS = [
   "contact.marked_personal",
   "contact.unmarked_personal",
 
+  // A trava de número novo (go-live) solta na atualização do número que o
+  // controle de ritmo já considera formado (migration 0793, PR #2327, doc 109).
+  // Uma linha por número, com o motivo; e uma por instalação marcando a rodada.
+  "channel.go_live_liberado_na_atualizacao",
+  "channel.go_live_transicao_da_atualizacao",
+
   // O interruptor POR EMPRESA do passo `ai_decide` das automações (#2367):
   // gravado em `organizations.settings.automacoes.ai_decide` pela tela
   // Configurações → Automações. Sem esta linha, desligar o freio de toda a
@@ -1239,6 +1276,15 @@ export const AUDIT_ACTIONS = [
   // dedicada `PATCH /contacts/[id]/carteira` (#2591) — a escrita é do servidor,
   // então o audit é a única trilha de quem mudou o dono.
   "contact.carteira_changed",
+  // A chave POR GRUPO "Permitir que a IA responda neste grupo" (#2729,
+  // migration 0653). Duas ações, e não `channel.group_enabled` com um campo no
+  // metadata: ligar o grupo (entrar na inbox, mexer no filtro do WhatsApp) e
+  // ligar a IA (passar a responder) são decisões opostas de custos opostos, e
+  // o painel de auditoria filtra por `action`, nunca por metadata — "quem
+  // deixou a IA falar neste grupo, e quando" precisa de filtro próprio para
+  // ser respondida sem vasculhar metadados.
+  "channel.group_ai_enabled",
+  "channel.group_ai_disabled",
 
   // A régua de preço da loja (tabela do dia + taxas do cartão), em
   // `organizations.settings.catalogo` e `.parcelamento`. Ligar a validade cala o
@@ -1315,6 +1361,33 @@ export const AUDIT_ACTIONS = [
   // papel — nunca o texto do papel, que é livre.
   "lead.participant_added",
   "lead.participant_removed",
+  // Anexos de negócios / leads (#2829): upload e remoção de arquivo em campo customizado
+  "lead.attachment_uploaded",
+  "lead.attachment_deleted",
+  // A REMOÇÃO do destinatário dos avisos de caso (issue #3338) —
+  // `DELETE /api/v1/ai/cases/alerta`. Código próprio, e não
+  // `ai.case_alert_settings_changed` com um campo no metadata: a pergunta que
+  // se faz depois é outra ("quem LIBEROU o número de avisos, e quando", que é o
+  // que explica um número voltar a virar atendimento), e o painel de auditoria
+  // filtra por `action`, nunca por metadata. O número entra MASCARADO, pela
+  // mesma razão do `ai.case_alert_settings_changed`: `api_audit_log` é
+  // append-only e a cascata de LGPD não o alcança.
+  "ai.case_alert_settings_removed",
+  "lgpd.atestado_emitido",
+  // A cadência do lembrete de caso parado (migration 0766): ligado, intervalo e
+  // teto, escolhidos na Central por quem administra. Audita porque desligar
+  // cala a cobrança da organização inteira, e "quem desligou, e quando" só tem
+  // resposta na trilha — a coluna guarda só o valor de agora.
+  "ai.lembrete_de_caso_configurado",
+  // Materiais do acervo (criar, enviar arquivo, editar, arquivar, reindexar).
+  // O metadata leva só ids e contagens: o texto do material nunca entra — a
+  // tabela é append-only e a cascata de LGPD não a alcança. Criar e enviar
+  // arquivo usam o MESMO código: para quem lê a trilha a pergunta é "quem pôs
+  // este material no acervo", não por qual das duas portas ele entrou.
+  "ai.knowledge_source_created",
+  "ai.knowledge_source_updated",
+  "ai.knowledge_source_archived",
+  "ai.knowledge_source_reindexed",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

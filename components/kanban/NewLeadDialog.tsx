@@ -197,6 +197,11 @@ export function NewLeadDialog({
         settingsDoFunil: settings,
         destino: { stageId, desfecho: null },
         motivoDeGanho: null,
+        // O arquivo ainda não pode existir (#3433): o anexo é do negócio, e o
+        // negócio é o que este formulário vai criar. Sem isto, a etapa que pede
+        // documento deixava o botão "Criar lead" travado para sempre — o campo
+        // aparecia como faltando e não havia onde anexar.
+        semAnexosAinda: true,
       }).faltando,
     [settings, stageId, camposDoNegocio],
   );
@@ -249,7 +254,10 @@ export function NewLeadDialog({
     const reais = values.valueReais.trim();
     let valueCents: number | null = null;
     if (reais.length > 0) {
-      valueCents = parseReaisToCents(reais);
+      // Negócio NOVO nasce na moeda da organização (é ela que o servidor grava
+      // e é ela que o rótulo do campo mostra) — e é ela que diz se a vírgula é
+      // decimal ou separador de milhar (#3331).
+      valueCents = parseReaisToCents(reais, moedaDoValor);
       if (valueCents === null) {
         form.setError("valueReais", { message: t("Valor inválido") });
         return;

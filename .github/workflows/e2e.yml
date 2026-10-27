@@ -759,6 +759,29 @@ jobs:
     # NÃO MEDIDO: se as quatro passam na vizinhança da parte 7. Quem responde
     # é o e2e do PR que criou esta parte. Se uma delas falhar por vizinhança,
     # a troca mais barata medida é `capacidades-do-agente` → parte 6 (~1069s).
+    #
+    # ── 2026-10-26: o preparo não pode gastar a folga antes do nativo ──────
+    #
+    # Run 40361684172, head 8a063d8db: partes 1/3/4/5/6/7 verdes; a 2 foi
+    # cortada sem caso vermelho, com 674s de preparo + 1006s de suíte.
+    # Eram 99 casos verdes, 6 pulados e 2 pendentes (o rótulo 105 do reporter
+    # não é contagem de verdes). Faltavam só os dois últimos de `navegacao`.
+    # O main verde 40347496767 mediu os dois em 28,2s + 2,3s; a spec inteira,
+    # 12 casos, em 329,1s. Seus ~30s por login são a espera anti-replay TOTP
+    # do helper, preservada; o Redis ausente não explica essa cadência.
+    #
+    # Supabase levou 377–390s nas partes 1/2/4/6/7: três tentativas forçadas
+    # e suas esperas antes de liberar o fallback nativo. Na 2, só o caminho
+    # até ele custou 269s. O main verde levou 94–109s no mesmo passo. Agora
+    # o nativo é a PRIMEIRA tentativa, mantendo as quatro, esperas, pipefail
+    # e classificação de falha. Não é motivo para mudar teto nem orçamento.
+    #
+    # Só `navegacao` vai da 2 para a 7, parte comum com os mesmos seeds. No
+    # main medido: jobs 2/7 = 1401/965s; subtrair/somar os 329s da spec dá
+    # 1072/1294s ESTIMADOS. No run com pull limitado, a 7 terminou em 1225s,
+    # antes da mudança; liberar o nativo primeiro recupera folga também nela.
+    # NÃO MEDIDO aqui: a nova vizinhança e o tempo real após as duas mudanças.
+    # Quem os prova é o próximo e2e completo, sem rerodar o head antigo.
     env:
       # Provider controlado; preview/assistência executam core, ferramentas e gates reais.
       INTERNAL_AGENT_RUN_STUB: "true"
@@ -928,7 +951,6 @@ jobs:
         agenda-caminho-ate-os-horarios.spec.ts
         agenda-google-volta-do-consentimento.spec.ts
         agenda-google-volta-nao-desloga.spec.ts
-        navegacao.spec.ts
         menu-por-empresa-e-a-porta-de-volta.spec.ts
         icone-da-aba.spec.ts
       # `moeda-da-organizacao` entrou na PARTE_2 em 2026-09-04, ao lado de
@@ -1183,6 +1205,7 @@ jobs:
         catalogo-busca-no-catalogo-inteiro.spec.ts
         relatorio-por-etiqueta.spec.ts
         integracao-dados-mysql-na-tela.spec.ts
+        minhas-tarefas-no-celular.spec.ts
 
       # ─── PARTE 4 — a spec de VPS fresca, e quem pode entrar ao lado dela ───
       #
@@ -1462,19 +1485,23 @@ jobs:
       # Graph, assinatura do WAHA ligada, seed extra) não entra aqui: ganha
       # parte própria, com número seguinte.
       #
-      # As quatro vieram de partes diferentes, e cada uma semeia o que usa ou
-      # só lê os seeds de passo: `agente-novo-e-uso` (da 1) cria o agente pela
-      # tela; `capacidades-do-agente` (da 2) roda os próprios seeds se faltar
-      # algo e devolve o rascunho como achou; `extensoes-versao` (da 5) sobe o
-      # catálogo de extensões dela e o limpa no `afterAll`;
-      # `prova-painel-provedores` (da 6) lê o catálogo da OpenRouter que o
-      # passo `seed-e2e-catalogo-openrouter` semeia em toda parte comum.
-      # Nenhuma cita WAHA, Graph ou webhook.
+      # As specs desta parte vieram de partes diferentes, por tempo de
+      # execução, ou nasceram aqui; a lista abaixo é a fonte, e este
+      # comentário não a enumera para não envelhecer a cada spec nova. A
+      # regra de entrada: cada uma semeia o que usa ou só lê os seeds de
+      # passo (ex.: o catálogo da OpenRouter que `seed-e2e-catalogo-openrouter`
+      # semeia em toda parte comum), e nenhuma cita WAHA, Graph ou webhook.
       SPECS_PARTE_7: >-
+        celular-toque-nos-controles.spec.ts
         agente-novo-e-uso.spec.ts
         capacidades-do-agente.spec.ts
+        equipe-no-celular.spec.ts
         extensoes-versao.spec.ts
+        ia-no-celular.spec.ts
+        navegacao.spec.ts
         prova-painel-provedores.spec.ts
+        comercial-no-celular.spec.ts
+        propostas-de-campos-do-card.spec.ts
 
       # ─── FORA_DO_CI — as que ficaram fora, e o motivo de cada uma ───
       #
@@ -1791,6 +1818,19 @@ jobs:
       # endereçada por digest, então o que já veio de um registro não é
       # baixado de novo do outro.
       #
+      # Em 26/10/2026, partes 3 e 7 do run 40353735403 morreram antes dos
+      # testes: GHCR recusou com `toomanyrequests` e ECR com `Data limit
+      # exceeded`. Repetir o ECR na última tentativa não abria outra saída.
+      # O CLI pinado já tenta ECR, GHCR e Docker Hub quando o override está
+      # VAZIO, reaproveitando primeiro as imagens locais. O vazio explícito
+      # na tentativa limpa o GHCR que setup-cli exportou; só omitir a
+      # variável manteria o override e impediria o fallback nativo.
+      # A medição do run 40361684172 põe o nativo PRIMEIRO nesta correção: a
+      # parte 2 gastou 269s nas três tentativas forçadas e nas esperas até chegar
+      # ao caminho que funcionou. As tentativas 2/3 ainda oferecem os registros
+      # explícitos depois de uma falha transitória; a quarta libera de novo o
+      # nativo. O pin, as quatro tentativas e os backoffs continuam os mesmos.
+      #
       # `-x studio,postgres-meta`: menos imagens, menos requisições ao
       # registro. Nenhuma spec, script ou passo deste workflow fala com o
       # Studio (porta 54323) nem com o postgres-meta (que só o Studio usa):
@@ -1806,12 +1846,12 @@ jobs:
           mv supabase/migrations /tmp/migrations-off
           mkdir -p supabase/migrations
           esperas=(0 20 60 120)
-          registros=(ghcr.io public.ecr.aws ghcr.io public.ecr.aws)
+          registros=("" public.ecr.aws ghcr.io "")
           for tentativa in 1 2 3 4; do
             espera=${esperas[$((tentativa - 1))]}
             registro=${registros[$((tentativa - 1))]}
             if [ "$espera" -gt 0 ]; then
-              echo "::warning title=supabase start: nova tentativa::tentativa ${tentativa} de 4 daqui a ${espera}s, puxando de ${registro} — a anterior falhou baixando imagem do registro"
+              echo "::warning title=supabase start: nova tentativa::tentativa ${tentativa} de 4 daqui a ${espera}s, puxando de ${registro:-fallback nativo (ECR, GHCR e Docker Hub)} — a anterior falhou baixando imagem do registro"
               supabase stop --no-backup || true
               sleep "$espera"
             fi
@@ -1823,7 +1863,7 @@ jobs:
               exit 1
             fi
           done
-          echo "::error title=supabase start falhou 4 vezes baixando imagens::ghcr.io e public.ecr.aws recusaram o pull nas 4 tentativas (esperas de 20s, 60s e 120s). É limite de taxa ou rede do registro, não o PR — rerode a parte."
+          echo "::error title=supabase start falhou 4 vezes baixando imagens::GHCR, ECR e o fallback nativo com Docker Hub não concluíram o pull (esperas de 20s, 60s e 120s). O preparo falhou antes dos testes; confira os erros dos registros acima antes de rerodar."
           exit 1
 
       # O baseline é um dump `--schema-only`: ele USA os tipos das extensões
@@ -1996,6 +2036,10 @@ jobs:
       # Só em máquina do GitHub: no executor próprio o runner é um contêiner
       # com apt e `sudo` próprios, e lá o passo segue como era (NÃO MEDIDO se
       # o espelho pesa naquela máquina).
+      #
+      # As três linhas `Acquire::*` são de outro defeito, o da TRAVA (ver o
+      # bloco antes de "Instalar o browser"): sem dado por 30 s, o apt larga a
+      # conexão e tenta de novo, em vez de esperar a do espelho para sempre.
       - name: Apontar o cache do apt para uma pasta cacheável
         if: runner.environment == 'github-hosted'
         id: debs
@@ -2003,13 +2047,14 @@ jobs:
           set -euo pipefail
           pasta="$HOME/.cache/playwright-apt"
           mkdir -p "$pasta/partial"
-          printf 'Dir::Cache::Archives "%s/";\nAPT::Keep-Downloaded-Packages "true";\n' "$pasta" \
+          printf 'Dir::Cache::Archives "%s/";\nAPT::Keep-Downloaded-Packages "true";\nAcquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' "$pasta" \
             | sudo tee /etc/apt/apt.conf.d/99-debs-do-playwright >/dev/null
           pw=$(pnpm exec playwright --version | awk '{print $2}')
           : "${ImageOS:?runner do GitHub sem ImageOS — a chave do cache ficaria sem a imagem}"
           : "${ImageVersion:?runner do GitHub sem ImageVersion}"
           echo "prefixo=playwright-apt-${ImageOS}-pw${pw}-" >> "$GITHUB_OUTPUT"
           echo "imagem=${ImageVersion}" >> "$GITHUB_OUTPUT"
+          echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
 
       - name: Restaurar os .deb do browser
         if: runner.environment == 'github-hosted'
@@ -2020,8 +2065,46 @@ jobs:
           key: ${{ steps.debs.outputs.prefixo }}${{ steps.debs.outputs.imagem }}
           restore-keys: ${{ steps.debs.outputs.prefixo }}
 
+      # ─── O espelho do apt às vezes TRAVA, e aí não é lentidão ─────────────
+      #
+      # Medido em 23/10/2026 sobre 42 runs (281 partes): o passo abaixo e o do
+      # ffmpeg são BIMODAIS. Saudáveis, o browser leva no máximo 53 s e o ffmpeg
+      # 17 s; fora disso, nada entre 1 e 10 min — o passo trava de 653 s a
+      # 1.511 s e o teto do job cancela a parte sem rodar caso nenhum. Foram 2
+      # de 281 no browser e 9 de 38 no ffmpeg (só a parte 6 instala ffmpeg).
+      # No log do run 39965635473 (parte 7) o `apt-get update` recebe os
+      # `InRelease` do `azure.archive.ubuntu.com` e fica 24,5 min sem imprimir
+      # mais uma linha até o cancelamento.
+      #
+      # Nem toda "trava" é trava. No run 39981658310 (parte 6, o PR que trouxe
+      # este laço) o índice desceu a 11,8 MB/s e os .deb do ffmpeg a ~60 kB/s:
+      # 62,8 MB nesse ritmo são ~17 min, e as 3 tentativas morreram no meio.
+      # Contra espelho LENTO tentar de novo não salva; o que salva é não
+      # descer do espelho — por isso o ffmpeg ganhou cache de .deb próprio
+      # (abaixo), como o browser já tinha.
+      #
+      # Travado não destrava esperando: cada tentativa ganha 180 s (3× o pior
+      # caso saudável) e a seguinte abre conexões novas com o espelho. Morta a
+      # tentativa, um `apt-get` órfão e um `dpkg` interrompido são o que
+      # quebraria a próxima — daí o `pkill` e o `dpkg --configure -a`. O
+      # `timeout-minutes` do passo é o cinto, caso o próprio laço trave.
       - name: Instalar o browser
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          source scripts/ci/apt-e2e-failover.sh
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          atualizar=""
+          for tentativa in 1 2 3; do
+            if timeout -k 20 180 bash -c "${atualizar} pnpm exec playwright install --with-deps chromium" 2>&1 | tee "$log"; then exit 0; else codigos=("${PIPESTATUS[@]}"); fi
+            test "${codigos[1]}" -eq 0 || exit 1
+            recuperar_apt_e2e "${codigos[0]}" "$log" "$tentativa"
+            atualizar="sudo apt-get update -q --error-on=any &&"
+            echo "::warning title=Preparo do e2e: nova tentativa::a tentativa ${tentativa} de 3 de instalar o browser falhou no transporte APT (código ${codigos[0]}); cada tentativa tem limite de 180 s"
+          done
+          echo "::error title=O preparo não instalou o browser::3 tentativas limitadas a 180 s falharam no transporte APT. Consulte a fonte e o erro nos logs acima."
+          exit 1
 
       # Salva logo depois de instalar, e não no fim do job: o `actions/cache`
       # comum só grava se o job passar, e a parte que estoura o teto — a que
@@ -2038,16 +2121,60 @@ jobs:
       # para AAC (`?formato=aac`, F2 da ADR-0006). O executor não traz ffmpeg
       # garantido: instala, e a sonda reprova ALTO se faltar um dos dois
       # encoders, em vez de o B-5 cair por um motivo que não é o produto.
+      #
+      # Mesmo laço do browser (a trava e a medição estão no bloco dele). A 1ª
+      # tentativa não roda `apt-get update`: o `--with-deps` do passo anterior
+      # acabou de atualizar os índices, e um update a menos é uma ida a menos
+      # ao espelho que trava. `-q` e não `-qq`: com `-qq` o log do run
+      # 39942328361 ficou 22,7 min mudo, sem dizer se travou no índice ou no
+      # download.
+      #
+      # Os .deb do ffmpeg (87 pacotes, 62,8 MB) moram numa pasta só deles, com
+      # cache próprio: a chave do browser é escrita por qualquer parte, e só a
+      # parte 6 tem o ffmpeg. Mesmo raciocínio da pasta do browser — o apt
+      # confere cada .deb restaurado contra o índice e só desce o que mudou.
+      - name: Restaurar os .deb do ffmpeg
+        if: matrix.parte == 6 && runner.environment == 'github-hosted'
+        id: debs-ffmpeg
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ffmpeg-apt/*.deb
+          key: ffmpeg-apt-${{ steps.debs.outputs.os }}-${{ steps.debs.outputs.imagem }}
+          restore-keys: ffmpeg-apt-${{ steps.debs.outputs.os }}-
+
       - name: Instalar o ffmpeg e sondar os encoders (áudio no celular, F2)
         if: matrix.parte == 6
+        timeout-minutes: 12
         run: |
           set -euo pipefail
+          source scripts/ci/apt-e2e-failover.sh
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
           if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+            debs="$HOME/.cache/ffmpeg-apt"
+            mkdir -p "$debs/partial"
+            atualizar=""
+            for tentativa in 1 2 3; do
+              if timeout -k 20 180 bash -c "${atualizar} sudo apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives=$debs/ ffmpeg" 2>&1 | tee "$log"; then break; else codigos=("${PIPESTATUS[@]}"); fi
+              test "${codigos[1]}" -eq 0 || exit 1
+              recuperar_apt_e2e "${codigos[0]}" "$log" "$tentativa"
+              echo "::warning title=Preparo do e2e: nova tentativa::a tentativa ${tentativa} de 3 de instalar o ffmpeg falhou no transporte APT (código ${codigos[0]}); cada tentativa tem limite de 180 s"
+              if [ "$tentativa" -eq 3 ]; then
+                echo "::error title=O preparo não instalou o ffmpeg::3 tentativas limitadas a 180 s falharam no transporte APT. Consulte a fonte e o erro nos logs acima."
+                exit 1
+              fi
+              atualizar="sudo apt-get update -q --error-on=any &&"
+            done
           fi
           ffmpeg -hide_banner -encoders | grep -E ' (aac|libopus) '
           test "$(ffmpeg -hide_banner -encoders | grep -cE ' (aac|libopus) ')" -ge 2
+
+      - name: Guardar os .deb do ffmpeg
+        if: matrix.parte == 6 && runner.environment == 'github-hosted' && steps.debs-ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ffmpeg-apt/*.deb
+          key: ffmpeg-apt-${{ steps.debs.outputs.os }}-${{ steps.debs.outputs.imagem }}
 
       # `.env.local` é CÓPIA do `.env.e2e`, não uma terceira redação dele.
       #
