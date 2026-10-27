@@ -137,6 +137,29 @@ export interface ActivityRow {
 }
 
 /**
+ * A proposta de campo lida num documento do negócio (`lead_field_proposals`,
+ * migration 0772).
+ *
+ * Entra porque a anonimização a REDIGE: `trecho`, `valor_proposto` e
+ * `valor_anterior` são conteúdo do documento de quem pediu o acesso. Sem esta
+ * coleta, o Art. 18 II devolveria um export sem exatamente o dado que a casa
+ * apaga — e a régua de `lgpd-exporta-o-que-redige` reprova por isso.
+ */
+export interface LeadFieldProposalRow {
+  id: string;
+  lead_id: string;
+  campo: string;
+  valor_proposto: unknown;
+  valor_anterior: unknown;
+  trecho: string | null;
+  attachment_id: string | null;
+  status: string;
+  proposed_at: string;
+  expires_at: string;
+  decided_at: string | null;
+}
+
+/**
  * O resumo que o agente guarda sobre o titular (`lead_checkpoints`).
  *
  * Entra porque a anonimização o REDIGE (migration 0391): o resumo corrido, os
@@ -684,6 +707,7 @@ export interface ExportPayload {
    */
   honorarios_contratos: HonorariosContratoRow[];
   honorarios_parcelas: HonorariosParcelaRow[];
+  lead_field_proposals: LeadFieldProposalRow[];
   orders: OrderRow[];
   activities: ActivityRow[];
   checkpoints: CheckpointRow[];
@@ -824,6 +848,20 @@ export interface ExportPayload {
    * dois quando ele pede anonimização; o que se apaga a pedido dele é o que se
    * entrega a pedido dele (Art. 18 II). Mesmo escopo da cascata: org + contato.
    */
+  /**
+   * Anexos dos negócios dele (#3229): o documento que ele mandou (voucher,
+   * comprovante) é dado dele, e a cascata o apaga a pedido dele — então sai aqui
+   * a pedido dele. Vai o registro (nome, tipo, tamanho, data), não o binário.
+   */
+  lead_attachments?: Array<{
+    id: string;
+    lead_id: string;
+    field_key: string;
+    file_name: string;
+    mime_type: string;
+    file_size: number;
+    created_at: string;
+  }>;
   lead_notes?: Array<{
     id: string;
     headline: string | null;
@@ -1352,6 +1390,30 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     }
   }
 
+  // Anexos dos negócios dele (#3229) — pelos ids de `leads` já coletados.
+  let lead_attachments: NonNullable<ExportPayload["lead_attachments"]> = [];
+  if (leads.length > 0) {
+    const { data, error } = await admin
+      .from("crm_lead_attachments")
+      .select("id, lead_id, field_key, file_name, mime_type, file_size, created_at")
+      .eq("organization_id", organizationId)
+      .in(
+        "lead_id",
+        leads.map((l) => l.id),
+      )
+      .order("created_at", { ascending: true })
+      .limit(500);
+    if (error) {
+      logger.warn("[lgpd-export-worker] lead attachments load failed", {
+        request_id: requestId,
+        error: error.message,
+      });
+    } else if (data) {
+      conferirTeto("lead_attachments", data, 500);
+      lead_attachments = data;
+    }
+  }
+
   // Honorários — módulo opcional (ADR-0002/D8). Deriva dos ids de `leads` já
   // coletados: o contrato é `lead_id`, não `contact_id` direto.
   //
@@ -1361,6 +1423,31 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
   let honorarios_contratos: HonorariosContratoRow[] = [];
   let honorarios_parcelas: HonorariosParcelaRow[] = [];
   const leadIds = leads.map((l) => l.id);
+
+  // Propostas de campos lidos no documento — a cascata da 0772 redige `trecho`
+  // e os valores, então o Art. 18 II tem de alcançá-las pela mesma porta dos
+  // outros dados do negócio: o `lead_id` já coletado. Tabela de módulo: num
+  // clone sem a migration ela não existe (42P01) e o bloco sai vazio.
+  let lead_field_proposals: LeadFieldProposalRow[] = [];
+  if (leadIds.length > 0) {
+    const { data, error } = await admin
+      .from("lead_field_proposals")
+      .select(
+        "id, lead_id, campo, valor_proposto, valor_anterior, trecho, attachment_id, status, proposed_at, expires_at, decided_at",
+      )
+      .eq("organization_id", organizationId)
+      .in("lead_id", leadIds)
+      .order("proposed_at", { ascending: false })
+      .limit(500);
+    if (error) {
+      if (error.code !== "42P01") {
+        throw new Error(`lead_field_proposals_load_failed: ${error.message}`);
+      }
+    } else if (data) {
+      conferirTeto("lead_field_proposals", data, 500);
+      lead_field_proposals = data;
+    }
+  }
   if (leadIds.length > 0) {
     const { data, error } = await admin
       .from("honorarios_contratos")
@@ -2316,6 +2403,7 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     messages_count_total,
     messages_recent,
     leads,
+    lead_field_proposals,
     honorarios_contratos,
     honorarios_parcelas,
     orders,
@@ -2346,6 +2434,7 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     conversation_drafts,
     conversation_notes,
     contact_field_proposals,
+    lead_attachments,
     lead_notes,
     ai_agent_runs,
     lead_state,
@@ -2511,6 +2600,7 @@ function emptyPayload(
     messages_count_total: 0,
     messages_recent: [],
     leads: [],
+    lead_field_proposals: [],
     honorarios_contratos: [],
     honorarios_parcelas: [],
     orders: [],
@@ -2537,6 +2627,7 @@ function emptyPayload(
     campaign_suppressions: [],
     channel_session_groups: [],
     group_messages_authored: [],
+    lead_attachments: [],
     lead_notes: [],
     ai_agent_runs: [],
     lead_state: [],

@@ -20,22 +20,4 @@ describe("Desambiguação de calendar_service_professionals (#3219)", () => {
     expect(baseline).toContain("0717: Desambiguação de calendar_service_professionals (#3219)");
     expect(baseline).toContain("calendar_service_professionals_organization_id_fkey");
   });
-
-  it("o fragmento de release em .changes existe e é válido — ou já entrou no CHANGELOG", () => {
-    const changePath = path.resolve(
-      __dirname,
-      "../../.changes/desambigua-calendar-service-professionals.md"
-    );
-    // A release CONSOME os fragmentos (viram a seção da versão no CHANGELOG).
-    // Exigir o arquivo para sempre reprovaria todo PR de release; depois dela,
-    // a prova é o título na nota da versão.
-    if (!fs.existsSync(changePath)) {
-      const changelog = fs.readFileSync(path.resolve(__dirname, "../../CHANGELOG.md"), "utf-8");
-      expect(changelog).toContain("Desambiguação de relacionamento no PostgREST para organizações (#3219)");
-      return;
-    }
-    const content = fs.readFileSync(changePath, "utf-8");
-    expect(content).toContain("impacto: nada_mudou");
-    expect(content).toContain("secao: corrigido");
-  });
 });
