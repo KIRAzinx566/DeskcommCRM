@@ -73063,3 +73063,64 @@ alter table public.attendant_sectors
 
 comment on column public.attendant_sectors.color is
   'Cor de identificação da fila (migration 9084): #rrggbb, ou NULL = sem cor. O CHECK guarda a FORMA; a paleta é a da tela (PALETA_DE_ETIQUETAS) e não se valida no banco. Lida por GET /api/v1/attendants/sectors e gravada por PATCH /api/v1/attendants/sectors/[id] (manager+).';
+
+-- ---- marca por organização: cor e logo (migration 0169, fork) ----
+-- A 0169 nunca teve espelho aqui: a instalação pelo baseline ficava sem as
+-- colunas e as policies do bucket que a cadeia cria. Mesmo corpo do .sql, com
+-- `drop policy if exists` antes de cada `create policy` para ser idempotente.
+-- Não cria função, então pode ficar depois da VARREDURA anon.
+alter table public.organizations
+  add column if not exists branding_accent_color text,
+  add column if not exists branding_logo_url text;
+
+comment on column public.organizations.branding_accent_color is
+  'Hex (#rrggbb ou #rgb) validado em app antes de gravar. NULL = usa a cor global da instalação (APP_ACCENT_COLOR).';
+comment on column public.organizations.branding_logo_url is
+  'URL pública do logo no bucket org-branding. NULL = usa o logo global da instalação (APP_LOGO_URL).';
+
+-- Bucket público: o logo aparece em <img src> antes da hidratação/sessão
+-- (sidebar, título de página), então precisa de URL direta sem signed-URL.
+-- 2MB / só formatos de imagem web comuns — mesmo teto de bom senso usado nos
+-- outros buckets desta migration family (ai-policy 20MB, lgpd-exports 50MB,
+-- mas aqueles são documentos; logo é um ícone).
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'org-branding',
+  'org-branding',
+  true,
+  2097152,
+  array['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+)
+on conflict (id) do nothing;
+
+-- Escrita sempre passa pelo admin client (app/api/v1/settings/branding/logo/route.ts,
+-- mesma doutrina de app/actions/settings/updateTenant.ts — RLS de sessão não é a
+-- fronteira real, service role bypassa). As policies abaixo são defesa em
+-- profundidade, espelhando o padrão já usado em ai-policy (0014) e
+-- whatsapp-media (0055): membro só mexe no prefixo da própria org.
+drop policy if exists "tenant_write_org_branding" on storage.objects;
+create policy "tenant_write_org_branding" on storage.objects for insert
+  with check (
+    bucket_id = 'org-branding'
+    and exists (
+      select 1 from public.user_organizations uo
+      where uo.user_id = auth.uid()
+        and uo.revoked_at is null
+        and uo.organization_id = (split_part(name, '/', 1))::uuid
+    )
+  );
+
+drop policy if exists "tenant_delete_org_branding" on storage.objects;
+create policy "tenant_delete_org_branding" on storage.objects for delete
+  using (
+    bucket_id = 'org-branding'
+    and exists (
+      select 1 from public.user_organizations uo
+      where uo.user_id = auth.uid()
+        and uo.revoked_at is null
+        and uo.organization_id = (split_part(name, '/', 1))::uuid
+    )
+  );
+
+-- Sem policy de select: bucket público serve o conteúdo direto por
+-- /storage/v1/object/public/org-branding/..., sem passar por RLS.

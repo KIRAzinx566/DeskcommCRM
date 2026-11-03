@@ -175,10 +175,10 @@ describe("9094 — apagar o modelo não apaga nem trava a configuração", () =>
 });
 
 describe("9094 — a assinatura nova", () => {
-  it("anon não tem EXECUTE na função de 10 parâmetros", () => {
+  it("anon não tem EXECUTE na função viva (no fork, 11 parâmetros: a da 9094 + o canal direto, migration 7002)", () => {
     expect(
       valor(
-        `select has_function_privilege('anon', 'public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean,boolean,text,jsonb,uuid)', 'EXECUTE')::text`,
+        `select has_function_privilege('anon', 'public.fn_definir_aviso_de_caso(uuid,uuid,text,text,boolean,boolean,boolean,text,jsonb,uuid,boolean)', 'EXECUTE')::text`,
       ),
     ).toBe("false");
   });

@@ -43,6 +43,7 @@ on conflict (id) do nothing;
 -- fronteira real, service role bypassa). As policies abaixo são defesa em
 -- profundidade, espelhando o padrão já usado em ai-policy (0014) e
 -- whatsapp-media (0055): membro só mexe no prefixo da própria org.
+drop policy if exists "tenant_write_org_branding" on storage.objects;
 create policy "tenant_write_org_branding" on storage.objects for insert
   with check (
     bucket_id = 'org-branding'
@@ -54,6 +55,7 @@ create policy "tenant_write_org_branding" on storage.objects for insert
     )
   );
 
+drop policy if exists "tenant_delete_org_branding" on storage.objects;
 create policy "tenant_delete_org_branding" on storage.objects for delete
   using (
     bucket_id = 'org-branding'

@@ -62,6 +62,11 @@ select id,
 -- (0150) —, então estreitar aqui mudaria comportamento que não é desta PR.
 grant all on public.ai_provider_credentials_safe to authenticated;
 grant all on public.ai_provider_credentials_safe to service_role;
+-- E o `create view` num banco do Supabase dá a `anon` os privilégios padrão do
+-- schema: o `drop` acima levou junto o `revoke` que o baseline faz no fim.
+-- Sem esta linha, a cadeia termina com `anon` na view e a instalação pelo
+-- baseline não (cerca `baseline-e-cadeia-chegam-ao-mesmo-schema`).
+revoke all on public.ai_provider_credentials_safe from anon;
 
 -- `security_invoker = true`: quem lê a view precisa do grant na TABELA base
 -- para cada coluna que a view seleciona (0150 já restringiu isso a uma lista
