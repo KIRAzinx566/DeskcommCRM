@@ -133,6 +133,18 @@ export const AUDIT_ACTIONS = [
   // auditoria. Desligar uma automação é decisão auditável tanto quanto religá-la.
   "conversation.ai_paused",
   "conversation.tags_changed",
+  // (migration 9062) Mudar a FILA de uma conversa é decisão auditável: quem
+  // escolheu, de qual fila para qual, e se aquilo disparou redistribuição. Sem
+  // esta ação, mover uma conversa de setor não deixaria rastro — e "por que
+  // esta conversa do comercial foi parar no financeiro?" é pergunta de
+  // operação, não de curiosidade.
+  "conversation.sector_changed",
+  // Atendimento conjunto (issue #2542): convidar alguém para a MESMA conversa
+  // e tirar o participante são decisões auditáveis, com o `user_id` alvo no
+  // metadata. O convidado entra sem herdar o dono — por isso a trilha precisa
+  // distinguir "quem participa" de "de quem é a conversa".
+  "conversation.invited",
+  "conversation.participant_removed",
   "contact.tags_changed",
   // Fila de confirmação (spec 17 §4b): a IA PROPÕE, uma pessoa decide. As três
   // entram porque a proposta é intenção auditável mesmo quando nunca vira
@@ -252,6 +264,8 @@ export const AUDIT_ACTIONS = [
   /** Provedor/modelo de um ponto do sistema que usa IA foi trocado no painel. */
   "ai.purpose_binding_updated",
   "ai.org_default_updated",
+  /** Voz da organização (voice_id/model_id do ElevenLabs) trocada no painel — plano de voz, Fase 7. */
+  "ai.voz_settings_updated",
   // Ligar/desligar uma das duas verificações que consultam modelo. Auditável
   // porque muda o que o sistema confere antes de falar com o cliente — e porque
   // custa dinheiro por mensagem.
@@ -419,6 +433,7 @@ export const AUDIT_ACTIONS = [
   "followup_enrollment.resumed",
   "followup_enrollment.snoozed",
   "followup_enrollment.step_skipped",
+  "followup_enrollment.negocio_escolhido",
   "template.created",
   "template.updated",
   "template.deleted",
@@ -427,6 +442,14 @@ export const AUDIT_ACTIONS = [
   // linha de lugar" — o conteúdo não foi tocado nenhuma vez (é o que a issue
   // pede: preservar os cadastros).
   "template.reordered",
+  // GRUPOS de respostas rápidas (#3245): criar/renomear/reordenar/apagar um
+  // grupo não é `template.updated` — o ato muda a ESTRUTURA da equipe (as
+  // etapas que todos veem), não o texto de uma resposta. O audit responde
+  // "quem reorganizou nossa lista?", que é outra pergunta.
+  "template_group.created",
+  "template_group.updated",
+  "template_group.deleted",
+  "template_group.reordered",
   "auth.signup_requested",
   "auth.signup_failed",
   "auth.signup_confirmed",
@@ -464,6 +487,11 @@ export const AUDIT_ACTIONS = [
   // respondendo) porque juntar os dois apagaria justamente quem agiu.
   "ai.case_noted_by_agent",
   "ai.case_closed_by_agent",
+  // (#3810) A pessoa encerrou o caso SEM avisar o cliente — o desfecho que não
+  // manda mensagem nenhuma (status `cancelled`). Separado de `ai.case_replied`
+  // porque nada foi respondido: quem lê a auditoria não pode concluir que o
+  // cliente recebeu alguma coisa.
+  "ai.case_closed_without_reply",
   "pipeline.agent_mapping_updated",
   "pipeline.stage_created",
   "pipeline.stage_updated",
@@ -924,6 +952,10 @@ export const AUDIT_ACTIONS = [
   // "Cliente pela agenda" ligada ou desligada (migration 0269, renumerada de 0262). Ligar reescreve
   // etiquetas de toda a organização; metadata leva as contagens.
   "crm.cliente_pela_agenda_alterado",
+  // #3644 — "quem já comprou volta pelo funil de clientes" ligada/desligada, e a
+  // janela de pós-venda junto. Muda em que funil nasce o negócio de quem já é
+  // cliente, e se ele nasce: é decisão de configuração, não operação de tela.
+  "crm.cliente_pela_venda_alterado",
   // A lista de etiquetas de contato INTERNO (#2353) mudou. Decisão de
   // configuração da organização que muda o que vira card no funil e o que a IA
   // responde: "desde quando a equipe parou de virar lead?" só tem resposta aqui.
@@ -1144,6 +1176,9 @@ export const AUDIT_ACTIONS = [
   // "Enviar vendas pelo canal da conversa" (doc 76, PR #1819): ligar faz o
   // valor da venda e o telefone do cliente saírem para o provedor do canal.
   "conversions.report_via_channel_updated",
+  // "Deduzir a origem do site pelo horário do clique" (doc 259, PR #3906):
+  // ligar faz a Origem passar a aceitar palpite, além de prova.
+  "conversions.site_origin_by_click_time_updated",
 
   // CRM B2B fase 1 — companies / people / import (migration 0239)
   "companies.created",
@@ -1300,6 +1335,10 @@ export const AUDIT_ACTIONS = [
   // cliente precisa encontrar o ato administrativo que abriu a porta, e não só
   // as gravações que ela deixou passar.
   "crm.telefone_de_ficha_vazia_alterado",
+  "crm.nome_informado_alterado",
+  // O admin ligou/desligou o aviso das transferências para atendimento humano
+  // (#3784) — o mesmo número e o mesmo teto diário do Aviso de caso.
+  "crm.aviso_de_transferencia_alterado",
   // O admin da plataforma exportou o INVENTÁRIO das instalações em CSV (#2777).
   // É leitura, mas é leitura EM ESCALA DE PLATAFORMA: grava quem, quando, QUANTO
   // saiu, se o teto cortou e QUE filtros valiam — nunca o texto da busca, que é
@@ -1339,6 +1378,10 @@ export const AUDIT_ACTIONS = [
   // interruptores, a antecedência e o opt-in de WhatsApp). O número NÃO entra:
   // é dado de contato, e o audit é trilha legível por quem administra.
   "user.task_reminder_prefs_updated",
+  // A pessoa gravou a própria lateral do Inbox (#3008): quais módulos aparecem
+  // e em que ordem. O metadata traz a ordem e os escondidos — é o que responde
+  // "por que a tela desta pessoa é diferente" sem arrastar nome nem telefone.
+  "user.inbox_modules_updated",
   // "Sincronizar agenda do celular" (#2736): o gesto de IMPORTAR em bloco a
   // agenda do aparelho pareado — mesmo porquê do `contacts.imported` de planilha
   // ("quem trouxe esta base, e quando"), agora com o número de qual conexão veio.
@@ -1356,6 +1399,7 @@ export const AUDIT_ACTIONS = [
   "agenda.service_unblock",
   // Reenvio de mensagem que falhou, na mesma linha (POST /api/v1/messages/{id}/retry).
   "message.retried",
+  "conversions.meta_lead_birth_updated",
   // Participante ligado a / desligado de um negócio (`crm_lead_links` com
   // target_kind='contact', #3083). metadata leva só o contact_id e se havia
   // papel — nunca o texto do papel, que é livre.
@@ -1379,6 +1423,13 @@ export const AUDIT_ACTIONS = [
   // cala a cobrança da organização inteira, e "quem desligou, e quando" só tem
   // resposta na trilha — a coluna guarda só o valor de agora.
   "ai.lembrete_de_caso_configurado",
+  // Setores de atendimento (migration 0801): cadastro e vínculo atendente →
+  // setor, feitos por manager+ na Equipe › Setores. O vínculo não guarda
+  // histórico — "quem estava no setor que foi apagado" só a trilha responde.
+  "attendant.sector_created",
+  "attendant.sector_updated",
+  "attendant.sector_deleted",
+  "attendant.sector_assigned",
   // Materiais do acervo (criar, enviar arquivo, editar, arquivar, reindexar).
   // O metadata leva só ids e contagens: o texto do material nunca entra — a
   // tabela é append-only e a cascata de LGPD não a alcança. Criar e enviar
@@ -1388,6 +1439,17 @@ export const AUDIT_ACTIONS = [
   "ai.knowledge_source_updated",
   "ai.knowledge_source_archived",
   "ai.knowledge_source_reindexed",
+  "ai_models.synced",
+  "ai_models.sync_failed",
+  // "Não são a mesma empresa" (Spec 31, PR A): o par de fichas sugerido pelo nome
+  // saiu da lista para a organização toda. A trilha guarda só os dois ids — nunca
+  // nome nem telefone —, porque a pergunta que se faz depois é "quem tirou esta
+  // sugestão, e quando". A fila guarda o usuário, mas a trilha é o rastro que a
+  // organização consulta, e só ela tem o mesmo formato das outras ações de contato.
+  "contact.duplicate_dismissed",
+  // Aviso escrito pelo admin da empresa e empurrado para a equipe (#1418). O
+  // metadata leva só a janela de publicação; título e corpo ficam em `avisos`.
+  "aviso.created",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

@@ -39,6 +39,8 @@ interface ResumoDaImportacao {
   total_linhas: number;
   criados: number;
   atualizados: number;
+  /** Quantos produtos tiveram a descrição escrita pela planilha. */
+  descricoes?: number;
   erros: Array<{ linha: number; motivo: string }>;
   colunas_ignoradas: string[];
   /** A planilha entrou inteira e conferiu a tabela do dia (`lib/catalogo/tabela-do-dia.ts`). */
@@ -54,6 +56,7 @@ interface Rascunho {
   custo: string;
   quantidade: string;
   controla_estoque: boolean;
+  descricao: string;
 }
 
 const VAZIO: Rascunho = {
@@ -65,6 +68,7 @@ const VAZIO: Rascunho = {
   custo: "",
   quantidade: "0",
   controla_estoque: true,
+  descricao: "",
 };
 
 function doRascunho(
@@ -85,6 +89,7 @@ function doRascunho(
     custo_cents,
     controla_estoque: r.controla_estoque,
     quantidade: Number(r.quantidade) || 0,
+    ...(r.descricao.trim() ? { descricao: r.descricao.trim() } : {}),
   };
 }
 
@@ -298,6 +303,21 @@ function CamposDoProduto({
           </span>
         </label>
       </div>
+
+      <label className="mt-3 block text-sm">
+        {t("Descrição")} <span className="text-muted-foreground">{t("(opcional)")}</span>
+        <textarea
+          value={rascunho.descricao}
+          onChange={(e) => onChange({ ...rascunho, descricao: e.target.value })}
+          maxLength={2000}
+          rows={3}
+          className="mt-1 w-full rounded-md border px-3 py-2"
+          data-testid="produto-descricao"
+        />
+        <span className="mt-1 block text-xs text-muted-foreground">
+          {t("É o que o atendente de IA conta ao cliente: para que serve, medidas, materiais, diferenciais. Ele repete o que estiver aqui — e não inventa o que faltar.")}
+        </span>
+      </label>
 
       <label className="mt-3 flex items-center gap-2 text-sm">
         <input
@@ -523,14 +543,21 @@ export function ProdutosClient({
         // Rota de API que devolve o arquivo com `content-disposition:
         // attachment` — é download, não navegação de página, e `<Link>` do Next
         // faria navegação de cliente para algo que não é tela.
-        <a
-          href="/api/v1/products/import"
-          download="modelo-catalogo.csv"
-          className="mb-4 inline-block text-xs text-muted-foreground underline"
-          data-testid="modelo-planilha"
-        >
-          {t("Baixar planilha modelo")}
-        </a>
+        <div className="mb-4">
+          <a
+            href="/api/v1/products/import"
+            download="modelo-catalogo.csv"
+            className="inline-block text-xs text-muted-foreground underline"
+            data-testid="modelo-planilha"
+          >
+            {t("Baixar planilha modelo")}
+          </a>
+          <p className="mt-1 break-words text-xs text-muted-foreground" data-testid="formato-da-foto">
+            {t(
+              "Na coluna foto, cole o link da imagem (JPG ou PNG, até 5 MB). Para até 5 fotos, separe os links com | — a primeira é a capa.",
+            )}
+          </p>
+        </div>
       ) : null}
 
       {resumo ? (
@@ -544,6 +571,14 @@ export function ProdutosClient({
               {t("A tabela de preços ficou marcada como conferida hoje.")}
             </p>
           ) : null}
+          {resumo.descricoes ? (
+            <p className="mt-1 text-muted-foreground" data-testid="resumo-descricoes">
+              {t("Descrição escrita pela planilha em {quantidade} produto(s).").replace(
+                "{quantidade}",
+                String(resumo.descricoes),
+              )}
+            </p>
+          ) : null}
           {resumo.colunas_ignoradas.length > 0 ? (
             <p className="mt-2 text-muted-foreground">
               {t("Não usei estas colunas:")} {resumo.colunas_ignoradas.join(", ")}.
@@ -552,7 +587,7 @@ export function ProdutosClient({
           {resumo.erros.length > 0 ? (
             <div className="mt-3">
               <p className="font-medium">{t("Linhas que não entraram:")}</p>
-              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              <ul className="mt-1 space-y-0.5 wrap-anywhere text-muted-foreground">
                 {resumo.erros.slice(0, 20).map((e) => (
                   <li key={`${e.linha}-${e.motivo}`}>
                     {t("Linha")} {e.linha}: {e.motivo}
@@ -617,6 +652,8 @@ export function ProdutosClient({
                   {p.controla_estoque
                     ? ` · ${p.quantidade} ${t("em estoque")}`
                     : ` · ${t("sem controle de estoque")}`}
+                  {/* Sem descrição, o atendente de IA só sabe nome e preço: a lista diz onde falta. */}
+                  {p.descricao?.trim() ? "" : ` · ${t("sem descrição")}`}
                 </p>
               </div>
               <span className="shrink-0 tabular-nums font-medium">

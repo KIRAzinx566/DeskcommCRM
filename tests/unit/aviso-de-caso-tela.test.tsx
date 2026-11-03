@@ -55,7 +55,11 @@ function estado(patch: Partial<EstadoDoAviso> = {}): EstadoDoAviso {
       canal_direto_ligado: false,
       canal_direto_agente_id: null,
       canal_direto_agente_nome: null,
+      destino_modo: "fixo",
     },
+    // A equipe e o WhatsApp de cada um (#3803). Vazia nestes casos, que são
+    // sobre conexão, switch e remoção — no modo `fixo` ninguém é consultado.
+    equipe: [],
     conexoes: [
       { id: CANAL_QR, nome: "Plantão", status: "WORKING", aceitaMensagemLivre: true, atendeClientes: false },
       { id: CANAL_OFICIAL, nome: "Oficial", status: "WORKING", aceitaMensagemLivre: false, atendeClientes: true },
@@ -94,7 +98,81 @@ describe("o seletor de conexão", () => {
         config: null,
       }),
     );
-    expect(screen.getByRole("combobox")).toBeDisabled();
+    // O seletor da CONEXÃO, pelo rótulo: desde o #3803 há um segundo combobox
+    // na tela (o modo do destino), e `getByRole("combobox")` passou a achar dois.
+    expect(screen.getByLabelText("Conexão que envia os avisos")).toBeDisabled();
+  });
+});
+
+describe("o número oficial com modelo aprovado (migration 9094)", () => {
+  const MODELO = {
+    id: "33333333-3333-4333-8333-333333333333",
+    nome: "aviso_da_equipe",
+    idioma: "pt_BR",
+    corpo: "🔔 Aviso do CRM\n\n{{1}}\n\nAbra o CRM.",
+  };
+  const oficialComModelo = {
+    id: CANAL_OFICIAL,
+    nome: "Oficial",
+    status: "WORKING",
+    aceitaMensagemLivre: false,
+    atendeClientes: false,
+    modelos: [MODELO],
+  };
+  const configOficial = (modelo_id: string | null) => ({
+    channel_session_id: CANAL_OFICIAL,
+    telefone: "+5531900000001",
+    rotulo: null,
+    ligado: false,
+    resposta_whatsapp_habilitada: false,
+    modelo_id,
+    atualizado_em: "2026-10-23T12:00:00.000Z",
+    destino_modo: "fixo" as const,
+    canal_direto_ligado: false,
+    canal_direto_agente_id: null,
+    canal_direto_agente_nome: null,
+  });
+
+  it("escolhido, ele pede o modelo e mostra a prévia do texto que vai sair", () => {
+    montar(estado({ conexoes: [oficialComModelo], config: configOficial(MODELO.id) }));
+    expect(screen.getByTestId("bloco-do-modelo")).toBeInTheDocument();
+    expect(screen.getByTestId("previa-do-modelo").textContent).toContain("{{1}}");
+    // Com o modelo que serve, o switch destrava como numa conexão de texto livre.
+    expect(screen.getByRole("switch", { name: "Receber avisos no WhatsApp" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeEnabled();
+  });
+
+  it("sem o modelo escolhido, nem liga nem salva", () => {
+    montar(estado({ conexoes: [oficialComModelo], config: configOficial(null) }));
+    expect(screen.getByTestId("bloco-do-modelo")).toBeInTheDocument();
+    expect(screen.queryByTestId("previa-do-modelo")).toBeNull();
+    expect(screen.getByRole("switch", { name: "Receber avisos no WhatsApp" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeDisabled();
+  });
+
+  it("a conexão SALVA cujo modelo saiu de vigor continua no seletor, e diz o que falta", () => {
+    montar(estado({ conexoes: [{ ...oficialComModelo, modelos: [] }], config: configOficial(MODELO.id) }));
+    expect(screen.getByTestId("conexao-sem-modelo").textContent).toContain("nenhum modelo aprovado");
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Receber avisos no WhatsApp" })).toBeDisabled();
+  });
+
+  it("a conexão de texto livre não pede modelo nenhum", () => {
+    montar(estado({ conexoes: [estado().conexoes[0]!, oficialComModelo] }));
+    expect(screen.queryByTestId("bloco-do-modelo")).toBeNull();
+  });
+
+  it("o bloqueio do modelo vira frase, com o caminho para criar um", () => {
+    montar(
+      estado({
+        conexoes: [oficialComModelo],
+        config: configOficial(null),
+        avisos: [{ codigo: "oficial_sem_modelo", bloqueia: true, dados: { conexao: "Oficial", modelos: 1 } }],
+      }),
+    );
+    const bloco = screen.getByTestId("alerta-oficial_sem_modelo");
+    expect(bloco.dataset.bloqueia).toBe("sim");
+    expect(bloco.textContent).toContain("modelo dela com uma variável");
   });
 });
 
@@ -223,7 +301,12 @@ describe("o switch e o botão de teste", () => {
 describe("a lista de entregas", () => {
   it("vazia, explica o que vai aparecer ali — e não finge que está tudo bem", () => {
     montar(estado());
-    expect(screen.getByTestId("entregas-vazias").textContent).toContain("inclusive se ela falhar");
+    const vazia = screen.getByTestId("entregas-vazias");
+    expect(vazia.textContent).toContain("Ainda não há avisos de casos nesta lista");
+    expect(vazia.textContent).toContain("inclusive se falharem");
+    expect(screen.getByRole("heading", { name: "Últimos avisos de casos" })).toBeInTheDocument();
+    expect(screen.getByText(/o resultado dos avisos de transferência para atendimento humano/i).textContent)
+      .toContain("respectivo item da Central de alertas");
   });
 
   it("mostra a situação, o destino MASCARADO e a frase do erro", () => {
@@ -252,9 +335,18 @@ describe("a lista de entregas", () => {
 });
 
 describe("o que a tela diz sem ninguém perguntar", () => {
-  it("avisa que o aviso NÃO se repete quando o caso volta a esperar", () => {
+  it("distingue o caso que não repete do novo episódio de transferência", () => {
     montar(estado());
-    expect(screen.getByText(/o aviso não se repete/i)).toBeInTheDocument();
+    expect(screen.getByText(/o aviso não se repete/i).textContent)
+      .toContain("Quando o cliente responde e o caso volta a esperar você");
+    const transferencia = screen.getByText(/nas transferências para atendimento humano/i);
+    expect(transferencia.textContent).toContain("uma tentativa de aviso por episódio");
+    expect(transferencia.textContent).toContain("sem resumo da conversa");
+    expect(transferencia.textContent).toContain(
+      "Depois de retomar o atendimento automático, uma nova transferência pode gerar outro aviso",
+    );
+    expect(transferencia.textContent).toContain("Consulte o resultado na Central de alertas");
+    expect(transferencia.textContent).toContain("responda ao cliente pelo CRM");
   });
 
   it("o laço de retorno sem amostra diz que não há amostra, e não mostra zero", () => {

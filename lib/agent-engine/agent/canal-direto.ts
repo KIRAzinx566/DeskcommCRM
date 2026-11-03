@@ -67,7 +67,7 @@ export async function responderNoCanalDireto(
   input: CanalDiretoInput,
   deps: RunModelCallDeps = {},
 ): Promise<RespostaDoCanalDireto> {
-  const orgMemory = await loadOrgMemory(db, input.tenantId, input.agente.agentId);
+  const orgMemory = await loadOrgMemory(db, input.tenantId, { agentId: input.agente.agentId });
   const system = montarSystemDoCanalDireto({
     systemPromptDoAgente: input.agente.systemPrompt,
     orgMemory,

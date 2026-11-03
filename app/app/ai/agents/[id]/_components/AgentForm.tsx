@@ -207,6 +207,8 @@ interface FormState {
   /** Janela de rajada (ms) do agente. `null` = usa a env da instalação. */
   inbound_debounce_ms: number | null;
   followup: FollowupValue;
+  voz_enabled: boolean;
+  voz_quando: "nunca" | "espelhar" | "sempre";
   // Papel OPERADOR (spec 16 §3.2) — o que mexe no sistema depois da conversa.
   operator_enabled: boolean;
   /** "" = herda o modelo do Conversador (vira null no payload). */
@@ -325,6 +327,8 @@ export function buildState(args: {
           callback_enabled: callbacksHabilitados(version.followup),
         }
       : DEFAULT_FOLLOWUP,
+    voz_enabled: version?.voz_enabled ?? false,
+    voz_quando: version?.voz_quando ?? "espelhar",
     operator_enabled: version?.operator_enabled ?? false,
     // O form usa "" onde o banco usa null — Select controlado não aceita null.
     // A conversão de volta acontece em `toVersionPayload`, num ponto só.
@@ -386,6 +390,8 @@ function toVersionPayload(s: FormState) {
     personality: s.personality,
     inbound_debounce_ms: s.inbound_debounce_ms,
     followup: s.followup,
+    voz_enabled: s.voz_enabled,
+    voz_quando: s.voz_quando,
     operator_enabled: s.operator_enabled,
     // "" (não escolheu) → null (herda o do Conversador). São o mesmo conceito em
     // camadas diferentes, e o mapeamento vive AQUI para não se espalhar.
@@ -1293,6 +1299,48 @@ export function AgentForm(props: Props) {
             ) : null}
           </Card>
 
+          {/* Voz (plano de voz, Fase 7) */}
+          <Card className="space-y-3 p-4">
+            <h3 className="text-sm font-medium">{t("Responder falando")}</h3>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="voz_enabled"
+                checked={form.voz_enabled}
+                onCheckedChange={(v) => patch({ voz_enabled: v })}
+                disabled={disabled}
+              />
+              <Label htmlFor="voz_enabled">{t("Enviar nota de voz, não só texto")}</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "Precisa de uma credencial do ElevenLabs cadastrada e de uma voz escolhida em Agente de IA → Provedores. Sem os dois, o agente continua respondendo em texto — ligar aqui não quebra nada.",
+              )}
+            </p>
+            {form.voz_enabled ? (
+              <div className="space-y-1">
+                <Label htmlFor="voz_quando">{t("Quando falar")}</Label>
+                <Select
+                  value={form.voz_quando}
+                  onValueChange={(v) => patch({ voz_quando: v as FormState["voz_quando"] })}
+                  disabled={disabled}
+                >
+                  <SelectTrigger id="voz_quando">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="espelhar">
+                      {t("Só quando o cliente mandar áudio")}
+                    </SelectItem>
+                    <SelectItem value="sempre">{t("Sempre")}</SelectItem>
+                    <SelectItem value="nunca">
+                      {t("Nunca (desligado, sem apagar a configuração)")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </Card>
+
           {/* Capacidades */}
           <Card className="space-y-2 p-4">
             <h3 className="text-sm font-medium">{t("O que o agente pode fazer")}</h3>
@@ -1327,6 +1375,7 @@ export function AgentForm(props: Props) {
               onChange={(v) => patch({ trigger_config: v })}
               disabled={disabled}
               organizationTimezone={props.organizationTimezone}
+              funis={props.funis}
             />
           </Card>
 
@@ -1500,11 +1549,17 @@ export function AgentForm(props: Props) {
           )}
 
           {/* Servidor MCP externo no atendimento (#2147). Só admin vê e
-              grava; salva em `ai_agents.config.mcp_externo_no_atendimento`. */}
+              grava; salva em `ai_agents.config.mcp_externo_no_atendimento`.
+              A ESCOLHA das ferramentas do servidor (#3586) vai para o
+              `tool_ids` da versão, pelo mesmo salvar do resto do formulário —
+              por isso o cartão recebe o valor e o setter do formulário, como o
+              `ToolPicker` acima. */}
           {isEdit && !readOnly && (
             <ServidorExternoNoAtendimento
               agentId={props.agent.id}
               inicial={(props.agent.config ?? {}).mcp_externo_no_atendimento}
+              toolIds={form.tool_ids}
+              onChangeToolIds={(ids) => patch({ tool_ids: ids })}
               disabled={disabled}
             />
           )}
