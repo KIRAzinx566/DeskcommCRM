@@ -255,6 +255,21 @@ describe("MessageBubble — rótulo de origem", () => {
     expect(screen.getByText("IA")).toBeInTheDocument();
   });
 
+  it("#3649: IA com o nome do agente gravado mostra 'IA · <nome>'", () => {
+    render(<MessageBubble message={msg({ sent_via: "ai", metadata: { ai_actor_name: " Bia da Locação " } })} />);
+    expect(screen.getByText("IA · Bia da Locação")).toBeInTheDocument();
+  });
+
+  it("#3649: só `ai_actor_name` vale — apelido em metadata é entrada do cliente e não vira nome", () => {
+    render(
+      <MessageBubble
+        message={msg({ sent_via: "ai", metadata: { agent_name: "Forjado", ai_agent_name: "Forjado" } })}
+      />,
+    );
+    expect(screen.getByText("IA")).toBeInTheDocument();
+    expect(screen.queryByText(/Forjado/)).not.toBeInTheDocument();
+  });
+
   it("mensagem recebida (inbound) não leva rótulo de origem", () => {
     render(
       <MessageBubble message={msg({ sent_via: "external_device", direction: "inbound" })} />,
@@ -567,5 +582,105 @@ describe("MessageBubble — mensagem que falhou", () => {
   it("sem quem reenvie (leitura do super-admin) não há botão", () => {
     render(<MessageBubble message={msg({ status: "failed", error_code: "channel_disabled", sent_by_user_id: "eu" })} viewerUserId="eu" />);
     expect(screen.queryByRole("button", { name: "Tentar de novo" })).toBeNull();
+  });
+});
+
+/**
+ * #3566 — MENÇÕES em grupo na bolha.
+ *
+ * O corpo que veio do WhatsApp fica cru no banco (`@75235009282237`); quem
+ * resolve é a tela, pela lista `metadata.mentions`. O que se mede aqui é a
+ * EXIBIÇÃO: nome para quem está no CRM, número para quem não está, e cada
+ * ocorrência pelo próprio LID.
+ */
+describe("MessageBubble — menções de grupo (#3566)", () => {
+  it("menção a contato do CRM aparece com o NOME", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "inbound",
+          body: "oi @75235009282237, pode vir?",
+          metadata: { mentions: [{ lid: "75235009282237", phone: null, name: "Maria Exemplo" }] },
+        })}
+      />,
+    );
+    expect(screen.getByText("oi @Maria Exemplo, pode vir?")).toBeInTheDocument();
+    expect(screen.queryByText(/75235009282237/)).toBeNull();
+  });
+
+  it("menção a desconhecido continua com o número — o comportamento de hoje", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "inbound",
+          body: "oi @99887766554433",
+          metadata: { mentions: [{ lid: "99887766554433", phone: null, name: null }] },
+        })}
+      />,
+    );
+    expect(screen.getByText("oi @99887766554433")).toBeInTheDocument();
+  });
+
+  it("duas menções no mesmo texto saem cada uma com o seu nome", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "inbound",
+          body: "@11111111111111 e @22222222222222 e @11111111111111",
+          metadata: {
+            mentions: [
+              { lid: "11111111111111", phone: null, name: "João" },
+              { lid: "22222222222222", phone: null, name: "João Pedro" },
+            ],
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("@João e @João Pedro e @João")).toBeInTheDocument();
+  });
+
+  it("CONTROLE: mensagem sem menção é exibida byte a byte como veio", () => {
+    render(<MessageBubble message={msg({ direction: "inbound", body: "bom dia, grupo", metadata: {} })} />);
+    expect(screen.getByText("bom dia, grupo")).toBeInTheDocument();
+  });
+});
+
+/**
+ * MENSAGEM QUE SAIU POR MODELO: o balão diz qual modelo e mostra as opções que
+ * o cliente recebeu. Antes, só o corpo aparecia — quem lia a conversa não sabia
+ * que tinha saído por modelo, e a resposta do cliente ("Quero mudar algo")
+ * ficava solta, sem a pergunta que a originou.
+ */
+describe("mensagem enviada por modelo", () => {
+  it("⭐ mostra o selo com o nome do modelo e os botões, na ordem", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          type: "template",
+          template_name: "confirmacao_de_entrega",
+          body: "Olá! Seu pedido sai hoje.",
+          metadata: { template_buttons: ["Sim, confirmo", "Quero mudar algo"] },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("selo-do-modelo").textContent).toBe("Modelo do WhatsApp · confirmacao_de_entrega");
+    const opcoes = screen.getByRole("list", { name: "Opções enviadas ao cliente" });
+    expect(Array.from(opcoes.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
+      "Sim, confirmo",
+      "Quero mudar algo",
+    ]);
+    expect(screen.getByText("Olá! Seu pedido sai hoje.")).toBeTruthy();
+  });
+
+  it("modelo sem botões gravados (envio antigo): o selo aparece, a lista não", () => {
+    render(<MessageBubble message={msg({ type: "template", template_name: "lembrete", metadata: {} })} />);
+    expect(screen.getByTestId("selo-do-modelo")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Opções enviadas ao cliente" })).toBeNull();
+  });
+
+  it("texto comum não ganha selo nem opções — mesmo com botões no metadata", () => {
+    render(<MessageBubble message={msg({ metadata: { template_buttons: ["X"] } })} />);
+    expect(screen.queryByTestId("selo-do-modelo")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Opções enviadas ao cliente" })).toBeNull();
   });
 });

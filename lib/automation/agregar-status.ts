@@ -14,7 +14,7 @@ import type { ActionResultDetail } from "./types";
 
 export type StatusAgregadoDoRun = "success" | "partial" | "failed" | "adiado";
 
-export function agregarStatusDoRun(results: ActionResultDetail[]): StatusAgregadoDoRun {
+export function agregarStatusDoRun(results: readonly ActionResultDetail[]): StatusAgregadoDoRun {
   const naoEnviadas = results.filter((r) => r.status === "failed" || r.status === "skipped").length;
   const adiados = results.filter((r) => r.status === "postponed").length;
   if (naoEnviadas === 0 && adiados > 0) return "adiado";

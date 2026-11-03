@@ -43,7 +43,7 @@ export function OverdueTasksSection() {
             <li key={tarefa.id}>
               <Link
                 href={href}
-                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface-muted/60"
+                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/60"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-text">{tarefa.title}</p>
