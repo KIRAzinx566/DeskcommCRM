@@ -9,6 +9,9 @@ vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
 vi.mock("@/lib/catalogo/fotos-no-bucket", () => ({ apagarDoBucket: vi.fn(async () => undefined) }));
+vi.mock("@/lib/catalogo/apresentacao-no-bucket", () => ({
+  removeCatalogPresentationAudio: vi.fn(async () => undefined),
+}));
 // Este teste isola o handler; autoridade de suporte é exercitada na suíte própria.
 vi.mock("@/lib/impersonate/support", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/impersonate/support")>()),
@@ -50,6 +53,10 @@ function supabaseUpdate(resultado: { data: unknown; error: { code?: string } | n
 function supabaseDelete(resultado: { data: unknown; error: { code?: string } | null }) {
   return {
     from: () => ({
+      // A leitura do áudio da apresentação antes do DELETE (upstream): sem áudio.
+      select: () => ({
+        eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      }),
       delete: () => ({
         eq: (coluna: string, valor: string) => {
           if (coluna === "organization_id") orgIdLido = valor;
