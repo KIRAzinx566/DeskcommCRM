@@ -153,15 +153,14 @@ describe("encerrar a conversa emite conversation.closed no event_log", () => {
     // usuário inventado.
     expect(ator).toBe("system");
 
-    // A linha nasce FECHADA, não `pending`: o tipo está na lista de registro
-    // (`fn_event_log_e_registro`) porque ninguém o consome ainda. Sem isso todo
-    // encerramento deixaria uma linha `pending` para sempre — o defeito da #753,
-    // indistinguível de fila entupida.
+    // No fork a linha nasce `pending`: a pesquisa de satisfação
+    // (`csat-enviar-pesquisa.v1`) consome o tipo, e a 7006 o tirou da lista de
+    // registro. O dreno a fecha quando o consumidor roda.
     expect(
       sql(
         `select status from public.event_log where entity_id = '${CONV.feliz}' and event_type = 'conversation.closed';`,
       ),
-    ).toBe("done");
+    ).toBe("pending");
 
     // E o fechamento em si continua acontecendo: status e instante gravados.
     expect(status(CONV.feliz)).toBe("closed");
