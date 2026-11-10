@@ -8,6 +8,149 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.10.0] — 2026-11-10
+
+### ⚠️ Requer atenção
+
+- **Chegam as novidades do upstream 1.100.0 a 1.104.0** **Contato do tipo Fornecedor sai do rodízio automático.** Fornecedor não recebe mais atendente pelo rodízio.
+
+  **Condição de regra sobre as colunas de CPF responde só se estão preenchidas.** Regra que comparava o valor do CPF com outro operador deixa de casar; troque por "está preenchido" / "está vazio".
+
+  **A API de contatos diz só se há CPF.** As respostas trazem se o contato tem CPF, não o número. Integração ou modelo de mensagem que lia o CPF pela API precisa de outro caminho.
+
+### Adicionado
+
+- **A Agenda mostra as datas dos negócios** Quem trabalha com data — evento, obra, entrega, viagem — tinha as datas dos negócios
+  só na aba **Calendário** de cada funil. Agora a **Agenda** tem a camada
+  **Datas dos negócios**: escolha o funil e o campo de data (e, se quiser, um segundo
+  campo) e os negócios aparecem no dia de cada data, com o rótulo do próprio campo, o
+  funil e a etapa. Os dias entre as duas datas não aparecem.
+
+  A camada **nasce desligada**, e desligada a Agenda fica exatamente como era: nada
+  de item, nada de consulta. A escolha vale na tela de cada pessoa e
+  **não fica gravada**. Ela é **só leitura**: não ocupa horário livre, não entra nos
+  horários sugeridos e não manda lembrete de compromisso — clicar num item abre o
+  negócio no funil, que é onde a data muda. Quem não enxerga o funil não enxerga a
+  data: a leitura passa pela mesma regra de visibilidade do CRM.
+
+  Os parâmetros da consulta são validados antes de chegar ao banco, e a resposta diz
+  **por que** não veio lista: período com data que não existe no calendário (31 de
+  fevereiro, mês 13) volta como `data_de_calendario_invalida`, em vez de uma grade
+  vazia que pareceria "nenhum negócio neste período".
+
+  Nada a fazer na VPS: sem migration, sem variável nova.
+
+- ****A agenda convida a equipe e leva o negócio para dentro do evento do Google**** O compromisso passa a aceitar **convidados da equipe** (`calendar_appointments.team_guest_user_ids`), além do responsável e do e-mail digitado à mão: cada pessoa recebe o convite no Google e vê o compromisso na própria agenda — inclusive no recorte "minha agenda" do CRM, que agora traz o que a pessoa vai atender E aquilo a que foi chamada. Quem não é da organização é recusado com mensagem na tela, e não descartado em silêncio; e-mail inválido ou vazio simplesmente não vai para o Google, porque um endereço malformado faz o Google recusar o evento INTEIRO. Tipo de **serviço** fica de fora: ali a tela não oferece convidados e a rota recusa a lista. A descrição do evento pode passar a levar, depois do texto que a pessoa escreveu, o **contexto do negócio**: negócio, etapa, produtos da proposta vigente, cliente, telefone e link do CRM. **Vem desligado**: liga-se por tipo de atendimento, em Configurações › Agenda, na chave "Levar os dados do negócio para o Google" — quando a ficha do cliente tem e-mail, ele também é convidado e lê a descrição, então atualizar não manda dado do cliente para fora sem alguém decidir. Compromisso sem negócio vinculado não ganha bloco nenhum. Editar o compromisso não duplica nem desconvida ninguém à toa: a lista publicada em `extendedProperties.private.deskcomm_guests` é o que permite tirar quem saiu, o RSVP de quem ficou é preservado, e um ajuste só de descrição não manda e-mail a ninguém.
+
+- **O agente da prospecção sabe o que a campanha vende e oferece a automação junto do site** Na campanha de prospecção, as caixinhas de **O que esta campanha vende** agora chegam ao contexto das respostas do agente e à ferramenta de auditoria, na ordem marcada. Antes, essas escolhas só chegavam se o operador as repetisse no texto da instrução. Quando a campanha vende automação, a estratégia ganha uma frase sobre ela, exibida também na auditoria do site. Essa frase não apresenta site quando a oferta está desmarcada. Campanha que só vende site continua como antes. O bloco da primeira abordagem não foi alterado nesta fatia. Não é preciso mexer em nada na VPS. Contribuição de @paulolimajr77.
+
+- **Apresentação de produtos pela IA, opcional por empresa** Cada empresa pode ligar, em Configurações › Organização › Catálogo, a apresentação de produtos pela IA. Ela vem desligada, e quem não ligar não vê nada de novo.
+
+  Com a chave ligada, cada item do catálogo ganha uma apresentação própria em texto ou áudio (OGG, WebM ou M4A), que pode reutilizar as fotos cadastradas e incluir o preço do catálogo. O agente envia os itens em sequência, na ordem pedida, e só recebe essa ferramenta quando há ao menos uma apresentação ativa na empresa.
+
+  Quando a proteção contra mensagens repetidas barra o texto fixo (o mesmo produto apresentado a vários clientes em pouco tempo), o agente responde ao cliente com as próprias palavras, e o bloqueio fica registrado com o motivo, no histórico do negócio do contato quando ele existe.
+
+  Desligar a chave esconde a seção e tira a ferramenta do agente, sem apagar o que foi cadastrado.
+
+  Contribuição de @vanksestevao (#2780, #3168).
+
+- **Respostas rápidas viajam entre organizações como blueprint** Em Respostas rápidas, quem é gerente ou administrador ganha os botões Exportar
+  e Importar. Exportar baixa as respostas compartilhadas num arquivo; Importar
+  aplica esse arquivo em outra organização que ainda não tenha nenhuma — a
+  importação nunca sobrescreve nem mescla. As respostas chegam como
+  compartilhadas, na mesma ordem e sem grupo, numa lista só; imagem e áudio
+  ficam de fora, e a tela diz quantos. A resposta que só tem áudio não entra, e o
+  resultado da importação conta quantas ficaram de fora. O arquivo leva até 200
+  respostas: acima disso a exportação avisa o limite em vez de gerar um arquivo
+  que a importação recusaria. Dois envios simultâneos do mesmo arquivo não
+  duplicam nada. Nada muda na VPS — chega pela atualização normal.
+
+- **Cadências de e-mail como módulo opcional, com inscrição manual e descadastro** Quem administra o servidor pode instalar **Cadências de e-mail** em Módulos; depois cada empresa escolhe se quer usar. Desligado por padrão: quem não instala não recebe as tabelas do módulo. O gerente monta e-mails, espera em dias úteis, tarefas e caminhos por abertura autorizada, escolhe a janela e inscreve negócios manualmente.
+
+  Os e-mails usam o transporte já configurado na instalação e incluem descadastro: abrir o link só pede a confirmação, para filtro de e-mail não descadastrar ninguém, e o cliente de e-mail pode oferecer o descadastro de um clique. O rastreio começa desligado e depende de autorização do destinatário. Desligar preserva dados e impede próximos envios; o descadastro continua funcionando. A atividade mostra envios, aberturas autorizadas e falhas. O histórico entra no export e na anonimização de LGPD.
+
+  Cliques, respostas, devoluções, caixa por vendedor, tags automáticas e WhatsApp ficam fora deste módulo. Resultado de envio incerto não é reenviado automaticamente.
+
+  Contribuição original de **Marcelo (@lmarceloc)**, PR#1738; adaptação ao módulo oficial em commits separados.
+
+- **Crie o contato sem sair do negócio nem perder o vínculo** Negócios sem contato podem abrir o cadastro nativo com nome, etiquetas e identificadores rotulados já preenchidos para conferência. Telefones ambíguos exigem escolha. Criar e vincular ocorre numa transação com RLS, e o vínculo aparece na linha do tempo do negócio. Como na ficha criada à mão, a conversa abre quando há telefone e canal pronto. O vínculo com contato existente continua disponível. Crédito: @vagnerrm122.
+
+- **Conta de e-mail da empresa e conferência do domínio de envio** Em **Configurações → Marca**, a empresa pode conectar sua conta Resend com um endereço do domínio verificado. A chave fica cifrada e não é mostrada de volta. As automações usam essa conta; sem uma conta conectada, continuam usando o envio da instalação. Convites, recuperação de senha e e-mails de dados pessoais continuam pelo remetente do sistema. Uma conta ilegível ou indisponível é sinalizada como falha, sem trocar silenciosamente o remetente.
+
+  O card **Domínio de envio** consulta os registros esperados pela conta conectada e compara com o DNS, incluindo Return-Path personalizado e CNAME. O estado informado pela Resend fica separado das pendências do DNS. Falha na consulta não aparece como registro ausente, e a conferência não promete entrega na caixa de entrada.
+
+  Contribuição de @webtecnica (#3443 e #3464). Refs #3287 e #3441; campanhas, supressão e descadastro permanecem em suas próprias entregas.
+
+- **Painel de atendimento mostra quem espera resposta, quem está em atendimento e quem já foi atendido hoje** Um recurso opcional novo, desligado por padrão: quem administra a instalação liga «Painel de atendimento» em Recursos opcionais, e a tela aparece em Análise › Ver tudo em Análise. Ela reúne o dia de quem atende num número só, em três colunas. «Aguardando atendimento» lista quem mandou a última mensagem e ainda não teve resposta, do mais antigo para o mais novo, com «esperando há» quanto tempo. A conversa que a IA passou para a equipe também fica ali até alguém assumir, como na aba Fila. «Em atendimento» traz as conversas abertas em que a última palavra foi nossa, inclusive quando quem respondeu foi a IA. «Atendidos hoje» mostra o que foi encerrado no dia, no fuso da organização. Dá para filtrar por número, e o contador de casos da IA leva direto à fila de casos. A tela mostra só o que cada pessoa já vê no Inbox e atualiza sozinha; no celular as colunas ficam uma embaixo da outra. Quem usa a API ganha o filtro `closed_since` em `GET /api/v1/conversations`.
+
+- **Chegam as novidades do upstream 1.100.0 a 1.104.0** Destaques: número oficial do WhatsApp conectado com um clique; lembrete da agenda por modelo aprovado mesmo com a janela de 24 h fechada; nota de voz também no número oficial; Cold Call para ligar para uma lista de leads; servidores MCP por agente; skills e visão de foto escolhidas por agente; pausa entre uma resposta da IA e a próxima; o atendente vê as conversas do próprio setor; a IA e as automações escolhem o setor; tarefas em quadro; campos do funil reordenados por arraste ou setas e com mais de uma condição; reserva de lugar com capacidade em pessoas e lista de espera da agenda; ação "Tirar tag"; vários telefones na ficha do contato; duplicados pelo CPF. A lista completa está nas seções 1.100.0 a 1.104.0 deste arquivo.
+
+  No fork, a personalidade e o endereço próprio do agente continuam travados na versão publicada, e o canal direto do aviso de caso continua valendo junto com o aviso a membro da equipe (migrations 7004 e 7005). O editor de campos do funil passa a usar a ordenação do upstream (arraste e setas) e mantém o Preview ao lado.
+
+### Corrigido
+
+- **A tela de Casos diz que a chave do agente está desligada, em vez de ficar muda** Quem abria **Agente de IA › Casos** para acompanhar os pedidos que a IA faz à
+  equipe encontrava a tela sempre vazia e nenhuma pista do motivo: `cases_enabled`
+  vem **desligada de fábrica** (`AgentForm.tsx`), então a fila estava vazia por
+  configuração, não por falta de caso.
+
+  Agora o estado vazio pergunta primeiro *por que* está vazio: se nenhum agente da
+  organização consegue abrir caso, a tela diz que o recurso está desligado, por que
+  a lista está vazia e onde se liga — com link para o cartão do agente. Quem não
+  pode editar vê a explicação sem o link (não mandamos ninguém para um 403).
+
+  Nada muda para quem já usa o recurso: com a chave ligada, vazio continua sendo
+  "nenhum caso ainda". O default **não** foi tocado.
+
+- **Cadências: o descadastro vale pelo endereço e pelo contato, e a inscrição respeita quem vê o negócio** No módulo opcional de **Cadências de e-mail**, o pedido de descadastro passa a ser
+  guardado pelo endereço de e-mail e pelo contato, e não só na inscrição: apagar o
+  negócio, a cadência ou o contato, trocar o e-mail do contato ou fundir contatos não
+  devolve a pessoa à fila, e uma nova inscrição é recusada. O link de descadastro
+  funciona mesmo depois de o negócio ser apagado, e não leva o e-mail na URL; o
+  endereço é guardado só como hash. Descadastros já registrados são convertidos na
+  atualização.
+
+  Inscrever e retirar um negócio da cadência segue a mesma visibilidade do funil: no
+  modo "Só os seus", cada pessoa só alcança os próprios negócios, e a lista de
+  inscrições e a atividade mostram só o que ela vê.
+
+  O módulo vem desligado por padrão. Nada a fazer na instalação.
+
+  Crédito do módulo: **Marcelo (@lmarceloc)**.
+
+- **O contato criado pela tela volta a abrir a conversa** Ao cadastrar um contato com telefone pela tela, com um canal pronto para envio, a conversa com ele passa a abrir junto, como já acontecia pela API com token. Antes o contato era gravado e a conversa não abria.
+
+  Nada a fazer na instalação.
+
+- **Uma falha isolada da verificação não derruba mais o número, e a mensagem que esperou a conexão voltar não fica parada em silêncio** A verificação de saúde das conexões, que roda de 5 em 5 minutos, marcava o
+  número como fora do ar na primeira pergunta que falhava — e uma oscilação de
+  rede de um minuto bastava para isso. Nesse intervalo, o que o operador mandava
+  ficava "aguardando conexão" e, quando a conexão voltava, ninguém mandava de
+  novo. Agora a queda só vale depois de duas verificações ruins seguidas, e a
+  volta vale na primeira boa. E a mensagem que segue aguardando numa conexão que
+  já voltou abre um aviso na Central, com a conversa, para quem escreveu decidir o
+  que fazer: 15 minutos depois quando esperava a conexão, 50 quando ainda podia ter
+  nova tentativa agendada. Nada é reenviado sozinho, mensagem com mais de 24 horas
+  não entra, e o aviso resolvido só volta por mensagem nova. Crédito: @jmpo.
+
+- **A resposta segue os números que estão na ficha** Na ficha com mais de um telefone, a resposta volta pelo número da última mensagem recebida quando esse número está na ficha; caso contrário, sai pelo número principal. A regra vale para a resposta do atendente, a do agente, o reenvio automático e o "digitando…".
+
+  Nada a fazer na instalação.
+
+- **Receba no WhatsApp a informação solicitada ao cliente no mesmo caso** Quando o cliente responde à pergunta da equipe, o mesmo caso recebe uma atualização no WhatsApp configurado. Cada atualização conserva seu recibo e os comandos identificam o ciclo correto, sem repetir a abertura. Crédito: @vitorlacerdadigital.
+
+- **O teto de tamanho dos uploads vale também para envio sem tamanho declarado** As rotas que recebem arquivo (mídia de conversa e de nota, fotos e áudio do
+  catálogo, mídia de resposta rápida, sons dos avisos, logo, anexo de negócio,
+  material do agente e as importações de planilha, skill, fluxo, modelo de
+  proposta e respostas rápidas) passam a ler o corpo por um único caminho, que
+  conta os bytes enquanto lê e para no primeiro byte além do teto (413). Envio
+  sem `Content-Length` (em partes, atrás de proxy, HTTP/2) segue aceito, com o
+  teto garantido pela contagem; `Content-Length` inválido responde 400.
+
+  Nada muda para quem usa pelas telas: navegador e `curl -F` sempre declaram o
+  tamanho. A importação de planilha da prospecção passa a responder 413, em vez
+  de 422, quando o envio declarado passa do teto.
+
 ## [2.9.0] — 2026-11-03
 
 ### ⚠️ Requer atenção
@@ -15603,7 +15746,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.9.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.6.0...v2.7.0
