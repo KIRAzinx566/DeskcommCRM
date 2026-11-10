@@ -12126,6 +12126,7 @@ export const DICIONARIO: Traducoes = {
   ". Email ainda não está disponível.": { es: ". El email todavía no está disponible." },
   "sem responsável — definir quem atende": { es: "sin responsable — definir quién atiende" },
   "Campos do lead neste funil": { es: "Campos del lead en este embudo" },
+  "Aparecem no dossiê do negócio. No follow-up, você escolhe em qual campo gravar a resposta.": { es: "Aparecen en el expediente del negocio. En el seguimiento, eliges en qué campo guardar la respuesta." },
   "Aparecem no dossiê do negócio. No follow-up, você escolhe em qual campo gravar a resposta. Arraste pela alça para reordenar.": { es: "Aparecen en el expediente del negocio. En el seguimiento, eliges en qué campo guardar la respuesta. Arrastra por el asa para reordenar." },
   "Arrastar campo": { es: "Arrastrar campo" },
   "Preview": { es: "Vista previa" },

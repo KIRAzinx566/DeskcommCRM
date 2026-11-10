@@ -24,6 +24,9 @@ vi.mock("@/hooks/team/useSectors", () => ({ useSectors: () => ({ data: { data: [
 vi.mock("@/hooks/webhooks/useAutomationRules", () => ({
   useCreateAutomationRule: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useUpdateAutomationRule: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  // Teste da regra (fork): o editor monta o painel de testar.
+  useEventosParaTestarRegra: () => ({ data: undefined }),
+  useTestarRegra: () => ({ isPending: false, mutate: () => {}, reset: () => {}, data: undefined }),
 }));
 vi.mock("@/hooks/webhooks/useWebhookSources", () => ({
   useWebhookSources: () => ({ data: { data: [] } }),

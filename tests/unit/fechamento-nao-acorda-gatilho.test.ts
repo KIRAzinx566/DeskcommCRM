@@ -45,7 +45,9 @@ describe("o fato do fechamento não dispara nada hoje", () => {
       "Um consumidor passou a assinar o encerramento da conversa sem a feature que " +
         "reage a ele. O fato sozinho não manda nada a ninguém; o consumidor é a fatia " +
         "da pesquisa de satisfação (#4023).",
-    ).toEqual([]);
+      // No fork a pesquisa de satisfação já existe (lib/csat/enviar-pesquisa.ts):
+      // ela é o único assinante permitido.
+    ).toEqual(["csat-enviar-pesquisa.v1"]);
   });
 
   it("nenhum gatilho de automação é conversation.closed", () => {

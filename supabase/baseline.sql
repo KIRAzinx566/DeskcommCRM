@@ -25380,7 +25380,7 @@ as $$
     -- canal e conversa
     'channel_session.status_changed',
     'conversation.claimed',
-    'conversation.closed',
+    -- 'conversation.closed' NÃO entra (fork, 7006): a pesquisa de satisfação o consome.
     'conversation.transferred',
     'whatsapp.chat_id_not_recognized',
     'whatsapp.conversation_mark_failed',

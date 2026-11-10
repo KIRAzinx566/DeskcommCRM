@@ -178,7 +178,11 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<Response> {
   // event_log, não só audit: o CSAT (e qualquer outro consumidor futuro de
   // "conversa fechou") reage a EVENTO, não a linha de auditoria — audit é pra
   // gente ler depois, event_log é pra sistema agir agora.
-  void supabase
+  // Pela chave de serviço: desde a 9212 (upstream) `emit_event` recusa
+  // `conversation.closed` vindo da sessão do usuário. O gatilho da 9212 também
+  // emite o fato, mas sem `had_inbound` — o CSAT só pergunta pelo evento desta
+  // rota, que é o encerramento feito pelo atendente.
+  void createAdminClient()
     .rpc("emit_event", {
       p_event_type: "conversation.closed",
       p_entity_kind: "conversation",
