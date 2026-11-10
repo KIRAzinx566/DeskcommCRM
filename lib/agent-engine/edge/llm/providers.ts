@@ -13,10 +13,11 @@ import { PROVEDOR_POR_ASSINATURA } from '@/lib/ai/pontos/provedores';
 import { fetchParaDestinoDaOrganizacao } from '@/lib/automation/destinos-internos-autorizados';
 
 import { allowlistedFetch, buildAllowlist } from '../egress';
+import { comCacheDaAnthropicNoOpenRouter, type CacheDaChamada } from './cache-da-openrouter';
 
 /**
- * provider name → (chave BYOK da org, id do modelo, endpoint opcional) → modelo
- * pronto para generateText.
+ * provider name → (chave BYOK da org, id do modelo, endpoint opcional, cache
+ * opcional) → modelo pronto para generateText.
  *
  * O terceiro parâmetro é o endpoint escolhido no painel de provedores
  * (`ai_purpose_bindings.base_url`). Existe por causa dos dois casos que o
@@ -24,10 +25,13 @@ import { allowlistedFetch, buildAllowlist } from '../egress';
  * OpenAI-compatível na frente da OpenRouter e, no roteiro do produto, um modelo
  * rodando na máquina do próprio cliente. É opcional — os providers canônicos
  * ignoram e continuam indo ao endpoint intrínseco de terem sido escolhidos.
+ *
+ * O quarto também é opcional: quem não o passa (mídia, transcrição, testes)
+ * recebe a fábrica de sempre.
  */
 export type ProviderRegistry = Record<
   string,
-  (apiKey: string, modelId: string, baseUrl?: string) => LanguageModel
+  (apiKey: string, modelId: string, baseUrl?: string, cache?: CacheDaChamada) => LanguageModel
 >;
 
 /**
@@ -50,6 +54,23 @@ export const OPENROUTER_ENDPOINT = process.env.OPENROUTER_BASE_URL?.trim() || 'h
  * OpenRouter acima: `@ai-sdk/openai` conversa com ela sem dependência nova.
  */
 export const NVIDIA_ENDPOINT = 'https://integrate.api.nvidia.com/v1';
+
+/**
+ * O endereço da chamada é a OpenRouter OFICIAL? Resolvido igual à fábrica
+ * (`baseUrl ?? OPENROUTER_ENDPOINT`), porque OPENROUTER_BASE_URL e o painel
+ * podem apontar um gateway do operador. Hostname exato: `openrouter.ai.exemplo`
+ * não passa. É o critério ÚNICO de quem manda campo próprio da OpenRouter no
+ * corpo (cache, sessão) ou pede o corpo da resposta (custo): um gateway estrito
+ * recusaria o campo desconhecido, e o turno inteiro cairia.
+ */
+export function ehOpenRouterOficial(baseUrl?: string): boolean {
+  try {
+    return new URL(baseUrl ?? OPENROUTER_ENDPOINT).hostname === 'openrouter.ai';
+  } catch {
+    // Endereço que nem é URL não é a OpenRouter oficial — a fábrica erra sozinha depois.
+    return false;
+  }
+}
 
 /**
  * A DeepSeek também fala a API da OpenAI — mesma fábrica, mesmo formato de
@@ -299,10 +320,21 @@ export function createDefaultRegistry(opts?: {
   deepseekThinking?: RaciocinioDeepseek;
   /** Knob OPENAI_REASONING_EFFORT; ausente = lido do ambiente. `null` = não injeta. */
   openaiReasoningEffort?: EsforcoDeRaciocinioOpenAI | null;
+  /**
+   * Knob OPENROUTER_PROMPT_CACHE; ausente = lido do ambiente. Lido de
+   * `process.env`, como OPENAI_REASONING_EFFORT, e não por `llmEdgeConfigFromEnv`:
+   * o env do app descarta chave que não declara, e as rotas do app também chamam
+   * o seam. Ligado por padrão desde a prova paga em cada provedor de origem
+   * (scripts/prova-cache-openrouter.ts): só `off` desliga — vazio e ausente ligam,
+   * porque o `.env.example` sempre trouxe a linha vazia e quem instalou a tem assim.
+   */
+  openrouterPromptCache?: boolean;
 }): ProviderRegistry {
   const extra = opts?.allowedHosts ?? [];
   const esforcoOpenAI =
     opts?.openaiReasoningEffort !== undefined ? opts.openaiReasoningEffort : esforcoDeRaciocinioOpenAI();
+  const cacheNaOpenRouter =
+    opts?.openrouterPromptCache ?? process.env.OPENROUTER_PROMPT_CACHE?.trim().toLowerCase() !== 'off';
   const contain = (endpoint: string): typeof fetch => fetchDoProvedor(endpoint, extra);
   return {
     anthropic: (apiKey, modelId) =>
@@ -355,13 +387,19 @@ export function createDefaultRegistry(opts?: {
     // e voltava 404/410 do lado do provider — medido ao vivo (curl direto no
     // endpoint da NVIDIA respondeu 200 em `/chat/completions`, e a tela deu
     // "Not Found" pelo mesmo modelo, mesma chave).
-    openrouter: (apiKey, modelId, baseUrl) => {
+    openrouter: (apiKey, modelId, baseUrl, cache) => {
       const endpoint = baseUrl ?? OPENROUTER_ENDPOINT;
+      // O embrulho fica POR FORA da contenção: o pedido modificado continua
+      // passando pela allowlist. Gateway do operador nunca recebe campo novo.
+      const contido = contain(endpoint);
       const provider = createOpenAI({
         apiKey,
         baseURL: endpoint,
         headers: cabecalhosDeAtribuicaoOpenRouter(),
-        fetch: contain(endpoint),
+        fetch:
+          cache && cacheNaOpenRouter && ehOpenRouterOficial(baseUrl)
+            ? comCacheDaAnthropicNoOpenRouter(contido, cache)
+            : contido,
       });
       // Confirmado também especificamente na OpenRouter: medido em 2026-09-19,
       // `google/gemini-2.5-flash-lite` devolvia "Invalid JSON response" sem

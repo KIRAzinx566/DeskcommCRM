@@ -19,7 +19,7 @@ import { traduzir } from "@/lib/i18n/dicionario";
 export const dynamic = "force-dynamic";
 
 const VERSION_COLUMNS =
-  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, handoff_legal_enabled, proposal_ai_draft_enabled, cases_enabled, split_messages, split_max_chars, followup, voz_enabled, voz_quando, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids,provisioning_origin,inbound_debounce_ms,personality";
+  "id, organization_id, agent_id, version_number, system_prompt, provider, model, base_url, credential_id, tool_ids, trigger_config, channel_session_id, max_steps, token_budget, cost_budget_cents, history_message_window, history_token_window, handoff_keywords, handoff_tool_enabled, handoff_legal_enabled, proposal_ai_draft_enabled, cases_enabled, split_messages, split_max_chars, followup, voz_enabled, voz_quando, operator_enabled, operator_model, operator_tool_ids, status, published_at, superseded_at, created_at, created_by,pipeline_ids,knowledge_source_ids,skill_names,image_vision_enabled,provisioning_origin,inbound_debounce_ms,reply_min_interval_ms,personality";
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -138,6 +138,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     channel_session_id: patch.channel_session_id,
     pipeline_ids: patch.pipeline_ids,
     knowledge_source_ids: patch.knowledge_source_ids,
+    skill_names: patch.skill_names,
   });
   if (!escopo.ok) {
     return fail(codigoDoEscopo(escopo), mensagemDoEscopo(escopo), 422, { requestId });
@@ -164,6 +165,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     update.handoff_tool_enabled = patch.handoff_tool_enabled;
   if (patch.handoff_legal_enabled !== undefined)
     update.handoff_legal_enabled = patch.handoff_legal_enabled;
+  if (patch.image_vision_enabled !== undefined)
+    update.image_vision_enabled = patch.image_vision_enabled;
   if (patch.proposal_ai_draft_enabled !== undefined)
     update.proposal_ai_draft_enabled = patch.proposal_ai_draft_enabled;
   if (patch.cases_enabled !== undefined) update.cases_enabled = patch.cases_enabled;
@@ -171,6 +174,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
   if (patch.split_max_chars !== undefined) update.split_max_chars = patch.split_max_chars;
   if (patch.personality !== undefined) update.personality = patch.personality;
   if (patch.inbound_debounce_ms !== undefined) update.inbound_debounce_ms = patch.inbound_debounce_ms;
+  if (patch.reply_min_interval_ms !== undefined) update.reply_min_interval_ms = patch.reply_min_interval_ms;
   // Os dois escopos da versão entravam só no schema, não neste objeto: o PATCH
   // respondia 200 com a lista antiga e o agente seguia sem o funil ou sem o
   // material. Integrações por token chegam aqui; a tela usa
@@ -180,6 +184,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
   if (patch.pipeline_ids !== undefined) update.pipeline_ids = patch.pipeline_ids;
   if (patch.knowledge_source_ids !== undefined)
     update.knowledge_source_ids = patch.knowledge_source_ids;
+  if (patch.skill_names !== undefined) update.skill_names = patch.skill_names;
   if (patch.followup !== undefined) {
     const existingFollowup =
       existing.followup !== null &&
