@@ -37,6 +37,9 @@ import { allTools } from "@/lib/mcp/tools";
 
 const BASE = "linha de base, medida quando a cerca nasceu (2026-10-31)";
 
+/** Ferramentas e campos que só o fork tem (cobrança, preço do produto, descrição maior da busca). */
+const FORK = "fork: cobrança pelo agente, preço do produto e busca de produtos com o que o fork acrescenta (medido no sync com o upstream 1.104.0)";
+
 const TETO: Readonly<Record<string, { tokens: number; motivo: string }>> = {
   "crm_list_event_types": { tokens: 204, motivo: BASE },
   "crm_find_free_slots": { tokens: 859, motivo: BASE },
@@ -58,7 +61,7 @@ const TETO: Readonly<Record<string, { tokens: number; motivo: string }>> = {
   "crm_get_org_memory": { tokens: 114, motivo: BASE },
   "crm_save_org_memory": { tokens: 285, motivo: BASE },
   "crm_list_contact_orders": { tokens: 234, motivo: BASE },
-  "crm_search_products": { tokens: 362, motivo: BASE },
+  "crm_search_products": { tokens: 558, motivo: FORK },
   "crm_get_honorarios_contrato": { tokens: 253, motivo: BASE },
   "crm_list_honorarios_parcelas": { tokens: 222, motivo: BASE },
   "crm_preparar_proposta": { tokens: 132, motivo: BASE },
@@ -135,11 +138,16 @@ const TETO: Readonly<Record<string, { tokens: number; motivo: string }>> = {
   "provide_case_update": { tokens: 102, motivo: BASE },
   "send_template": { tokens: 227, motivo: BASE },
   "schedule_followup (com negócio)": { tokens: 314, motivo: BASE },
+  "crm_consultar_cobranca": { tokens: 243, motivo: FORK },
+  "crm_listar_cobrancas": { tokens: 386, motivo: FORK },
+  "crm_gerar_cobranca": { tokens: 622, motivo: FORK },
+  "crm_cancelar_cobranca": { tokens: 248, motivo: FORK },
+  "crm_update_product_price": { tokens: 224, motivo: FORK },
 };
 
 // 29952 até 2026-11-05; +142 com `ler_documento` (#4133), que só é montada no
 // modo `leitura_direta` — nunca junto de `search_knowledge`.
-const TETO_TOTAL = 30094;
+const TETO_TOTAL = 32013;
 
 const VARIANTE = "schedule_followup (com negócio)";
 
