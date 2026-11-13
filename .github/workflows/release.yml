@@ -102,6 +102,17 @@ jobs:
       # sem esta linha a resposta é 403 e a guarda recusaria corte legítimo.
       # Leitura só — quem escreve continua sendo o token do App.
       pull-requests: read
+    # Todo push na `main` entra neste job, e quase nenhum é corte. Num fork ou
+    # clone sem o App de release cadastrado, pedir o token aqui reprovava TODO
+    # merge ("The 'client-id' (or deprecated 'app-id') input must be set to a
+    # non-empty string" — medido no fork de @gabriel-lima-git-hub, PR #4462).
+    # A condição mora no `env` do job porque `if:` de passo não lê `secrets`.
+    # Com o App cadastrado nada muda: o token nasce aqui, antes da guarda, e o
+    # `app-slug` dele segue alimentando a Prova 1.
+    # FORK: aqui não há App — quem escreve é o PAT `RELEASE_APP_TOKEN` (topo do
+    # arquivo). "Cadastrado" é ter esse segredo; sem ele o corte falha alto.
+    env:
+      RELEASE_APP_CADASTRADO: ${{ secrets.RELEASE_APP_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -346,6 +357,15 @@ jobs:
             echo "cortar=sim"       >> "$GITHUB_OUTPUT"
             echo "versao=${versao}" >> "$GITHUB_OUTPUT"
           fi
+
+      # Corte sem App não tem como dar certo: a tag empurrada pelo token do
+      # workflow não dispara `publish-image.yml`. Falha aqui, dizendo o porquê,
+      # em vez de um 403 no push logo abaixo.
+      - name: Corte exige o App de release
+        if: steps.pendente.outputs.cortar == 'sim' && env.RELEASE_APP_CADASTRADO != 'true'
+        run: |
+          echo "::error::Este push é um corte de release, mas RELEASE_APP_TOKEN não está cadastrado neste repositório (Settings → Secrets and variables → Actions)."
+          exit 1
 
       - name: Criar e empurrar a tag
         if: steps.pendente.outputs.cortar == 'sim'

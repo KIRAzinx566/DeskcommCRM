@@ -13,7 +13,14 @@ import type { EventRow } from "@/lib/event-log/dispatcher";
  */
 function adminQueNuncaDeveSerTocado() {
   return {
-    from: vi.fn(() => {
+    // A ÚNICA leitura esperada: idioma e fuso da organização, que o
+    // `buildContext` faz em todo evento desde o upstream #4339. Qualquer outra
+    // tabela continua explodindo.
+    from: vi.fn((tabela: string) => {
+      if (tabela === "organizations") {
+        const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: null, error: null }) };
+        return q;
+      }
       throw new Error("dryRunAutomationRule não deveria tocar o banco neste cenário");
     }),
     rpc: vi.fn(() => {

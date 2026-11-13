@@ -112,3 +112,27 @@ describe("a tag nasce no CI, e nunca do GITHUB_TOKEN", () => {
     expect(release).toMatch(/push:\s*\n\s*branches:\s*\[main\]/);
   });
 });
+
+describe("fork sem o App de release não reprova a cada merge (PR #4462)", () => {
+  const t = job(release, "cortar-tag");
+  const passoDoToken = /- uses: actions\/create-github-app-token@v3\n((?: {8}.*\n)+)/.exec(t)?.[1] ?? "";
+
+  // FORK: sem o GitHub App do upstream. Quem escreve é o PAT `RELEASE_APP_TOKEN`
+  // (ver os testes do token acima), então "cadastrado" é ter ESSE segredo, e
+  // não há passo de App para pular — o checkout do corte usa o PAT direto.
+  it("a condição sai do `env` do job e olha o PAT do fork", () => {
+    // `if:` de passo não lê `secrets`; o `env` do job lê.
+    expect(t).toMatch(/^ {4}env:\n {6}RELEASE_APP_CADASTRADO: \$\{\{ secrets\.RELEASE_APP_TOKEN != '' \}\}$/m);
+    expect(passoDoToken, "o fork não usa o App do upstream").toBe("");
+  });
+
+  it("o checkout do corte escreve com o PAT, nunca com o token do workflow", () => {
+    expect(t).toContain("token: ${{ secrets.RELEASE_APP_TOKEN }}");
+  });
+
+  it("corte sem App falha alto, antes de empurrar a tag", () => {
+    const falha = t.indexOf("env.RELEASE_APP_CADASTRADO != 'true'");
+    expect(falha, "o passo que recusa corte sem App sumiu").toBeGreaterThan(-1);
+    expect(falha).toBeLessThan(t.indexOf("name: Criar e empurrar a tag"));
+  });
+});

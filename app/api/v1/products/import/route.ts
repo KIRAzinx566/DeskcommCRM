@@ -41,7 +41,7 @@ import { randomUUID } from "node:crypto";
 import { type NextRequest } from "next/server";
 
 import { audit } from "@/lib/audit";
-import { fail, ok } from "@/lib/api/wrappers";
+import { comIdDaRequisicao, fail, ok } from "@/lib/api/wrappers";
 import { lerCorpoComTeto } from "@/lib/api/corpo-com-teto";
 import { requireRole } from "@/lib/auth/require-role";
 import { conferirTabelaDoDia } from "@/lib/catalogo/conferir-tabela";
@@ -392,7 +392,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const existentes = paraGravar.filter((p) => antigos.has(p.codigo));
-  const atualizados = existentes.length;
+  // Linha recusada pelo banco não conta como atualizada nem desconta um novo
+  // que entrou. O mesmo conjunto já governa a descrição e a troca das fotos.
+  const atualizados = existentes.filter((p) => gravadosPorCodigo.has(p.codigo)).length;
   const criados = Math.max(0, gravados - atualizados);
 
   await audit({
@@ -467,11 +469,11 @@ export async function GET(): Promise<Response> {
     "PERF-212,212 VIP Men 100ml,Carolina Herrera,Perfume,449.90,280.00,7,,",
   ].join("\n");
 
-  return new Response(`﻿${modelo}\n`, {
+  return comIdDaRequisicao(new Response(`﻿${modelo}\n`, {
     headers: {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": 'attachment; filename="modelo-catalogo.csv"',
       "x-request-id": requestId,
     },
-  });
+  }), requestId);
 }

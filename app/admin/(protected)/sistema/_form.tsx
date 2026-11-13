@@ -361,6 +361,14 @@ export const MODULOS_NA_TELA: ReadonlyArray<{
       "Ligado, cada empresa ganha no CRM a tela Cold Call: um funil próprio, a importação da lista e a ligação para um lead por vez, pelo canal de voz quando ele está pareado ou pelo discador do aparelho. Quem pediu para não ser incomodado, contato pessoal e contato anonimizado não recebem ligação. Desligado, a tela e o menu somem.",
   },
   {
+    modulo: "status_whatsapp",
+    id: "modulo-status-whatsapp",
+    rotulo: "Status do WhatsApp por integração",
+    descricao:
+      "Ligado, um sistema conectado ao servidor MCP com token de escrita pode publicar uma imagem no Status de um número conectado por QR Code. A imagem sai de verdade e some em 24 horas. Numa lista de contatos, quem pediu para não ser incomodado fica de fora. Para todos os contatos, a conexão precisa guardar o histórico, e quem vê é decidido pelo WhatsApp, inclusive quem pediu para não ser incomodado. Desligado, a ferramenta some.",
+    foraDoMenu: "Não cria porta no menu do CRM: a publicação é uma ferramenta do servidor MCP, sem tela própria.",
+  },
+  {
     modulo: "painel_atendimento",
     id: "modulo-painel-atendimento",
     rotulo: "Painel de atendimento",
@@ -374,6 +382,30 @@ export const MODULOS_NA_TELA: ReadonlyArray<{
     descricao:
       "Ligado, cada empresa pode cadastrar na agenda um lugar, como mesa, camarote ou quadra, com capacidade em pessoas, e a reserva passa a escolher o lugar e dizer quantas pessoas vêm. Desligado, ninguém cria lugar novo; os lugares e as reservas que já existem ficam guardados.",
     foraDoMenu: "Não cria porta no menu do CRM: por enquanto o lugar é cadastrado e reservado pela API, em /api/v1/agenda/servicos.",
+  },
+  {
+    modulo: "link_de_pagamento",
+    id: "modulo-link-de-pagamento",
+    rotulo: "Link de pagamento na conversa",
+    descricao:
+      "Ligado, a atendente registra numa conversa o valor a cobrar e recebe um endereço de aviso, que ela cola como URL do Webhook ao criar o link de pagamento na InfinitePay. Quando o cliente paga, o aviso marca o recebimento como pago e leva o negócio para a etapa de ganho, se o valor bater com o registrado. Desligado, ninguém registra recebimento e os avisos são recusados; os recebimentos já registrados ficam guardados.",
+    foraDoMenu: "Não cria porta no menu do CRM: por enquanto o recebimento é registrado pela API, em /api/v1/conversations/[id]/pagamentos.",
+  },
+  {
+    modulo: "campanha_por_email",
+    id: "modulo-campanha-por-email",
+    rotulo: "Campanha por e-mail (em construção)",
+    descricao:
+      "Este interruptor ainda não pode ser ligado: a campanha por e-mail guarda o assunto, o corpo e o público, mas esta versão não envia o e-mail nem tem o descadastro e a lista de quem pediu para não receber. Se ele já estiver ligado, dá para desligar: a opção E-mail some da nova campanha e as campanhas já criadas ficam guardadas.",
+    foraDoMenu: "Não cria porta no menu do CRM: a opção E-mail aparece dentro de Campanhas, ao criar uma nova.",
+  },
+  {
+    modulo: "revisao_por_km",
+    id: "modulo-revisao-por-km",
+    rotulo: "Revisão por quilometragem",
+    descricao:
+      "Ligado, o funil que declarar a régua de revisão por quilometragem passa a calcular a data prevista da próxima revisão quando o km do negócio é informado, pelo card, pela API, pelo MCP ou pela resposta do roteiro, e grava essa data no campo de data que o funil escolheu. Desligado, o km continua sendo gravado e nenhuma data é calculada; as datas já gravadas ficam como estão.",
+    foraDoMenu: "Não cria porta no menu do CRM: a régua é declarada por funil, em pipelines.settings.revisao_por_km, e ainda não há tela para declará-la.",
   },
 ];
 
@@ -413,7 +445,7 @@ function OndeAparece({
     if (!foraDoMenu) return null;
     const painel = painelEm ? caminhoDaPorta(painelEm) : null;
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground wrap-anywhere">
         {foraDoMenu}
         {painel ? (
           <>
@@ -430,7 +462,7 @@ function OndeAparece({
   }
 
   return (
-    <p className="text-sm text-muted-foreground">
+    <p className="text-sm text-muted-foreground wrap-anywhere">
       {t(ligado ? "Aparece no menu em:" : "Ao ligar, aparece no menu em:")}{" "}
       {portas.map((porta, i) => (
         <span key={porta.href}>
@@ -510,7 +542,10 @@ export function FormularioDeModulos({
       <CardContent className="space-y-4">
         {MODULOS_NA_TELA.filter((m) => !escondidos.includes(m.modulo)).map((m) => (
           <div key={m.modulo} className="flex items-start justify-between gap-4 rounded-lg border p-4">
-            <div className="space-y-1">
+            {/* `min-w-0`: sem ele a coluna de texto não encolhe abaixo da palavra
+                mais longa (um caminho de API não quebra) e empurra o interruptor
+                para fora do cartão no celular. */}
+            <div className="min-w-0 space-y-1">
               <Label htmlFor={m.id} className="text-base">
                 {t(m.rotulo)}
               </Label>

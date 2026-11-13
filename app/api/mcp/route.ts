@@ -37,7 +37,13 @@ export const maxDuration = 300;
 
 const MCP_RATE_LIMIT_PER_MIN = 60;
 
-function jsonRpcError(code: number, message: string, status: number, headers?: Record<string, string>): Response {
+function jsonRpcError(
+  code: number,
+  message: string,
+  status: number,
+  requestId: string,
+  headers?: Record<string, string>,
+): Response {
   return new Response(
     JSON.stringify({
       jsonrpc: "2.0",
@@ -46,7 +52,8 @@ function jsonRpcError(code: number, message: string, status: number, headers?: R
     }),
     {
       status,
-      headers: { "content-type": "application/json", ...headers },
+      // #4107: o MESMO id que a rota põe na resposta de sucesso e no log.
+      headers: { "content-type": "application/json", "X-Request-Id": requestId, ...headers },
     },
   );
 }
@@ -60,20 +67,20 @@ async function handle(req: NextRequest): Promise<Response> {
     auth = await validateBearerToken(req.headers.get("authorization"), { permiteOrgSuspensa: true });
   } catch (err) {
     if (err instanceof McpAuthError) {
-      return jsonRpcError(err.mcpCode, err.message, err.httpStatus);
+      return jsonRpcError(err.mcpCode, err.message, err.httpStatus, requestId);
     }
     const msg = err instanceof Error ? err.message : "auth_failed";
-    return jsonRpcError(-32603, msg, 500);
+    return jsonRpcError(-32603, msg, 500, requestId);
   }
 
   const rl = await checkRateLimit(`mcp:${auth.apiTokenId}`, MCP_RATE_LIMIT_PER_MIN, 60);
   if (!rl.allowed) {
-    return jsonRpcError(-32000, "Too many requests.", 429, { "Retry-After": "60" });
+    return jsonRpcError(-32000, "Too many requests.", 429, requestId, { "Retry-After": "60" });
   }
 
   const idempotencyKey = chaveDaRequisicao(req);
   if (idempotencyKey !== null && !z.string().uuid().safeParse(idempotencyKey).success) {
-    return jsonRpcError(-32602, "Idempotency-Key deve ser UUID", 400);
+    return jsonRpcError(-32602, "Idempotency-Key deve ser UUID", 400, requestId);
   }
 
   const transport = new WebStandardStreamableHTTPServerTransport({});
@@ -93,7 +100,7 @@ async function handle(req: NextRequest): Promise<Response> {
     return response;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "transport_error";
-    return jsonRpcError(-32603, msg, 500);
+    return jsonRpcError(-32603, msg, 500, requestId);
   }
 }
 
