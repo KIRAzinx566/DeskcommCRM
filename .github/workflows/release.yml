@@ -109,8 +109,10 @@ jobs:
     # A condição mora no `env` do job porque `if:` de passo não lê `secrets`.
     # Com o App cadastrado nada muda: o token nasce aqui, antes da guarda, e o
     # `app-slug` dele segue alimentando a Prova 1.
+    # FORK: aqui não há App — quem escreve é o PAT `RELEASE_APP_TOKEN` (topo do
+    # arquivo). "Cadastrado" é ter esse segredo; sem ele o corte falha alto.
     env:
-      RELEASE_APP_CADASTRADO: ${{ secrets.RELEASE_APP_ID != '' && secrets.RELEASE_APP_PRIVATE_KEY != '' }}
+      RELEASE_APP_CADASTRADO: ${{ secrets.RELEASE_APP_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -362,7 +364,7 @@ jobs:
       - name: Corte exige o App de release
         if: steps.pendente.outputs.cortar == 'sim' && env.RELEASE_APP_CADASTRADO != 'true'
         run: |
-          echo "::error::Este push é um corte de release, mas RELEASE_APP_ID / RELEASE_APP_PRIVATE_KEY não estão cadastrados neste repositório (Settings → Secrets and variables → Actions)."
+          echo "::error::Este push é um corte de release, mas RELEASE_APP_TOKEN não está cadastrado neste repositório (Settings → Secrets and variables → Actions)."
           exit 1
 
       - name: Criar e empurrar a tag
