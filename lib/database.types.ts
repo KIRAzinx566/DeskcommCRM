@@ -2039,6 +2039,7 @@ export type Database = {
       };
       ai_router_decisions: {
         Row: {
+          agente_anterior_id: string | null;
           agent_id: string | null;
           confidence: number | null;
           conversation_id: string | null;
@@ -2046,12 +2047,16 @@ export type Database = {
           id: string;
           intent_name: string | null;
           job_id: string | null;
+          motivo: string | null;
           organization_id: string;
+          origem: string;
           outcome: string;
           router_id: string | null;
+          solicitado_por: string | null;
         };
         ComputedFields: never;
         Insert: {
+          agente_anterior_id?: string | null;
           agent_id?: string | null;
           confidence?: number | null;
           conversation_id?: string | null;
@@ -2059,11 +2064,15 @@ export type Database = {
           id?: string;
           intent_name?: string | null;
           job_id?: string | null;
+          motivo?: string | null;
           organization_id: string;
+          origem?: string;
           outcome: string;
           router_id?: string | null;
+          solicitado_por?: string | null;
         };
         Update: {
+          agente_anterior_id?: string | null;
           agent_id?: string | null;
           confidence?: number | null;
           conversation_id?: string | null;
@@ -2071,9 +2080,12 @@ export type Database = {
           id?: string;
           intent_name?: string | null;
           job_id?: string | null;
+          motivo?: string | null;
           organization_id?: string;
+          origem?: string;
           outcome?: string;
           router_id?: string | null;
+          solicitado_por?: string | null;
         };
         Relationships: [
           {
@@ -4672,12 +4684,13 @@ export type Database = {
           audience_version: number;
           base_legal: string;
           cancelled_at: string | null;
-          channel_session_id: string;
+          channel_session_id: string | null;
           completed_at: string | null;
           content_version: number;
           created_at: string;
           created_by: string | null;
           description: string | null;
+          email_subject: string | null;
           failed_at: string | null;
           failure_code: string | null;
           failure_detail: string | null;
@@ -4717,12 +4730,13 @@ export type Database = {
           audience_version?: number;
           base_legal: string;
           cancelled_at?: string | null;
-          channel_session_id: string;
+          channel_session_id?: string | null;
           completed_at?: string | null;
           content_version?: number;
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
+          email_subject?: string | null;
           failed_at?: string | null;
           failure_code?: string | null;
           failure_detail?: string | null;
@@ -4761,12 +4775,13 @@ export type Database = {
           audience_version?: number;
           base_legal?: string;
           cancelled_at?: string | null;
-          channel_session_id?: string;
+          channel_session_id?: string | null;
           completed_at?: string | null;
           content_version?: number;
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
+          email_subject?: string | null;
           failed_at?: string | null;
           failure_code?: string | null;
           failure_detail?: string | null;
@@ -5157,6 +5172,7 @@ export type Database = {
       };
       channel_routing_policies: {
         Row: {
+          ai_wait_minutes: number | null;
           channel_session_id: string;
           created_at: string;
           default_assignee_user_id: string | null;
@@ -5167,6 +5183,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          ai_wait_minutes?: number | null;
           channel_session_id: string;
           created_at?: string;
           default_assignee_user_id?: string | null;
@@ -5176,6 +5193,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          ai_wait_minutes?: number | null;
           channel_session_id?: string;
           created_at?: string;
           default_assignee_user_id?: string | null;
@@ -6003,6 +6021,7 @@ export type Database = {
           created_at: string;
           criado_por: string | null;
           ligado: boolean;
+          lembrar_antes: boolean;
           organization_id: string;
           telefone_destino: string | null;
           updated_at: string;
@@ -6015,6 +6034,7 @@ export type Database = {
           created_at?: string;
           criado_por?: string | null;
           ligado?: boolean;
+          lembrar_antes?: boolean;
           organization_id: string;
           telefone_destino?: string | null;
           updated_at?: string;
@@ -6026,6 +6046,7 @@ export type Database = {
           created_at?: string;
           criado_por?: string | null;
           ligado?: boolean;
+          lembrar_antes?: boolean;
           organization_id?: string;
           telefone_destino?: string | null;
           updated_at?: string;
@@ -6753,9 +6774,10 @@ export type Database = {
           usable_for_rag_marked_at: string | null;
           usable_for_rag_marked_by: string | null;
           comando_da_conversa: string | null;
+          automatico_da_conversa: boolean | null;
           tags_do_contato: string[] | null;
         };
-        ComputedFields: "comando_da_conversa" | "tags_do_contato";
+        ComputedFields: "comando_da_conversa" | "automatico_da_conversa" | "tags_do_contato";
         Insert: {
           active_agent_set_at?: string | null;
           active_ai_agent_id?: string | null;
@@ -8398,6 +8420,7 @@ export type Database = {
           corpo_hash: string | null;
           created_at: string;
           destino: string;
+          degrau_minutos: number | null;
           dia: string | null;
           enviado_em: string | null;
           erro_codigo: string | null;
@@ -8405,6 +8428,7 @@ export type Database = {
           evento: string | null;
           external_id: string | null;
           id: string;
+          inicio_lembrado: string | null;
           organization_id: string;
           status: string;
           tentativas: number;
@@ -8418,6 +8442,7 @@ export type Database = {
           corpo_hash?: string | null;
           created_at?: string;
           destino: string;
+          degrau_minutos?: number | null;
           dia?: string | null;
           enviado_em?: string | null;
           erro_codigo?: string | null;
@@ -8425,6 +8450,7 @@ export type Database = {
           evento?: string | null;
           external_id?: string | null;
           id?: string;
+          inicio_lembrado?: string | null;
           organization_id: string;
           status?: string;
           tentativas?: number;
@@ -8437,6 +8463,7 @@ export type Database = {
           corpo_hash?: string | null;
           created_at?: string;
           destino?: string;
+          degrau_minutos?: number | null;
           dia?: string | null;
           enviado_em?: string | null;
           erro_codigo?: string | null;
@@ -8444,6 +8471,7 @@ export type Database = {
           evento?: string | null;
           external_id?: string | null;
           id?: string;
+          inicio_lembrado?: string | null;
           organization_id?: string;
           status?: string;
           tentativas?: number;
@@ -12389,6 +12417,58 @@ export type Database = {
           },
         ];
       };
+      ouvidoria_manifestacoes: {
+        Row: {
+          canal: string;
+          contact_id: string | null;
+          created_at: string;
+          id: string;
+          organization_id: string;
+          protocolo: string;
+          status: string;
+          texto: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          canal: string;
+          contact_id?: string | null;
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          protocolo: string;
+          status?: string;
+          texto: string;
+          updated_at?: string;
+        };
+        Update: {
+          canal?: string;
+          contact_id?: string | null;
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          protocolo?: string;
+          status?: string;
+          texto?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ouvidoria_manifestacoes_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ouvidoria_manifestacoes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pacing_ledger: {
         Row: {
           channel_session_id: string;
@@ -15931,6 +16011,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_definir_lembrete_do_aviso_de_agendamento: {
+        Args: {
+          p_lembrar: boolean;
+          p_org: string;
+        };
+        Returns: boolean;
+      };
       fn_definir_aviso_de_caso: {
         Args: {
           p_channel: string;
@@ -16307,6 +16394,7 @@ export type Database = {
         Returns: Json;
       };
       fn_honorarios_provisionar: { Args: Record<PropertyKey, never>; Returns: undefined };
+      fn_ouvidoria_provisionar: { Args: Record<PropertyKey, never>; Returns: undefined };
       fn_is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       fn_is_platform_admin_full: { Args: Record<PropertyKey, never>; Returns: boolean };
       fn_lead_adicionar_etiquetas: {
@@ -16758,6 +16846,10 @@ export type Database = {
         };
       };
       fn_session_mfa_proven: { Args: Record<PropertyKey, never>; Returns: boolean };
+      fn_set_channel_ai_wait: {
+        Args: { p_channel: string; p_minutes: number; p_org: string };
+        Returns: number;
+      };
       fn_set_channel_routing: {
         Args: {
           p_channel: string;

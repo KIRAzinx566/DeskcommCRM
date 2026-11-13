@@ -30,7 +30,8 @@
  * quem desenha passa por `t()`/`traduzir()`.
  */
 import { type Role, visibilidadeRestritaAoAtendente } from "@/lib/auth/types";
-import { MODULOS_OPCIONAIS, MODULOS_OPCIONAIS_POR_FLAG, MODULOS_SO_DA_INSTALACAO, type ModuloOpcional } from "@/lib/instalacao/modulos";
+import { MODULOS_AINDA_NAO_LIGAVEIS, MODULOS_OPCIONAIS, MODULOS_OPCIONAIS_POR_FLAG, MODULOS_SO_DA_INSTALACAO, type ModuloOpcional } from "@/lib/instalacao/modulos";
+import { moduloDoCatalogo } from "@/lib/modulos/catalogo";
 import { NAV_CATALOG, type NavMetadata } from "@/lib/navigation/catalogo";
 import { vendaPeloCanalLigada } from "@/lib/conversoes/venda-pelo-canal";
 import { lerConfigDoJev } from "@/lib/ai/decisao/config";
@@ -137,6 +138,10 @@ const TEXTO_DO_MODULO: Record<ModuloOpcional, { nome: string; oQueFaz: string }>
     nome: "Lista de espera da agenda",
     oQueFaz: "Quando um horário abre, a vaga é oferecida a uma pessoa por vez, entre quem aceitou ser avisado.",
   },
+  ouvidoria: {
+    nome: "Ouvidoria",
+    oQueFaz: "Reclamações, denúncias, elogios e sugestões com protocolo próprio, lidas só por administradores e fora do funil.",
+  },
   cobranca: {
     nome: "Cobrança dos seus clientes",
     oQueFaz: "Você cria planos e cobra as empresas desta instalação, com teste grátis e suspensão de quem não paga.",
@@ -167,6 +172,10 @@ const TEXTO_DO_MODULO: Record<ModuloOpcional, { nome: string; oQueFaz: string }>
     nome: "Cold Call (fila de ligações)",
     oQueFaz: "Uma fila para ligar para uma lista de leads, um por vez, com roteiro e o resultado de cada ligação movendo o lead no funil.",
   },
+  status_whatsapp: {
+    nome: "Status do WhatsApp por integração",
+    oQueFaz: "Publica uma imagem no Status de um número conectado por QR Code, a pedido de um sistema conectado ao servidor MCP, para uma lista de contatos ou para todos.",
+  },
   painel_atendimento: {
     nome: "Painel de atendimento",
     oQueFaz: "Uma tela com três colunas, por número: quem espera resposta, quem está em atendimento e quem foi atendido hoje.",
@@ -174,6 +183,19 @@ const TEXTO_DO_MODULO: Record<ModuloOpcional, { nome: string; oQueFaz: string }>
   reservas_de_lugar: {
     nome: "Reservas de lugar",
     oQueFaz: "A agenda reserva um lugar, como mesa, camarote ou quadra, com capacidade em pessoas.",
+  },
+  link_de_pagamento: {
+    nome: "Link de pagamento na conversa",
+    oQueFaz:
+      "O valor a cobrar é registrado numa conversa pela API, em /api/v1/conversations/[id]/pagamentos (uma integração; ainda não há botão na tela), e a resposta traz um endereço para colar no link de pagamento; quando o cliente paga, o provedor avisa e o negócio vai para ganho.",
+  },
+  campanha_por_email: {
+    nome: "Campanha por e-mail (em construção)",
+    oQueFaz: "A base da campanha por e-mail: assunto, corpo e público. Ainda não pode ser ligada, porque falta o envio com descadastro.",
+  },
+  revisao_por_km: {
+    nome: "Revisão por quilometragem",
+    oQueFaz: "O km informado no negócio vira a data prevista da próxima revisão, no campo de data que o funil escolheu.",
   },
 };
 
@@ -186,16 +208,23 @@ export function portaDoModuloNaEmpresa(modulo: ModuloOpcional): { href: string; 
   return porta ? { href: porta.href, minRole: porta.minRole } : null;
 }
 
-const MODULOS: RecursoOpcional[] = MODULOS_OPCIONAIS.map((modulo) => ({
+const porFlag = (modulo: ModuloOpcional) => (MODULOS_OPCIONAIS_POR_FLAG as readonly ModuloOpcional[]).includes(modulo);
+
+/** Módulo de tabela (ADR-0002) fora de `CATALOGO_DE_MODULOS` não se instala ainda
+ * (`instalarModulo` o recusa): a linha mandaria a `/admin/modulos`, onde ele não está.
+ * A linha volta sozinha quando o slug entra no catálogo. */
+function moduloTemLinha(modulo: ModuloOpcional): boolean {
+  return porFlag(modulo) || moduloDoCatalogo(modulo) !== undefined;
+}
+
+const MODULOS: RecursoOpcional[] = MODULOS_OPCIONAIS.filter(moduloTemLinha).map((modulo) => ({
   id: `modulo:${modulo}`,
   ...TEXTO_DO_MODULO[modulo],
   nivel: "instalacao" as const,
   padrao: "desligado" as const,
   quemDecide: "dono_do_servidor" as const,
   // Módulo por chave liga em /admin/sistema; módulo de tabela (ADR-0002) se instala em /admin/modulos.
-  href: (MODULOS_OPCIONAIS_POR_FLAG as readonly ModuloOpcional[]).includes(modulo)
-    ? "/admin/sistema"
-    : "/admin/modulos",
+  href: porFlag(modulo) ? "/admin/sistema" : "/admin/modulos",
   modulo,
   ler: (f: FontesDeEstado): EstadoDoRecurso =>
     f.modulos === null ? "nao_lido" : f.modulos.includes(modulo) ? "ligado" : "desligado",
@@ -760,10 +789,16 @@ export const RECURSOS_OPCIONAIS: readonly RecursoOpcional[] = [
 /**
  * Os módulos que a EMPRESA vê em Configurações › Recursos opcionais: todos os da
  * instalação, menos os que são decisão só de quem administra o servidor
- * (`MODULOS_SO_DA_INSTALACAO`).
+ * (`MODULOS_SO_DA_INSTALACAO`) e os que ninguém consegue ligar ainda
+ * (`MODULOS_AINDA_NAO_LIGAVEIS`): "desligado por quem administra o servidor"
+ * faria a empresa pedir um interruptor que o servidor não oferece.
  */
 export const MODULOS_DA_EMPRESA: readonly RecursoOpcional[] = RECURSOS_OPCIONAIS.filter(
-  (r) => r.nivel === "instalacao" && !!r.modulo && !MODULOS_SO_DA_INSTALACAO.includes(r.modulo),
+  (r) =>
+    r.nivel === "instalacao" &&
+    !!r.modulo &&
+    !MODULOS_SO_DA_INSTALACAO.includes(r.modulo) &&
+    !MODULOS_AINDA_NAO_LIGAVEIS.includes(r.modulo),
 );
 
 /**

@@ -41,8 +41,8 @@ import type pg from "pg";
 import { logger } from "@/lib/logger";
 
 /**
- * `banco_externo`, `fluxos_atendimento`, `propostas`, `crm_b2b`, `cobranca`, `login_codex`, `setores`, `avisos`, `conferir_whatsapp`, `mcp_por_agente`, `cold_call`, `painel_atendimento` e `reservas_de_lugar` ligam/desligam por uma linha em `platform_config`
- * (ver o resto deste arquivo). `honorarios`, `financeiro` e `lista_de_espera` são MÓDULOS DE TABELA (ADR-0002): a fonte da
+ * `banco_externo`, `fluxos_atendimento`, `propostas`, `crm_b2b`, `cobranca`, `login_codex`, `setores`, `avisos`, `conferir_whatsapp`, `mcp_por_agente`, `cold_call`, `status_whatsapp`, `painel_atendimento`, `reservas_de_lugar`, `link_de_pagamento`, `campanha_por_email` e `revisao_por_km` ligam/desligam por uma linha em `platform_config`
+ * (ver o resto deste arquivo). `honorarios`, `financeiro`, `lista_de_espera` e `ouvidoria` são MÓDULOS DE TABELA (ADR-0002): a fonte da
  * verdade é `modulos_instalados`, escrita só por `fn_modulo_instalar` (`lib/modulos/service.ts`),
  * nunca por esta tela. Os dois mecanismos convivem na mesma lista porque é isso que
  * `deModuloDesligado` (catálogo de tools MCP) precisa: "este módulo, seja qual for o mecanismo
@@ -64,6 +64,10 @@ export const MODULOS_OPCIONAIS = [
   // Doc 208 (A): a lista de espera da agenda. A tabela nasce só onde o módulo é
   // instalado, e cada organização ainda escolhe os prazos antes de ligar.
   "lista_de_espera",
+  // #3611 (fatia 1, PR #3625): a tabela `ouvidoria_manifestacoes` nasce só em
+  // `fn_ouvidoria_provisionar`. Sem esta linha a chave da empresa
+  // (`settings.ouvidoria.ativa`) ligava uma porta para uma tabela que não existe.
+  "ouvidoria",
   "cobranca",
   "login_codex",
   "setores",
@@ -71,14 +75,18 @@ export const MODULOS_OPCIONAIS = [
   "conferir_whatsapp",
   "mcp_por_agente",
   "cold_call",
+  "status_whatsapp",
   "painel_atendimento",
   "reservas_de_lugar",
+  "link_de_pagamento",
+  "campanha_por_email",
+  "revisao_por_km",
 ] as const;
 export type ModuloOpcional = (typeof MODULOS_OPCIONAIS)[number];
 
 /** Os módulos de tabela do ADR-0002 dentro de `MODULOS_OPCIONAIS` — resolvidos por
  * `modulos_instalados.estado = 'ativo'`, nunca por `platform_config`. */
-const MODULOS_DE_TABELA = ["honorarios", "financeiro", "lista_de_espera", "cadencias"] as const satisfies readonly ModuloOpcional[];
+const MODULOS_DE_TABELA = ["honorarios", "financeiro", "lista_de_espera", "cadencias", "ouvidoria"] as const satisfies readonly ModuloOpcional[];
 
 /**
  * Só os módulos por FLAG — os que a tela `/admin/sistema` liga e desliga via
@@ -99,8 +107,12 @@ export const MODULOS_OPCIONAIS_POR_FLAG = [
   "conferir_whatsapp",
   "mcp_por_agente",
   "cold_call",
+  "status_whatsapp",
   "painel_atendimento",
   "reservas_de_lugar",
+  "link_de_pagamento",
+  "campanha_por_email",
+  "revisao_por_km",
 ] as const satisfies readonly ModuloOpcional[];
 
 /** A linha de cada módulo por FLAG em `platform_config`. O formato é o da CHECK da 0341.
@@ -151,6 +163,10 @@ export const CHAVE_DO_MODULO: Record<(typeof MODULOS_OPCIONAIS_POR_FLAG)[number]
   // (régua do núcleo enxuto): quem não prospecta por telefone não carrega a tela
   // nem as rotas. Desligado, a porta some, a tela e as rotas respondem 404.
   cold_call: "MODULO_COLD_CALL",
+  // #3397: publicar Status por token é peça de marketing de quem integra outro
+  // sistema, não atendimento (régua do núcleo enxuto). O contrato do canal fica
+  // no núcleo; a porta é a ferramenta MCP, e desligada ela não é oferecida.
+  status_whatsapp: "MODULO_STATUS_WHATSAPP",
   // #3403: a tela de leitura de quem atende um número só. Quem atende bem pelo
   // Inbox não precisa dela (régua do núcleo enxuto). Desligado, a porta some e a
   // tela responde 404.
@@ -160,6 +176,25 @@ export const CHAVE_DO_MODULO: Record<(typeof MODULOS_OPCIONAIS_POR_FLAG)[number]
   // parte de banco entra para todos e não muda nada para quem não cria lugar;
   // desligado, criar um lugar pela agenda responde 404.
   reservas_de_lugar: "MODULO_RESERVAS_DE_LUGAR",
+  // Doc 232 (A) e doc 280 (A): o recebimento do cliente final na conversa, com
+  // o aviso de "pago" do provedor (#3509). Abre um endereço público que move
+  // negócio sozinho; quem não cobra por link não carrega essa porta. Desligado,
+  // registrar responde 404 e o aviso também.
+  link_de_pagamento: "MODULO_LINK_DE_PAGAMENTO",
+  // Doc 305 (A): a campanha por e-mail do #4289 chegou em partes. Esta guarda o
+  // assunto, o corpo e o público; o envio, o descadastro em um clique e a lista
+  // de quem pediu para não receber ainda não existem, e por isso o módulo está em
+  // `MODULOS_AINDA_NAO_LIGAVEIS`: a tela não oferece o interruptor. Desligado, a opção
+  // "E-mail" não aparece na nova campanha e criar ou editar uma responde 404
+  // (`decidirConteudo`, em `lib/campanhas/conteudo-do-canal.ts`).
+  campanha_por_email: "MODULO_CAMPANHA_POR_EMAIL",
+  // #4376 (PR #4536 de @webtecnica): a quilometragem informada vira a data
+  // prevista da próxima revisão. Régua de oficina, concessionária e frota, não
+  // da maioria (régua do núcleo enxuto). Sem tabela: grava no campo de data do
+  // negócio que o funil declarou em `pipelines.settings.revisao_por_km`.
+  // Desligado, o km gravado não projeta nada e o roteiro não faz consulta a mais
+  // (`lib/revisao-por-km/modulo.ts`).
+  revisao_por_km: "MODULO_REVISAO_POR_KM",
 };
 
 const LIGADO = "ligado";
@@ -295,10 +330,14 @@ export function esquecerMemoDosModulos(): void {
 /**
  * Módulos que existem no código mas ainda NÃO podem ser ligados por quem opera
  * (a capacidade chega em partes e o que a torna usável ainda não entrou).
- * Vazia desde a PR 3a da cobrança do revendedor, que trouxe o provedor de
- * pagamento. O mecanismo fica: a próxima capacidade entregue em partes o usa.
+ * A cobrança saiu daqui na PR 3a, que trouxe o provedor de pagamento.
+ *
+ * `campanha_por_email` (doc 305, A): a base do #4289 guarda assunto, corpo e
+ * público, mas não envia. Ligar hoje levaria a pessoa a criar uma campanha que
+ * não sai. Sai desta lista quando existir o envio com descadastro em um clique
+ * e a lista de quem pediu para não receber.
  */
-export const MODULOS_AINDA_NAO_LIGAVEIS: readonly ModuloOpcional[] = [];
+export const MODULOS_AINDA_NAO_LIGAVEIS: readonly ModuloOpcional[] = ["campanha_por_email"];
 
 /**
  * Módulos que são decisão SÓ de quem administra o servidor e não aparecem para a

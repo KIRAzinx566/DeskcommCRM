@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Table,
@@ -10,7 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
+import {
+  armazenamentoLocal,
+  gravarOrdemLembrada,
+  lerOrdemLembrada,
+} from "@/lib/plataformas-de-anuncio/meta/ordem-lembrada";
 import {
   ORDEM_PADRAO,
   type CriterioDeOrdenacao,
@@ -20,7 +27,7 @@ import {
 import type { LinhaDeCampanha } from "@/lib/plataformas-de-anuncio/types";
 
 /**
- * As 15 colunas.
+ * As 16 colunas.
  *
  * ─── A regra que atravessa o arquivo inteiro: ausência vira "—" ─────────────
  *
@@ -134,20 +141,33 @@ interface Props {
 
 export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
   const t = useT();
+  const localeDaData = useLocaleDeData();
 
   /**
    * A ordenação é ESCOLHA DE LEITURA, não dado: mora no componente e não
-   * atravessa a requisição. Guardar por usuário (pedido 4 da issue) exige
-   * coluna de preferência — outra fatia.
+   * atravessa a requisição. Quem lembra dela é o NAVEGADOR (#4480), pelo mesmo
+   * `localStorage` do grupo fechado do menu — coluna de preferência no servidor
+   * ficou fora do escopo da issue.
    *
-   * `linhas` já chega na ordem padrão (`montarTabelaDeCampanhas` ordena), então
-   * a primeira renderização não depende deste estado.
+   * A leitura é num `useEffect`, nunca no inicializador do estado: no servidor
+   * não há `localStorage`, e ler na inicialização faria o HTML servido divergir
+   * do primeiro render do cliente (erro de hidratação). Antes do efeito vale
+   * `ORDEM_PADRAO`, que é também a ordem em que `linhas` já chega.
    */
   const [criterio, setCriterio] = useState<CriterioDeOrdenacao>(ORDEM_PADRAO);
+  useEffect(() => {
+    const lembrada = lerOrdemLembrada(armazenamentoLocal());
+    if (lembrada !== ORDEM_PADRAO) setCriterio(lembrada);
+  }, []);
   const linhasOrdenadas = useMemo(
     () => ordenarCampanhas(linhas, criterio),
     [linhas, criterio],
   );
+  /** Troca e grava no mesmo gesto: a escolha vale já e sobrevive ao próximo F5. */
+  function trocarCriterio(novo: CriterioDeOrdenacao) {
+    setCriterio(novo);
+    gravarOrdemLembrada(armazenamentoLocal(), novo);
+  }
 
   /**
    * A ressalva da leitura, quando existe: é o `title` do "—" da coluna do
@@ -177,6 +197,32 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
     );
   };
 
+  /**
+   * O `start_time` da plataforma (`2026-08-14T00:00:00-0300`) → "dd/MM/yyyy", no
+   * idioma de quem lê.
+   *
+   * O DIA vem do próprio texto, não do instante: a plataforma escreve a hora no
+   * fuso da CONTA de anúncios, e é nesse fuso que o Gerenciador mostra a data.
+   * Converter para o fuso do navegador faria a campanha que começou à meia-noite
+   * de São Paulo aparecer na véspera para quem abre a tela de outro fuso.
+   *
+   * Texto que não começa por uma data de calendário válida vira "—", como nas
+   * outras colunas — e nunca chega ao `format`, que LANÇA com data inválida e
+   * derrubaria a tabela inteira por causa de uma célula.
+   */
+  const inicio = (valor: string | null) => {
+    const traco = <span className="text-muted-foreground">{TRACO}</span>;
+    const pedacos = valor ? /^(\d{4})-(\d{2})-(\d{2})/.exec(valor) : null;
+    const [ano, mes, diaDoMes] = (pedacos ?? []).slice(1).map(Number);
+    if (ano === undefined || mes === undefined || diaDoMes === undefined) return traco;
+    const dia = new Date(ano, mes - 1, diaDoMes);
+    // 2026-02-31 vira 03/03 no `Date`: data que não existe no calendário é "—".
+    if (dia.getFullYear() !== ano || dia.getMonth() !== mes - 1 || dia.getDate() !== diaDoMes) {
+      return traco;
+    }
+    return <>{format(dia, "dd/MM/yyyy", { locale: localeDaData })}</>;
+  };
+
   if (linhas.length === 0) {
     return (
       <p className="rounded-md border p-4 text-sm text-muted-foreground">
@@ -196,7 +242,7 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
   return (
     <div className="space-y-2">
       {/*
-        O controle mora ACIMA da tabela, e fora do contêiner de scroll: são 15
+        O controle mora ACIMA da tabela, e fora do contêiner de scroll: são 16
         colunas, e dentro do `overflow-x-auto` ele rolaria junto, ficando fora da
         tela justamente em tela estreita, que é onde ele mais importa.
       */}
@@ -207,7 +253,7 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
         <select
           id="ordem-das-campanhas"
           value={criterio}
-          onChange={(evento) => setCriterio(evento.target.value as CriterioDeOrdenacao)}
+          onChange={(evento) => trocarCriterio(evento.target.value as CriterioDeOrdenacao)}
           className="h-9 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
         >
           {/*
@@ -222,7 +268,7 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
       </div>
       {/*
         O scroll horizontal mora AQUI, num contêiner próprio — nunca no `<body>`.
-        São 15 colunas; em telas estreitas a tabela rola dentro do próprio quadro e
+        São 16 colunas; em telas estreitas a tabela rola dentro do próprio quadro e
         a página segue parada, que é o combinado do produto para conteúdo largo.
       */}
       <div className="overflow-x-auto rounded-md border">
@@ -232,6 +278,7 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
               <TableHead className="sticky left-0 z-10 bg-bg">{t("Campanha")}</TableHead>
               <TableHead>{t("Status")}</TableHead>
               <TableHead>{t("Veiculação")}</TableHead>
+              <TableHead>{t("Início")}</TableHead>
               <TableHead className="text-right">{t("Resultado")}</TableHead>
               <TableHead className="text-right">{t("Custo por Resultado")}</TableHead>
               <TableHead className="text-right">{t("Valor Gasto")}</TableHead>
@@ -269,9 +316,7 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
               */}
               <TableHead className="text-right" title={t("Reproduções de vídeo ÷ impressões")}>
                 {t("Hook Rate")}
-                <span className="ml-1 font-normal text-muted-foreground">
-                  {t("(reproduções)")}
-                </span>
+                <span className="ml-1 font-normal text-muted-foreground">{t("(reproduções)")}</span>
               </TableHead>
               <TableHead className="text-right">{t("ThruPlays")}</TableHead>
             </TableRow>
@@ -279,15 +324,19 @@ export function TabelaDeCampanhas({ linhas, moeda, avisos }: Props) {
           <TableBody>
             {linhasOrdenadas.map((linha) => {
               const rotulo = rotuloDoIndicador(linha.resultado.indicador);
-          return (
+              return (
                 <TableRow key={linha.campanhaId}>
                   <TableCell className="sticky left-0 z-10 max-w-[9rem] bg-bg font-medium md:max-w-[22rem]">
-                    <span className="block max-w-[9rem] truncate md:max-w-[22rem]" title={linha.nome}>
+                    <span
+                      className="block max-w-[9rem] truncate md:max-w-[22rem]"
+                      title={linha.nome}
+                    >
                       {linha.nome}
                     </span>
                   </TableCell>
                   <TableCell>{estado(linha.status)}</TableCell>
                   <TableCell>{estado(linha.veiculacao)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{inicio(linha.iniciadaEm)}</TableCell>
                   <TableCell className="text-right">
                     <Numero valor={linha.resultado.valor} />
                     {/*
