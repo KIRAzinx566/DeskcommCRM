@@ -38,6 +38,11 @@ jobs:
         run: pnpm build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          # Fork: o `pnpm build` roda o tsc do Next, e o fork tem bem mais código
+          # que o upstream — no sync da 1.113 o heap padrão estourou aqui
+          # ("JavaScript heap out of memory" logo após "Running TypeScript").
+          # Mesmo teto que o `verify` do ci.yml já usa (8 GB, runner de 16 GB).
+          NODE_OPTIONS: --max-old-space-size=8192
           # "off", não vazio: vazio seleciona o Sentry DA COMUNIDADE
           # (lib/sentry/dsn.ts:8-10). A intenção aqui sempre foi desligar, e
           # com aspas vazias ela não era alcançada — o build seguia com o DSN

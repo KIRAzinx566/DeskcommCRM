@@ -725,13 +725,15 @@ export function overrideLlmDoAgente(
   provider: string;
   credentialId: string | null;
   /** Endpoint próprio da versão (fork, migration 0204) — sem ele o turno ignora o provedor customizado. */
-  baseUrl: string | null;
+  baseUrl?: string;
   reservaDeModelo?: { provider: string; model: string };
 } {
   return {
     provider: config.provider,
     credentialId: config.credentialId,
-    baseUrl: config.baseUrl ?? null,
+    // Só quando a versão tem um: sem endpoint próprio o override fica byte a
+    // byte o do upstream.
+    ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
     ...(reservaDeModelo ? { reservaDeModelo } : {}),
   };
 }

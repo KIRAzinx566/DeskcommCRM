@@ -487,6 +487,22 @@ function ActionLine({ action, run }: { action: AutomationRuleRunActionResult; ru
                   que não tem tradução possível e é a única pista real. */}
               {explicacao ?? action.error ?? t("Essa ação não funcionou.")}
             </p>
+            {/* Fork: o passo pulado também cai aqui (ganha o "Retomar"), então os
+                textos que a trava barrou precisam aparecer neste bloco também. */}
+            {barrados ? (
+              <div className="space-y-0.5 text-[11px] text-muted-foreground">
+                {barrados.textos.map((texto, i) => (
+                  <p key={i} className="break-words">
+                    {t("Texto barrado:")} {texto}
+                  </p>
+                ))}
+                {barrados.trecho ? (
+                  <p className="break-words">
+                    {t("Trecho que acionou a trava:")} {barrados.trecho}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {detalheTecnico ? (
               // Subordinado à frase, e não no lugar dela: ver a decisão escrita
               // em `detalheTecnicoDe`.

@@ -26,6 +26,9 @@ import type { Idioma } from "@/lib/i18n/idiomas";
 const estado = vi.hoisted(() => ({ runs: [] as unknown[], idioma: "pt-BR" as string }));
 
 vi.mock("@/hooks/webhooks/useAutomationRules", () => ({
+  // Teste da regra (fork): o editor monta o painel de testar.
+  useEventosParaTestarRegra: () => ({ data: undefined }),
+  useTestarRegra: () => ({ isPending: false, mutate: () => {}, reset: () => {}, data: undefined }),
   useAutomationRuns: () => ({
     data: { data: estado.runs },
     isLoading: false,

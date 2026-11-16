@@ -1826,6 +1826,20 @@ function statusHttpDoErro(err: unknown, profundidade = 0): number | null {
   return null;
 }
 
+/**
+ * O erro de verdade dentro de um `RetryError` (fork). Em `try`: os testes que
+ * trocam o módulo `ai` por um dublê nem sempre trazem o `RetryError`, e o
+ * vitest LANÇA ao ler uma exportação ausente do dublê — a falta dele não pode
+ * virar outra falha dentro da classificação do erro.
+ */
+function desembrulharRetryError(err: unknown): unknown {
+  try {
+    return RetryError.isInstance(err) ? err.lastError : err;
+  } catch {
+    return err;
+  }
+}
+
 export function normalizarErro(err: unknown): {
   error_code: string;
   error_message: string;
@@ -1837,7 +1851,7 @@ export function normalizarErro(err: unknown): {
   // `.message` é genérica ("Failed after N attempts. Last error: …") — SEM o
   // `statusCode` do provedor. O erro de verdade é `.lastError` (fork: medido ao
   // vivo, NVIDIA 429 virava `erro_desconhecido` sem este desembrulho).
-  const erroReal = RetryError.isInstance(err) ? err.lastError : err;
+  const erroReal = desembrulharRetryError(err);
   const bruto = erroReal instanceof Error ? erroReal.message : String(erroReal);
   const status = statusHttpDoErro(erroReal);
 

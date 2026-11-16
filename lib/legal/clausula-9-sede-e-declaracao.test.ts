@@ -64,6 +64,8 @@ const MEDIDO: readonly LinhaMedida[] = [
       consultadoEm: "2026-11-12",
     },
   },
+  // Fork: o provedor NVIDIA (build.nvidia.com), só deste fork — sede nos EUA, sem declaração.
+  { id: "nvidia", pais: "US", sede: "US", paisDeclarado: null, fonte: null },
   { id: "requesty", pais: "desconhecido", sede: null, paisDeclarado: null, fonte: null },
   { id: "custom", pais: "operador", sede: null, paisDeclarado: null, fonte: null },
   { id: "typesafe", pais: "US", sede: "US", paisDeclarado: null, fonte: null },
@@ -189,9 +191,9 @@ describe("cláusula 9 — quem declarou aparece com fonte e data", () => {
 
     expect(texto.match(/declaração do provedor/g)).toHaveLength(1);
     expect(texto).toContain("DeepSeek (China — declaração do provedor, consultada em 12/11/2026)");
-    // As seis sedes aparecem como sede, e a frase do defeito não volta em
-    // nenhuma forma.
-    expect(texto.match(/sede nos Estados Unidos/g)).toHaveLength(6);
+    // As seis sedes aparecem como sede (sete no fork, com a NVIDIA), e a frase
+    // do defeito não volta em nenhuma forma.
+    expect(texto.match(/sede nos Estados Unidos/g)).toHaveLength(7);
     expect(texto).not.toContain("conforme a declaração de cada provedor");
   });
 
