@@ -28,6 +28,7 @@ import {
   temTaxas,
   type ConfigDoParcelamento,
 } from "@/lib/financeiro/parcelamento";
+import { capacidadesDaOrganizacao } from "@/lib/organizacao/capacidades";
 import { formatCents } from "@/lib/money";
 import { precoParaCentavos } from "@/lib/schemas/produtos";
 import { FUSO_PADRAO } from "@/lib/tempo/fusos";
@@ -335,7 +336,7 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
       const { data: lote, error, count } = await ctx.supabase
         .from("catalog_products")
         .select(
-          "id, codigo, nome, descricao, marca, categoria, preco_cents, moeda, controla_estoque, quantidade, ativo, fotos",
+          "id, codigo, nome, descricao, marca, categoria, capacidade, preco_cents, moeda, controla_estoque, quantidade, ativo, fotos",
           { count: "exact" },
         )
         .eq("organization_id", ctx.organizationId)
@@ -374,6 +375,7 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
       descricao: string | null;
       marca: string | null;
       categoria: string | null;
+      capacidade: string | null;
       preco_cents: number;
       moeda: string;
       controla_estoque: boolean;
@@ -381,7 +383,15 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
       fotos: string[] | null;
     };
 
-    const { achados, ignorados } = buscarComRelaxamento((data ?? []) as Linha[], input.termo);
+    // Desligada na empresa, a capacidade guardada não pontua nem sai na resposta.
+    const capacidadeLigada = (await capacidadesDaOrganizacao(ctx.supabase, ctx.organizationId)).includes(
+      "capacidade_do_produto",
+    );
+    const produtos: Linha[] = capacidadeLigada
+      ? (data as Linha[])
+      : (data as Linha[]).map((linha) => ({ ...linha, capacidade: null }));
+
+    const { achados, ignorados } = buscarComRelaxamento(produtos, input.termo);
 
     // `controla_estoque` é o conserto de uma armadilha da versão anterior, que
     // filtrava por quantidade sempre: numa loja que não conta estoque (decant de
@@ -479,6 +489,7 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
         ...comParcela(parcelaDe(produto.preco_cents, produto.moeda)),
         ...(produto.marca ? { marca: produto.marca } : {}),
         ...(produto.descricao ? { descricao: produto.descricao } : {}),
+        ...(produto.capacidade ? { capacidade: produto.capacidade } : {}),
         disponivel: !produto.controla_estoque || produto.quantidade > 0,
         // Quantas fotos, e não quais: o caminho é vocabulário interno e a URL
         // assinada expira. Quem manda a foto é o `send_message` do agente, com

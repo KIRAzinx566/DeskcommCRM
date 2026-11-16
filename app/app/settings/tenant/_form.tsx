@@ -256,41 +256,6 @@ export function TenantForm({ initial, onSave, onSaved }: Props) {
           </div>
         </div>
 
-        {/* CSAT só onde a tela o grava (Configurações › Empresa); a edição de tenant pelo admin não manda os campos. */}
-        {form.csat_enabled !== undefined ? (
-        <div className="space-y-3 border-t border-border pt-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="csat_enabled">
-                {t("Pesquisa de satisfação (CSAT) pelo WhatsApp")}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  "Ao fechar uma conversa, pergunta a nota de 1 a 5 na mesma conversa — sem link externo, sem e-mail.",
-                )}
-              </p>
-            </div>
-            <Switch
-              id="csat_enabled"
-              checked={form.csat_enabled}
-              onCheckedChange={(v) => set("csat_enabled", v)}
-            />
-          </div>
-          {form.csat_enabled ? (
-            <div className="space-y-2">
-              <Label htmlFor="csat_pergunta">{t("Pergunta enviada")}</Label>
-              <Textarea
-                id="csat_pergunta"
-                value={form.csat_pergunta ?? ""}
-                onChange={(e) => set("csat_pergunta", e.target.value)}
-                maxLength={300}
-                rows={2}
-              />
-            </div>
-          ) : null}
-        </div>
-        ) : null}
-
         <div className="flex sm:justify-end">
           <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
             {isPending ? t("Salvando…") : t("Salvar")}

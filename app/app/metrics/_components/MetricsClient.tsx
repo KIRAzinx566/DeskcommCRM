@@ -9,7 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatarDuracao } from "@/lib/metrics/canais";
 import { WarningOctagon } from "@/lib/ui/icons";
 import { AtritoPanel } from "./AtritoPanel";
-import { CsatPanel } from "./CsatPanel";
 import { CanaisPanel } from "./CanaisPanel";
 import { MetaDoMesPanel, type EstadoDaMeta } from "./MetaDoMesPanel";
 import { PerdasPanel } from "./PerdasPanel";
@@ -161,7 +160,6 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
     <Tabs defaultValue="desempenho" className="flex flex-col gap-4">
       <TabsList>
         <TabsTrigger value="desempenho">{t("Desempenho")}</TabsTrigger>
-        <TabsTrigger value="csat">{t("CSAT")}</TabsTrigger>
         {canCompare ? <TabsTrigger value="previsao">{t("Previsão")}</TabsTrigger> : null}
       </TabsList>
 
@@ -305,10 +303,6 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
             atendente da página, pelo NÚMERO. Mora na aba de desempenho do fork. */}
         <CanaisPanel owner={selectedOwner} />
         <SeriePanel />
-      </TabsContent>
-
-      <TabsContent value="csat">
-        <CsatPanel />
       </TabsContent>
 
       {canCompare ? (

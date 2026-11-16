@@ -52,6 +52,7 @@ interface Rascunho {
   nome: string;
   marca: string;
   categoria: string;
+  capacidade: string;
   preco: string;
   custo: string;
   quantidade: string;
@@ -64,6 +65,7 @@ const VAZIO: Rascunho = {
   nome: "",
   marca: "",
   categoria: "",
+  capacidade: "",
   preco: "",
   custo: "",
   quantidade: "0",
@@ -85,6 +87,7 @@ function doRascunho(
     nome: r.nome.trim(),
     ...(r.marca.trim() ? { marca: r.marca.trim() } : {}),
     ...(r.categoria.trim() ? { categoria: r.categoria.trim() } : {}),
+    ...(r.capacidade.trim() ? { capacidade: r.capacidade.trim() } : {}),
     preco_cents,
     custo_cents,
     controla_estoque: r.controla_estoque,
@@ -238,9 +241,12 @@ function FotosDoProduto({ produto, urls }: { produto: Produto; urls: Record<stri
 function CamposDoProduto({
   rascunho,
   onChange,
+  capacidadeLigada = false,
 }: {
   rascunho: Rascunho;
   onChange: (r: Rascunho) => void;
+  /** A chave da empresa (`capacidade_do_produto`, upstream). Desligada, o campo não aparece. */
+  capacidadeLigada?: boolean;
 }) {
   const t = useT();
   return (
@@ -280,6 +286,19 @@ function CamposDoProduto({
             className="mt-1 h-9 w-full rounded-md border px-3"
           />
         </label>
+        {capacidadeLigada ? (
+          <label className="text-sm">
+            {t("Capacidade")} <span className="text-muted-foreground">{t("(opcional)")}</span>
+            <input
+              value={rascunho.capacidade}
+              onChange={(e) => onChange({ ...rascunho, capacidade: e.target.value })}
+              placeholder={t("Ex.: 128GB")}
+              maxLength={60}
+              className="mt-1 h-9 w-full rounded-md border px-3"
+              data-testid="produto-capacidade"
+            />
+          </label>
+        ) : null}
         <label className="text-sm">
           {t("Preço de venda")}
           <input
@@ -357,7 +376,9 @@ export function ProdutosClient({
   buscaInicial,
   urlsDasFotos,
   podeEditar,
+  capacidadeLigada = false,
   apresentacaoLigada = false,
+  fonteDoFeed = null,
   textos,
 }: {
   /**
@@ -374,7 +395,11 @@ export function ProdutosClient({
   buscaInicial: string;
   urlsDasFotos: Record<string, string>;
   podeEditar: boolean;
+  /** A chave da empresa (`capacidade_do_produto`). Desligada, o campo não aparece. */
+  capacidadeLigada?: boolean;
   apresentacaoLigada?: boolean;
+  /** A seção do módulo `catalogo_por_feed`; `null` com o módulo desligado. */
+  fonteDoFeed?: React.ReactNode;
   textos: Textos;
 }) {
   const t = useT();
@@ -505,6 +530,8 @@ export function ProdutosClient({
       {/* O `router.refresh()` da importação refaz a régua no servidor: a planilha inteira confere a tabela do dia. */}
       <PrecosEParcelas podeEditar={podeEditar} inicial={regua} />
 
+      {fonteDoFeed}
+
       <div className="mb-4 flex items-center gap-3">
         <input
           value={busca}
@@ -611,7 +638,7 @@ export function ProdutosClient({
 
       {criando && podeEditar ? (
         <div className="mb-6 rounded-lg border p-4" data-testid="form-produto">
-          <CamposDoProduto rascunho={rascunho} onChange={setRascunho} />
+          <CamposDoProduto rascunho={rascunho} onChange={setRascunho} capacidadeLigada={capacidadeLigada} />
           <div className="mt-4">
             <Button onClick={salvar} disabled={salvando} data-testid="salvar-produto">
               {t(salvando ? "Salvando…" : "Salvar produto")}
@@ -661,6 +688,7 @@ export function ProdutosClient({
                 <p className="text-xs text-muted-foreground">
                   {p.codigo}
                   {p.marca ? ` · ${p.marca}` : ""}
+                  {capacidadeLigada && p.capacidade ? ` · ${p.capacidade}` : ""}
                   {p.controla_estoque
                     ? ` · ${p.quantidade} ${t("em estoque")}`
                     : ` · ${t("sem controle de estoque")}`}
@@ -729,6 +757,7 @@ export function ProdutosClient({
               <EdicaoDoProduto
                 key={p.id}
                 produto={p}
+                capacidadeLigada={capacidadeLigada}
                 urlsDasFotos={urlsDasFotos}
                 apresentacaoLigada={apresentacaoLigada}
                 aoFechar={() => setEditando(null)}

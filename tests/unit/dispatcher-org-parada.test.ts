@@ -52,8 +52,6 @@ import { lancamentoDoGrupoHandler } from "@/lib/financeiro/lancamento-do-grupo.h
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { avisoDePropostaNoWhatsAppHandler } from "@/lib/propostas/aviso-no-whatsapp.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
-import { csatReplyHandler } from "@/lib/csat/capturar-resposta";
-import { csatSurveyHandler } from "@/lib/csat/enviar-pesquisa";
 import { aiHandoffFromSentimentHandler } from "@/workers/ai-handoff-from-sentiment.handler";
 import { aiResponseHandler } from "@/workers/ai-response-worker.handler";
 import { aiSentimentHandler } from "@/workers/ai-sentiment-worker.handler";
@@ -76,7 +74,6 @@ const RODA: EventHandler[] = [
   lgpdExportHandler,
   lgpdRedactHandler,
   billingChargeStatusChangedHandler,
-  csatReplyHandler,
   cobrancaSinalHandler,
   // #2591 — tarefa interna para o dono da carteira: escrita no próprio banco,
   // sem rede, roda com a organização parada (mesma régua do aviso de etapa).
@@ -106,7 +103,6 @@ const PULA: EventHandler[] = [
   avisoDeAgendamentoNoWhatsAppHandler,
   conversaoDeVendaHandler,
   conversaoDeQualificacaoHandler,
-  csatSurveyHandler,
   canalDiretoHandler,
   conversaoDeEtapaMetaHandler,
   conversaoDeNascimentoMetaHandler,

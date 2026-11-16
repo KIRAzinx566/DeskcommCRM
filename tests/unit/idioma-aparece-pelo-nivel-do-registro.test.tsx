@@ -6,7 +6,6 @@ import { TenantForm } from "@/app/app/settings/tenant/_form";
 import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
 import { IDIOMAS, IDIOMA_PADRAO, normalizarIdioma, parseAcceptLanguage } from "@/lib/i18n/idiomas";
 import { REGISTRO_DE_IDIOMAS, type IdiomaRegistrado, type NivelDeIdioma } from "@/lib/i18n/registro";
-import { CSAT_PERGUNTA_PADRAO } from "@/lib/schemas/settings";
 
 /**
  * UM IDIOMA SÓ APARECE QUANDO O REGISTRO DIZ QUE PODE.
@@ -153,8 +152,6 @@ describe("as telas de Configurações oferecem o que o registro deixa aparecer",
             media_retention_enforced: true,
             dpo_email: null,
             privacy_policy_url: null,
-            csat_enabled: true,
-            csat_pergunta: CSAT_PERGUNTA_PADRAO,
           }}
         />
       </IdiomaProvider>,

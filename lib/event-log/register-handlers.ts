@@ -26,8 +26,6 @@ import { mediaDeriveHandler } from "@/workers/media-derive-worker.handler";
 import { CONSUMIDORES_DOS_CANAIS } from "@/lib/channels/consumidores";
 import { webPushInboundHandler } from "@/lib/notifications/push.handler";
 import { billingChargeStatusChangedHandler } from "@/lib/billing/charge-status-changed.handler";
-import { csatSurveyHandler } from "@/lib/csat/enviar-pesquisa";
-import { csatReplyHandler } from "@/lib/csat/capturar-resposta";
 import { canalDiretoHandler } from "@/workers/canal-direto-worker.handler";
 import { conversaoDeQualificacaoHandler } from "@/lib/conversoes/qualificacao.handler";
 import { conversaoDeEtapaMetaHandler } from "@/lib/conversoes/etapa-meta.handler";
@@ -103,8 +101,6 @@ export function ensureHandlersRegistered(): void {
   for (const consumidor of CONSUMIDORES_DOS_CANAIS) registerHandler(consumidor);
   registerHandler(webPushInboundHandler);
   registerHandler(billingChargeStatusChangedHandler);
-  registerHandler(csatSurveyHandler);
-  registerHandler(csatReplyHandler);
   // A cobrança do revendedor: relê o provedor (rede de terceiro) e só então
   // escreve. Consome um evento só dela, então a posição não atrasa ninguém.
   registerHandler(cobrancaSinalHandler);

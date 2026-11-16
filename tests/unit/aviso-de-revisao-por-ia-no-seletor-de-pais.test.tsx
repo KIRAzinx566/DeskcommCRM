@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TenantForm } from "@/app/app/settings/tenant/_form";
 import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
-import { CSAT_PERGUNTA_PADRAO, type TenantInput } from "@/lib/schemas/settings";
+import { type TenantInput } from "@/lib/schemas/settings";
 
 vi.mock("@/app/actions/settings/updateTenant", () => ({
   updateTenant: vi.fn(async () => ({ ok: true })),
@@ -28,8 +28,6 @@ const BASE: TenantInput = {
   media_retention_enforced: true,
   dpo_email: null,
   privacy_policy_url: null,
-  csat_enabled: true,
-  csat_pergunta: CSAT_PERGUNTA_PADRAO,
 };
 
 function tela(country: string | null, locale: "pt-BR" | "es" = "pt-BR") {
