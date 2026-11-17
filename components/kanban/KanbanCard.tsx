@@ -417,6 +417,7 @@ export function KanbanCard({
                 ownerKind={card.owner.kind}
                 ownerName={card.owner.name}
                 agentVersion={card.owner.agentVersion}
+                foraDaEquipe={card.owner.foraDaEquipe}
               />
               <TarefasNoCard tarefas={lead.tarefas} />
             </div>

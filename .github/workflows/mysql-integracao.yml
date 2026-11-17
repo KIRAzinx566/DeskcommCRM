@@ -64,5 +64,10 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
           SENTRY_DSN: "off"
+          # Fork: o `pnpm build` roda o tsc do Next, e o fork tem bem mais código
+          # que o upstream — no sync da 1.113 o heap padrão estourou aqui
+          # ("JavaScript heap out of memory" logo após "Running TypeScript").
+          # Mesmo teto que o `verify` do ci.yml já usa (8 GB, runner de 16 GB).
+          NODE_OPTIONS: --max-old-space-size=8192
       - name: O standalone leva o mysql2 completo?
         run: node scripts/verificar-standalone-mysql.mjs

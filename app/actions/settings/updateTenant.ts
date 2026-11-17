@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { invalidarOrg } from "@/lib/auth/cache-curto";
 import { audit } from "@/lib/audit";
-import { CSAT_PERGUNTA_PADRAO, tenantSchema, type TenantInput } from "@/lib/schemas/settings";
+import { tenantSchema, type TenantInput } from "@/lib/schemas/settings";
 import { loadAuthUser, mfaEmDivida, resolveActiveOrg } from "@/lib/auth/server";
 import { podeAdministrarEmpresa } from "@/lib/auth/pode-administrar-empresa";
 import { gravarDadosCadastrais } from "@/lib/tenants/dados-cadastrais";
@@ -74,21 +74,6 @@ export async function updateTenant(input: TenantInput): Promise<UpdateTenantResu
     return { ok: false, error: gravado.erro };
   }
   invalidarOrg(activeOrg.orgId);
-
-  // Merge ATÔMICO em `settings.csat` — nunca ler+mesclar+regravar o jsonb
-  // inteiro aqui: era o desenho antigo, e ele perdia escrita concorrente de
-  // OUTRA chave em silêncio (mesmo defeito que a 0157/0158 já corrigiram para
-  // `branding`). Ver migration 0383.
-  // Só quando o formulário mandou o CSAT (Configurações › Empresa sempre manda os dois).
-  if (parsed.data.csat_enabled !== undefined) {
-    const { error: atendimentoErr } = await supabase.rpc("fn_definir_atendimento_da_organizacao", {
-      p_org: activeOrg.orgId,
-      p_actor: authUser.id,
-      p_csat_enabled: parsed.data.csat_enabled,
-      p_csat_pergunta: parsed.data.csat_pergunta ?? CSAT_PERGUNTA_PADRAO,
-    });
-    if (atendimentoErr) return { ok: false, error: atendimentoErr.message };
-  }
 
   await audit({
     action: "org.updated",

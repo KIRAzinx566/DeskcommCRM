@@ -46,8 +46,6 @@ describe("convite não amplia a autoridade de fechar ou mudar status (#2542)", (
     estado.podeControlar = true;
     const resposta = await POST(new NextRequest(`http://localhost/api/v1/conversations/${ID}/close`, { method: "POST" }), { params: Promise.resolve({ id: ID }) });
     expect(resposta.status).toBe(200);
-    // No fork a rota também emite `conversation.closed` pela chave de serviço (CSAT, 7006):
-    // o que conta aqui é o fechamento, uma vez só.
-    expect(estado.efeito.mock.calls.filter(([fn]) => fn === "fn_service_status")).toHaveLength(1);
+    expect(estado.efeito).toHaveBeenCalledOnce();
   });
 });

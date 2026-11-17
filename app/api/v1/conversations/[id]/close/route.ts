@@ -58,6 +58,7 @@ import type { Conversation } from "@/lib/types/messaging";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { ApiError } from "@/lib/api/types";
 import { exigirControleDaConversa } from "@/lib/inbox/controle-da-conversa";
+import { pedirSatisfacaoAoEncerrar } from "@/lib/atendimento/satisfacao";
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +156,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<Response> {
   // quando ele não mandou nenhuma). O CAS da `fn_service_status` (PT409) segue
   // sendo a última palavra: se alguém mexeu na conversa entre a leitura e este
   // UPDATE, a resposta é 409, e não um fechamento por cima de estado alheio.
-  const { data, error } = await createAdminClient().rpc("fn_service_status", {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("fn_service_status", {
     p_org: visible.organization_id, p_conversation: id, p_status: "closed",
     p_expected: revisaoEsperada,
   });
@@ -175,34 +177,34 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<Response> {
     requestId,
   });
 
-  // event_log, não só audit: o CSAT (e qualquer outro consumidor futuro de
-  // "conversa fechou") reage a EVENTO, não a linha de auditoria — audit é pra
-  // gente ler depois, event_log é pra sistema agir agora.
-  // Pela chave de serviço: desde a 9212 (upstream) `emit_event` recusa
-  // `conversation.closed` vindo da sessão do usuário. O gatilho da 9212 também
-  // emite o fato, mas sem `had_inbound` — o CSAT só pergunta pelo evento desta
-  // rota, que é o encerramento feito pelo atendente.
-  void createAdminClient()
-    .rpc("emit_event", {
-      p_event_type: "conversation.closed",
-      p_entity_kind: "conversation",
-      p_entity_id: convFechada.id,
-      p_payload: {
-        contact_id: convFechada.contact_id,
-        channel_session_id: convFechada.channel_session_id,
-        had_inbound: convFechada.last_inbound_at !== null,
-      },
-      p_metadata: { request_id: requestId },
-      p_organization_id: convFechada.organization_id,
-    })
-    .then(({ error: emitErr }) => {
-      if (emitErr) {
-        logger.error("[conversation.close] emit_event falhou", {
-          conversation_id: convFechada.id,
-          error: emitErr.message,
-        });
-      }
+  // ── #4023: A PESQUISA DE SATISFAÇÃO, DEPOIS DO FECHAMENTO ────────────────
+  //
+  // O encerramento ACIMA é o gesto pedido e já aconteceu; a pesquisa vem depois e
+  // não pode desfazê-lo nem mudar a resposta desta rota (o corpo sai idêntico ao
+  // de antes, e é o que permite o lote reusar esta função). Desligada na
+  // organização, `pedirSatisfacaoAoEncerrar` devolve `desligada` sem tocar o
+  // banco além da leitura do settings — o caso de quem nunca ligou.
+  const pesquisa = await pedirSatisfacaoAoEncerrar(admin, {
+    organizationId: convFechada.organization_id,
+    conversationId: convFechada.id,
+    contactId: convFechada.contact_id ?? null,
+    channelSessionId: convFechada.channel_session_id ?? null,
+  });
+  if (pesquisa.pedida) {
+    logger.info("[conversations.close] pesquisa de satisfação enviada", {
+      conversation_id: convFechada.id,
+      organization_id: convFechada.organization_id,
+      pedido_id: pesquisa.pedidoId,
+      requestId,
     });
+  } else if (pesquisa.motivo === "falha_ao_enviar" || pesquisa.motivo === "erro") {
+    logger.warn("[conversations.close] pesquisa de satisfação não saiu", {
+      conversation_id: convFechada.id,
+      organization_id: convFechada.organization_id,
+      motivo: pesquisa.motivo,
+      requestId,
+    });
+  }
 
   return ok(devolucao === null ? convFechada : { ...convFechada, devolucao }, { requestId });
 }
