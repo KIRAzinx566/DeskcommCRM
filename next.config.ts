@@ -127,11 +127,29 @@ const nextConfig: NextConfig = {
           // sem eles aqui, o iframe do CRM dentro do FBhub em produção é
           // bloqueado pelo navegador (confirmado via `vercel alias ls` no
           // projeto FBhub: fbhub.tech e www.fbhub.tech resolvem pro mesmo deploy).
-          {
-            key: "Content-Security-Policy",
-            value: "frame-ancestors 'self' https://fbhub.tech https://www.fbhub.tech https://fbhub-ebon.vercel.app",
-          },
+          // (A CSP com essas origens está mais abaixo, junto da do upstream.)
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // O proxy na frente não manda HSTS — o Caddy do kit não manda, e o Traefik
+          // da hospedagem e o Cloudflare só mandam se alguém configurar: quem responde
+          // pelo transporte é a origem. Sem isto, quem já abriu o painel em https e
+          // depois chega por http volta a trafegar em claro.
+          // Sem includeSubDomains: o domínio é do cliente e pode ser o apex; o app
+          // não sabe se os subdomínios dele têm HTTPS.
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          // CSP curta de propósito: `frame-ancestors` repete o DENY para navegador
+          // que só entende CSP, `base-uri` impede tag injetada de mudar a base dos
+          // links relativos e `form-action` impede formulário forjado para fora.
+          // `script-src`/`style-src` ficam de fora: o Next injeta bootstrap inline e
+          // o app abre WebSocket — política sem nonce quebraria a tela, e política
+          // que quebra tela acaba desligada por quem opera.
+          {
+            // Fork: UMA política só. Duas CSP somam restrições no navegador, e a
+            // `frame-ancestors 'none'` do upstream bloquearia o CRM dentro do FBhub.
+            // Aqui o embutir é liberado só para o próprio app e os domínios do FBhub.
+            key: "Content-Security-Policy",
+            value:
+              "frame-ancestors 'self' https://fbhub.tech https://www.fbhub.tech https://fbhub-ebon.vercel.app; base-uri 'self'; form-action 'self'",
+          },
           // microphone=(self): o gravador de voz do composer (PTT estilo WhatsApp)
           // usa getUserMedia({audio}); microphone=() bloquearia em TODA origem,
           // inclusive a própria — daria "microphone is not allowed in this document".
