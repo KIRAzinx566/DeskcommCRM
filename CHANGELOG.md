@@ -8,6 +8,30 @@ Se você roda o DeskcommCRM numa VPS, **leia a seção da versão para a qual es
 
 ## [Não lançado]
 
+## [2.13.0] — 2026-11-20
+
+### ⚠️ Requer atenção
+
+- **Chegam as novidades do upstream 1.114.0 a 1.120.0** **A IA só lê o campo personalizado que o funil marcou como legível.** Se um agente usava campos do card, marque-os como legíveis no editor do funil.
+
+### Adicionado
+
+- **Chegam as novidades do upstream 1.114.0 a 1.120.0** Destaques: "Critério da etapa" que o assistente lê para mover o card; o cliente que chega pela frase do anúncio é atendido pelo agente daquela campanha; troca de agente em modo silencioso; a IA lê os documentos do negócio e preenche o Diagnóstico; teto de respostas por conversa configurável; barra de etapas no negócio, etapas reordenadas arrastando a coluna e cor de etapa na tela; metas de venda em valor e por vendedor; vários negócios levados de uma vez para outro funil; plano aplicado vira checklist no card; cada pessoa escolhe a ordem das abas do Inbox; o ChatGPT conecta ao CRM por OAuth; token de integração em quase todas as rotas; Painel de Google Ads, Efi Bank e catálogo de serviços como módulos opcionais. A lista completa está nas seções 1.114.0 a 1.120.0 deste arquivo.
+
+  No fork, a tela de Métricas passa a ser a do upstream (a previsão volta para a mesma página, sem abas) e mantém a coluna "Em atendimento agora"; o build continua com 8 GB de memória.
+
+### Corrigido
+
+- **Arrastar um card deixa de recarregar o funil inteiro, e a rajada de realtime vira uma leitura só** Num funil com milhares de negócios, cada card solto custava uma leitura COMPLETA do quadro — a rota paginada, com as tarefas, anexos, conversas, marcadores, dono, próxima ação e score de cada card. Duas linhas faziam isso: `useMoveCard` invalidava o quadro no `onSettled`, e `useBoard` invalidava a cada evento de `postgres_changes`, sem debounce. Medido na `main 54c12aa3c3`: **1 invalidação por arraste** e **10 invalidações para 10 eventos em 300 ms** (mais uma pelo eco do próprio arraste).
+
+  Agora o arraste não relê o quadro: a única reconciliação é a resposta do servidor, fundida no card que se moveu (etapa, posição, `updated_at`, `status`), e o card aparece na coluna de destino antes da resposta chegar. A rajada de realtime do mesmo funil vira **uma** releitura, com janela de 250 ms e teto de 1 s — o teto existe para um fluxo contínuo de eventos não adiar a leitura para sempre. Evento de outro funil, e o eco da própria ação, não reconciliam.
+
+  Medido depois: **0 invalidações por arraste**, **1 por rajada de 10 eventos**, **0** para evento de outro funil e **0** para o eco. Nada muda para quem lê o quadro: a convergência continua garantida pela resposta do servidor (etapa divergente corrige a tela), pelo próximo evento de quem mudou o card e pela rede de segurança que confere a assinatura na volta para a aba. Erro e 409 continuam devolvendo o snapshot e relendo, como antes.
+
+  Ficou de fora, declarado: o recorte de encerrados antigos da rota continua em memória (`closed_at` já existe na tabela, então levá-lo para o filtro da consulta não precisa de migration — mas mexe na prova de paginação e não é o que trava o arraste; além disso só é calculado quando o funil liga `ocultar_encerrados_dias`). Nenhuma migration, nenhuma coluna nova.
+
+- **Radar de risco passa a reconhecer follow-ups ativos de cadência como em voo** Demandas abertas com follow-up ativo na cadência moderna (`followup_enrollments`) apareciam no Radar de risco como "em risco" ou "crítico" (sem próximo passo), porque o radar consultava apenas a tabela legada de agendamentos pontuais (`cron_jobs`). Agora o radar consulta tanto `cron_jobs` quanto `followup_enrollments` (com status ativo/em espera) e considera o retorno mais próximo no futuro, exibindo a demanda corretamente como "em voo".
+
 ## [2.12.0] — 2026-11-17
 
 ### ⚠️ Requer atenção
@@ -19457,7 +19481,8 @@ Primeira versão marcada do DeskcommCRM. O projeto vinha sendo desenvolvido publ
 
 - **Node 22 é obrigatório para desenvolvimento.** A suíte de invariantes instancia o cliente do Supabase, que exige o `WebSocket` global — nativo apenas a partir do Node 22. Isso não afeta quem apenas hospeda: a VPS roda a imagem pronta.
 
-[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.12.0...HEAD
+[Não lançado]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.13.0...HEAD
+[2.13.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.11.0...v2.12.0
 [2.11.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/KIRAzinx566/DeskcommCRM/compare/v2.9.0...v2.10.0
