@@ -260,6 +260,8 @@ describe("crm_search_products — catálogo de serviços (módulo opcional)", ()
       // módulo de serviço DESLIGADO, esta é a única outra leitura — e nada do
       // módulo (`catalog_service_details`) é consultado.
       { tabela: "organizations", select: "settings" },
+      // Fork: a tabela do dia e o parcelamento leem a empresa (fuso e moeda).
+      { tabela: "organizations", select: "settings, timezone, currency" },
     ]);
     // A variação é só mais um produto, como hoje; nenhum bloco de serviço.
     expect(r.produtos.map((p) => p.codigo).sort()).toEqual(["SOCIAL", "SOCIAL-20"]);

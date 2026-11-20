@@ -16,6 +16,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
+// O Preview do fork (CustomFieldsEditor) lê a organização ativa e a moeda.
+vi.mock("@/hooks/auth/AuthProvider", () => ({
+  useActiveOrg: () => ({ orgId: "org-1" }),
+  useMoedaDaOrgAtiva: () => null,
+}));
 vi.mock("@/app/actions/settings/updatePipelineConfig", () => ({
   updatePipelineConfig: vi.fn(async () => ({ ok: true })),
 }));

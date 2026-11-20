@@ -21,14 +21,20 @@ describe("cabeçalhos de segurança do painel", () => {
     // O domínio é do cliente e pode ser o apex: includeSubDomains forçaria HTTPS em subdomínios que o app não conhece.
     expect(porNome.get("strict-transport-security")).not.toContain("includeSubDomains");
     const csp = porNome.get("content-security-policy") ?? "";
-    expect(csp).toContain("frame-ancestors 'none'");
+    // Fork: o CRM abre dentro do FBhub (iframe) — o embutir é liberado só para
+    // o próprio app e os domínios do FBhub, nunca para qualquer site.
+    expect(csp).toContain("frame-ancestors 'self' https://fbhub.tech https://www.fbhub.tech https://fbhub-ebon.vercel.app");
+    expect(csp).not.toContain("*");
+    // Uma CSP só: duas somariam restrições e a mais dura venceria.
+    expect((doApp?.headers ?? []).filter((h) => h.key.toLowerCase() === "content-security-policy")).toHaveLength(1);
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("form-action 'self'");
     // Curta de propósito: restringir script-src sem nonce quebraria o bootstrap do Next.
     expect(csp).not.toContain("script-src");
 
     // O que já existia não pode cair numa edição futura desta lista.
-    expect(porNome.get("x-frame-options")).toBe("DENY");
+    // Fork: sem X-Frame-Options — DENY bloquearia o iframe do FBhub; quem protege é a CSP acima.
+    expect(porNome.get("x-frame-options")).toBeUndefined();
     expect(porNome.get("x-content-type-options")).toBe("nosniff");
     expect(porNome.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
     // microphone=(self) é o gravador de voz do composer: bloquear quebraria o PTT.

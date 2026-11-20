@@ -1689,14 +1689,6 @@
    "tipo": "css-texto"
   },
   {
-   "modulo": "etapas-do-funil",
-   "licao": "etapas-do-funil-motivos-de-perda",
-   "passo": "p4",
-   "campo": "antes",
-   "indice": 7,
-   "tipo": "role-nome"
-  },
-  {
    "modulo": "financeiro",
    "licao": "todo-mes",
    "passo": "p1",
@@ -1948,14 +1940,6 @@
    "modulo": "funis",
    "licao": "mover-e-fechar",
    "passo": "p1",
-   "campo": "destaque",
-   "indice": 0,
-   "tipo": "role-nome"
-  },
-  {
-   "modulo": "funis",
-   "licao": "mover-e-fechar",
-   "passo": "p1",
    "campo": "antes",
    "indice": 1,
    "tipo": "role-nome"
@@ -1971,33 +1955,9 @@
   {
    "modulo": "funis",
    "licao": "mover-e-fechar",
-   "passo": "p1",
-   "campo": "clicar",
-   "indice": 0,
-   "tipo": "role-nome"
-  },
-  {
-   "modulo": "funis",
-   "licao": "mover-e-fechar",
-   "passo": "p2",
-   "campo": "antes",
-   "indice": 0,
-   "tipo": "role-nome"
-  },
-  {
-   "modulo": "funis",
-   "licao": "mover-e-fechar",
    "passo": "p4",
    "campo": "antes",
    "indice": 2,
-   "tipo": "role-nome"
-  },
-  {
-   "modulo": "funis",
-   "licao": "mover-e-fechar",
-   "passo": "p4",
-   "campo": "antes",
-   "indice": 3,
    "tipo": "role-nome"
   },
   {
@@ -3188,6 +3148,22 @@
    "modulo": "webhooks",
    "licao": "avisar-outro-sistema",
    "passo": "p7",
+   "campo": "antes",
+   "indice": 1,
+   "tipo": "role-nome"
+  },
+  {
+   "modulo": "webhooks",
+   "licao": "ligar-ao-site",
+   "passo": "p5",
+   "campo": "destaque",
+   "indice": 1,
+   "tipo": "role-nome"
+  },
+  {
+   "modulo": "webhooks",
+   "licao": "ligar-ao-site",
+   "passo": "p5",
    "campo": "antes",
    "indice": 1,
    "tipo": "role-nome"
