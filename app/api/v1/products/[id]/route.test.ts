@@ -7,6 +7,16 @@ import { createClient } from "@/lib/supabase/server";
 
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+// O que a rota passou a ler (upstream, catálogo de serviços): módulo desligado e sem sinal fixo.
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+vi.mock("@/lib/instalacao/modulos", () => ({
+  moduloLigado: vi.fn(async () => false),
+  modulosLigados: vi.fn(async () => []),
+}));
+vi.mock("@/lib/catalogo/servicos-supabase", async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  sinaisFixosQueTravamPreco: vi.fn(async () => new Map()),
+}));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
 vi.mock("@/lib/catalogo/fotos-no-bucket", () => ({ apagarDoBucket: vi.fn(async () => undefined) }));
 vi.mock("@/lib/catalogo/apresentacao-no-bucket", () => ({

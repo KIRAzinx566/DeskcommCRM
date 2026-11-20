@@ -71,22 +71,31 @@ import { entraPorPacote, type ToolBundle, type ToolRisk } from "./pacotes";
  *    3 vagas para 1. Eram 3 as que o teto 25 existia para deixar, e a proposta
  *    comercial comeu uma por capacidade.
  *
- * 27 era o MENOR passo que resolvia naquele catálogo, um degrau adiante e por
- * um degrau: cada capacidade nova que entra no `vender` consome uma vaga de
- * folga. Passar de 27 deixava de ser restaurar a mesma folga e virava escolher
- * QUAL pacote ganha a vaga — duas perguntas diferentes.
+ * 27 é de novo o MENOR passo que resolve, um degrau adiante e por um degrau:
+ * cada capacidade nova que entra no `vender` consome uma vaga de folga. Passar
+ * de 27 deixa de ser restaurar a mesma folga e vira escolher QUAL pacote ganha a
+ * vaga — duas perguntas diferentes. Subir até 35 daria quatro das cinco jornadas
+ * como segundo pacote; até 41 daria todas, e as duas escolhas são contra um
+ * argumento (a heurística de degradação) que ninguém mediu, que é exatamente o
+ * que o bloco ⚠️ acima diz. O dia em que o `evoluir` exigir 28, o passo volta a
+ * ser ele.
  *
- * ═══ 27 → 29: `crm_update_product_price` entrou no `vender` ═══════════════════
+ * ═══ Continua 27: o documento do negócio foi para o `reter`, não para o default ═
  *
- * Nova capacidade de escrita no catálogo (mudar o preço de um produto pelo
- * código, sem abrir a tela) — e o `vender` é o pacote do onboarding, então todo
- * agente novo nasce com ela. A régua de novo é medida a partir do agente que
- * NASCE: no teto 27, evoluir passou a exigir 29 — 1 acima do teto — e nenhum
- * segundo pacote cabia.
+ * As duas capacidades de leitura do anexo do card (`crm_list_lead_attachments` e
+ * `crm_get_lead_attachment`, #4544 item 2) nasceram com `pacotes: ["vender"]`,
+ * que é o default do onboarding, e a medição a partir do agente que nasce
+ * mostrou o que este comentário já previa: o `evoluir` — o menor segundo pacote
+ * — subia de 27 para 29 e NENHUM segundo pacote cabia no teto 27. Era o beco do
+ * D3 de novo, e o passo "natural" seria 29.
  *
- * 29 é o MENOR passo que resolve de novo: só destrava `evoluir`. Subir mais
- * seria escolher QUAL outro pacote ganha a vaga, contra o mesmo argumento
- * (a heurística de degradação) que o bloco ⚠️ acima diz que ninguém mediu.
+ * Não se subiu o teto. O `vender` é o default que TODO agente novo paga, e o
+ * mesmo número está sendo movido pelo #4534 (aberto, nosso, leva a 31): duas
+ * mudanças do mesmo teto em PRs diferentes são conflito e disputa de produto.
+ * A saída foi de PACOTE, não de constante: as duas foram para o `reter`, ao lado
+ * do `crm_propose_lead_fields_from_document`, que consome o id que a listagem
+ * devolve. Medido depois da mudança: onboarding 22 (era 24), evoluir 27 (voltou
+ * ao valor que 27 atende), reter 34.
  */
 export const TETO_TOOLS_POR_AGENTE = 29;
 
