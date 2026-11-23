@@ -1,77 +1,70 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+/**
+ * `/api/mcp` recusa o ator `module` (Spec 33, F3, tarefa 3).
+ *
+ * O servidor MCP aceita qualquer `dsk_` e decide pelos escopos do token. Um token de módulo
+ * (`mcp:read`) leria tudo por ali sem passar pela área consentida; por isso a recusa vem antes
+ * de qualquer ferramenta, nos três métodos HTTP que a rota atende.
+ */
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const authResult = {
-  organizationId: "org-1",
-  role: "manager" as const,
-  actor: { type: "user" as const, id: "user-1", role: "manager" as const },
-  apiTokenId: "token-1",
-  scopes: ["mcp:read", "mcp:write"],
-};
+import { createMcpServer } from "@/lib/mcp/server";
 
-vi.mock("@/lib/mcp/auth", () => ({
-  McpAuthError: class McpAuthError extends Error {
-    constructor(
-      public mcpCode: number,
-      public httpStatus: number,
-      message: string,
-    ) {
-      super(message);
-    }
-  },
-  validateBearerToken: vi.fn(async () => authResult),
-}));
-
-const checkRateLimit = vi.fn();
-vi.mock("@/lib/ai/dispatcher/rate-limit", () => ({ checkRateLimit }));
-
-const connect = vi.fn(async () => {});
-const createMcpServer = vi.fn(() => ({ connect }));
-vi.mock("@/lib/mcp/server", () => ({ createMcpServer }));
-
-// A rota passou a resolver módulos ligados e capacidades da organização
-// ANTES de criar o server MCP — sem mock, cada teste batia na rede real
-// (Supabase de verdade, via createAdminClient) e travava.
+vi.mock("@/lib/mcp/server", () => ({ createMcpServer: vi.fn() }));
+vi.mock("@/lib/instalacao/modulos", () => ({ modulosLigados: vi.fn(async () => ({})) }));
+vi.mock("@/lib/organizacao/capacidades", () => ({ capacidadesDaOrganizacao: vi.fn(async () => ({})) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
-vi.mock("@/lib/instalacao/modulos", () => ({ modulosLigados: vi.fn(async () => []) }));
-vi.mock("@/lib/organizacao/capacidades", () => ({ capacidadesDaOrganizacao: vi.fn(async () => []) }));
+// Fork: a rota tem o limite por token (route.rate-limit.test.ts); aqui ele sempre libera.
+vi.mock("@/lib/ai/dispatcher/rate-limit", () => ({
+  checkRateLimit: vi.fn(async () => ({ allowed: true, count: 1, limit: 60, window_sec: 60 })),
+}));
+vi.mock("@/lib/mcp/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/mcp/auth")>("@/lib/mcp/auth");
+  return { ...actual, validateBearerToken: vi.fn() };
+});
+const { validateBearerToken } = await import("@/lib/mcp/auth");
 
-function fakeRequest(): { headers: { get: (k: string) => string | null } } {
-  return { headers: { get: (k: string) => (k.toLowerCase() === "authorization" ? "Bearer dsk_x" : null) } };
+const ORG = "22222222-2222-4222-8222-222222222222";
+
+function req(metodo: string) {
+  return new NextRequest("http://localhost/api/mcp", {
+    method: metodo,
+    headers: { authorization: "Bearer dsk_abc_def" },
+  });
 }
 
-describe("POST /api/mcp — rate limit por token", () => {
-  beforeEach(() => {
-    checkRateLimit.mockReset();
-    createMcpServer.mockClear();
-    connect.mockClear();
-  });
+beforeEach(() => vi.clearAllMocks());
 
-  it("acima do limite: 429 JSON-RPC, NUNCA chega a criar o server MCP", async () => {
-    checkRateLimit.mockResolvedValue({ allowed: false, count: 61, limit: 60, window_sec: 60 });
-    const { POST } = await import("./route");
-
-    const res = await POST(fakeRequest() as never);
-
-    expect(res.status).toBe(429);
-    expect(res.headers.get("Retry-After")).toBe("60");
-    const body = await res.json();
-    expect(body.jsonrpc).toBe("2.0");
-    expect(body.error).toBeTruthy();
-    // A trava é ANTES de tudo — se o server chegasse a ser criado, um cliente
-    // acima do limite ainda consumiria os recursos que a trava existe pra
-    // poupar (conexão do transport, etc).
+describe("/api/mcp — token de módulo", () => {
+  it.each(["POST", "GET", "DELETE"] as const)("%s ⇒ 403 antes de montar o servidor", async (metodo) => {
+    vi.mocked(validateBearerToken).mockResolvedValue({
+      organizationId: ORG,
+      role: "viewer",
+      actor: { type: "module", id: "tok-1", slug: "acme/comanda" },
+      apiTokenId: "tok-1",
+      scopes: ["mcp:read", "role:viewer", "actor:module:acme/comanda"],
+    });
+    const rota = await import("./route");
+    const res = await rota[metodo](req(metodo));
+    expect(res.status).toBe(403);
+    const corpo = (await res.json()) as { error: { code: number; message: string } };
+    expect(corpo.error.message).toMatch(/módulo/i);
     expect(createMcpServer).not.toHaveBeenCalled();
   });
 
-  it("bucket é por TOKEN, não por org — dois tokens da mesma org não compartilham teto", async () => {
-    checkRateLimit.mockResolvedValue({ allowed: true, count: 1, limit: 60, window_sec: 60 });
+  it("token de agente segue para o servidor (nada muda para quem não é módulo)", async () => {
+    vi.mocked(validateBearerToken).mockResolvedValue({
+      organizationId: ORG,
+      role: "agent",
+      actor: { type: "ai_agent", id: "run-1", role: "agent", api_token_id: "tok-2" },
+      apiTokenId: "tok-2",
+      scopes: ["mcp:read"],
+    });
+    vi.mocked(createMcpServer).mockImplementation(() => {
+      throw new Error("chegou ao servidor");
+    });
     const { POST } = await import("./route");
-
-    // connect() lança de propósito — não precisamos completar o handshake
-    // MCP real pra provar QUE bucket foi consultado, só interceptar antes.
-    connect.mockRejectedValueOnce(new Error("stop-here"));
-    await POST(fakeRequest() as never);
-
-    expect(checkRateLimit).toHaveBeenCalledWith(`mcp:${authResult.apiTokenId}`, 60, 60);
+    await expect(POST(req("POST"))).rejects.toThrow("chegou ao servidor");
+    expect(createMcpServer).toHaveBeenCalledTimes(1);
   });
 });

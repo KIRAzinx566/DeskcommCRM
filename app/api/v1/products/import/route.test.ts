@@ -23,6 +23,7 @@ vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
 vi.mock("@/lib/catalogo/conferir-tabela", () => ({
   conferirTabelaDoDia: vi.fn(async () => "2026-10-07T15:00:00.000Z"),
 }));
+vi.mock("@/lib/ai/dispatcher/rate-limit", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@/lib/instalacao/modulos", () => ({
   moduloLigado: vi.fn(async () => false),
   modulosLigados: vi.fn(async () => []),
@@ -717,7 +718,7 @@ describe("POST /api/v1/products/import — foto por URL", () => {
   it("GET devolve o modelo com a coluna de foto, e o modelo é planilha que o importador lê", async () => {
     const { GET } = await import("./route");
 
-    const texto = (await (await GET()).text()).replace("\ufeff", "");
+    const texto = (await (await GET(new NextRequest("http://localhost/api/v1/products/import"))).text()).replace("\ufeff", "");
 
     expect(texto.split("\n")[0]).toBe("codigo,nome,marca,categoria,preco,custo,estoque,descricao,foto");
     const lido = lerPlanilha(texto);
