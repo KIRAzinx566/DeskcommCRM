@@ -40,6 +40,8 @@ function fakeConfig(agentId: string): PublishedAgentConfig {
     systemPrompt: 'prompt',
     provider: 'anthropic',
     model: 'claude-haiku-4-5',
+    personality: {},
+    baseUrl: null,
     credentialId: null,
     maxSteps: 5,
     historyMessageWindow: 20,
