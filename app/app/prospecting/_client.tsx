@@ -46,6 +46,7 @@ import {
 } from "@/lib/prospecting/estrategia-site";
 import { precisaDeRede, siteEfetivo } from "@/lib/prospecting/site-efetivo";
 import { arquivadaEm, campanhasVisiveis } from "@/lib/prospecting/arquivamento";
+import { agruparPorNicho } from "@/lib/prospecting/grupos-por-nicho";
 import { opcoesDoPreparo } from "@/lib/prospecting/opcoes-do-preparo";
 import { previaAprovadaDoAgente, previaPorGerar, previaValida } from "@/lib/prospecting/previa";
 
@@ -74,6 +75,12 @@ type Campaign = {
    * duas campanhas "Em andamento" parecem a mesma coisa repetida.
    */
   channel_session_id: string | null;
+  /**
+   * A pausa foi da JANELA (#4830)? O cartão oferece "Pausar abordagens" também
+   * nesse estado (#4847): quem quer parar às 14h a campanha da manhã precisa
+   * conseguir, senão ela volta sozinha na próxima abertura.
+   */
+  pausada_pela_janela?: boolean;
 };
 type Candidate = {
   id: string;
@@ -132,6 +139,30 @@ const labels: Record<string, string> = {
   qualified: "Qualificado",
 };
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
+/**
+ * Dias da janela da campanha (#4830) na convenção do servidor: 0=domingo …
+ * 6=sábado. Os rótulos passam por `t()` na tela; a ORDEM é a da semana.
+ */
+const NOMES_DOS_DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
+/**
+ * Os sete dias traduzidos, na ordem da semana, em `t()` com LITERAL dia a dia
+ * (#4847): é a mesma régua do formulário da janela — o leitor de i18n
+ * (`tests/unit/i18n-espanhol-cobre-a-tela.test.ts`) só enxerga chave escrita
+ * literal no argumento, e `t(nome)` por variável deixaria o espanhol do cartão
+ * sem prova nenhuma.
+ */
+function diasTraduzidos(t: (texto: string) => string): string[] {
+  return [t("Dom"), t("Seg"), t("Ter"), t("Qua"), t("Qui"), t("Sex"), t("Sáb")];
+}
+/** A janela em texto — o mesmo formato que o servidor descreve (`7h–12h`). */
+function janelaEmTexto(
+  janela: NonNullable<CampaignConfig["janela"]>,
+  t: (texto: string) => string,
+): string {
+  const rotulos = diasTraduzidos(t);
+  const dias = janela.dias.map((d) => rotulos[d] ?? NOMES_DOS_DIAS[d] ?? String(d)).join(", ");
+  return `${dias}, ${janela.inicio}h–${janela.fim}h`;
+}
 const emptyConfig: CampaignConfig = {
   agent_id: "",
   channel_session_id: "",
@@ -396,6 +427,11 @@ export function ProspectingClient() {
   // some das duas. A seleção acima continua olhando TODAS: quem arquivou com o
   // cartão aberto vê o próprio cartão, com o aviso de que ele saiu da lista.
   const campanhasDaLista = campanhasVisiveis(data?.campaigns ?? [], verArquivadas);
+  // #4956 (PR9): a lista é AGRUPADA por nicho — só apresentação. A ordem continua
+  // sendo a do servidor: cada grupo aparece onde a primeira campanha dele apareceria,
+  // e nenhuma contagem do cartão é recalculada aqui. Campanha sem nicho (jsonb antigo,
+  // busca que nunca gravou `niche`) ganha o grupo "Sem nicho" e não some da lista.
+  const gruposDaLista = agruparPorNicho(campanhasDaLista);
   const quantasArquivadas = (data?.campaigns ?? []).filter(
     (c) => arquivadaEm(c.config) !== null,
   ).length;
@@ -1447,39 +1483,59 @@ export function ProspectingClient() {
                 </button>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {campanhasDaLista.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   {verArquivadas ? t("Nenhuma campanha arquivada.") : t("Nenhuma campanha aqui.")}
                 </p>
               )}
-              {campanhasDaLista.map((c) => (
-                <div
-                  key={c.id}
-                  className={`flex items-stretch gap-2 rounded-lg border ${campaign?.id === c.id ? "border-primary bg-primary/5" : "bg-card"}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => abrirCampanha(c.id)}
-                    className="min-w-0 flex-1 p-3 text-left"
+              {gruposDaLista.map((grupo) => {
+                const rotuloDoGrupo = grupo.nicho ?? t("Sem nicho");
+                return (
+                  // #4956 (PR9): um cabeçalho por nicho, e as campanhas embaixo. O
+                  // `role="group"` com o mesmo rótulo dá ao leitor de tela o agrupamento
+                  // que o olho vê. A chave não colide: nicho vazio vira `null` na régua,
+                  // e nenhum nicho real é a string vazia.
+                  <div
+                    key={`nicho:${grupo.chave ?? ""}`}
+                    role="group"
+                    aria-label={rotuloDoGrupo}
+                    className="space-y-2"
                   >
-                    <span className="block text-sm font-medium">{c.name}</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      {ehImportada(c.search?.origem) && <>{t("Planilha")} · </>}
-                      {t(labels[c.status] ?? c.status)} · {c.result_count} {t("empresas")}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void alternarArquivamento(c)}
-                    title={t("Some da lista sem apagar negócios nem conversas")}
-                    className="shrink-0 px-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                  >
-                    {arquivadaEm(c.config) !== null ? t("Desarquivar") : t("Arquivar")}
-                  </button>
-                </div>
-              ))}
+                    <h3 className="px-1 text-xs font-semibold text-muted-foreground">
+                      {rotuloDoGrupo}
+                    </h3>
+                    {grupo.campanhas.map((c) => (
+                      <div
+                        key={c.id}
+                        className={`flex items-stretch gap-2 rounded-lg border ${campaign?.id === c.id ? "border-primary bg-primary/5" : "bg-card"}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => abrirCampanha(c.id)}
+                          className="min-w-0 flex-1 p-3 text-left"
+                        >
+                          <span className="block text-sm font-medium">{c.name}</span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {ehImportada(c.search?.origem) && <>{t("Planilha")} · </>}
+                            {t(labels[c.status] ?? c.status)} · {c.result_count}{" "}
+                            {t("empresas")}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void alternarArquivamento(c)}
+                          title={t("Some da lista sem apagar negócios nem conversas")}
+                          className="shrink-0 px-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                        >
+                          {arquivadaEm(c.config) !== null ? t("Desarquivar") : t("Arquivar")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </section>
         </aside>
@@ -1612,6 +1668,11 @@ export function ProspectingClient() {
                         {data?.personalizacao?.vendedor_nome
                           ? `${t("Voz:")} ${data.personalizacao.vendedor_nome}`
                           : t("Sem voz definida")}
+                        {configCompleta.janela && (
+                          <span className="block">
+                            {t("Roda só em")} {janelaEmTexto(configCompleta.janela, t)}.
+                          </span>
+                        )}
                       </p>
                       {campaign.status === "running" ? (
                         <Button
@@ -1628,6 +1689,27 @@ export function ProspectingClient() {
                         </Button>
                       ) : campaign.status === "paused" ? (
                         <div className="flex flex-wrap items-center gap-2">
+                          {/* #4847: a campanha que a JANELA pausou continua
+                              pausável pela pessoa. Sem este botão nesse estado,
+                              quem quer parar às 14h a campanha da manhã não
+                              consegue — ela volta a abordar às 7h do dia
+                              seguinte, a menos que seja arquivada. A rota grava
+                              `pausada_pela_janela=false`, e a pausa passa a ser
+                              definitiva. */}
+                          {campaign.pausada_pela_janela === true && (
+                            <Button
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() =>
+                                perform(
+                                  { action: "pause", id: campaign.id },
+                                  t("Novas abordagens pausadas."),
+                                )
+                              }
+                            >
+                              {t("Pausar abordagens")}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             disabled={busy}
@@ -2311,6 +2393,118 @@ export function ProspectingClient() {
                               />
                             </div>
                           </div>
+                          <fieldset className="space-y-2">
+                            <legend className="text-sm font-medium">
+                              {t("Rodar só em horário próprio")}
+                            </legend>
+                            <label className="flex items-start gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="mt-1"
+                                checked={!!config.janela}
+                                disabled={busy}
+                                onChange={(e) =>
+                                  update(
+                                    "janela",
+                                    e.target.checked
+                                      ? { dias: [1, 2, 3, 4, 5], inicio: 7, fim: 12 }
+                                      : undefined,
+                                  )
+                                }
+                              />
+                              <span>
+                                {t("Esta campanha só dispara nos dias e horas abaixo")}
+                                <span className="block text-xs text-muted-foreground">
+                                  {t(
+                                    "Fora do horário ela pausa sozinha e volta na próxima abertura. A janela do número continua valendo: as duas precisam estar abertas. É assim que um número só atende dois nichos — um de manhã, outro à tarde.",
+                                  )}
+                                </span>
+                              </span>
+                            </label>
+                            {config.janela && (
+                              <div className="space-y-3 pl-6">
+                                <div className="flex flex-wrap gap-3">
+                                  {[
+                                    t("Dom"),
+                                    t("Seg"),
+                                    t("Ter"),
+                                    t("Qua"),
+                                    t("Qui"),
+                                    t("Sex"),
+                                    t("Sáb"),
+                                  ].map((rotulo, dia) => (
+                                    <label key={dia} className="flex items-center gap-1 text-sm">
+                                      <input
+                                        type="checkbox"
+                                        checked={config.janela!.dias.includes(dia)}
+                                        disabled={busy}
+                                        onChange={() => {
+                                          const atuais = config.janela!.dias;
+                                          const proximos = atuais.includes(dia)
+                                            ? atuais.filter((d) => d !== dia)
+                                            : [...atuais, dia].sort((a, b) => a - b);
+                                          // Nenhum dia marcado = fila parada para
+                                          // sempre; a tela não deixa desmarcar o último.
+                                          if (proximos.length === 0) return;
+                                          update("janela", { ...config.janela!, dias: proximos });
+                                        }}
+                                      />
+                                      <span>{rotulo}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label htmlFor="prospecting-window-start">
+                                      {t("Começa às (hora cheia)")}
+                                    </Label>
+                                    <Input
+                                      id="prospecting-window-start"
+                                      type="number"
+                                      min={0}
+                                      max={23}
+                                      value={config.janela.inicio}
+                                      disabled={busy}
+                                      onChange={(e) =>
+                                        update("janela", {
+                                          ...config.janela!,
+                                          inicio: Number(e.target.value),
+                                        })
+                                      }
+                                      className="mt-1"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="prospecting-window-end">
+                                      {t("Termina às (hora cheia)")}
+                                    </Label>
+                                    <Input
+                                      id="prospecting-window-end"
+                                      type="number"
+                                      min={1}
+                                      max={24}
+                                      value={config.janela.fim}
+                                      disabled={busy}
+                                      onChange={(e) =>
+                                        update("janela", {
+                                          ...config.janela!,
+                                          fim: Number(e.target.value),
+                                        })
+                                      }
+                                      className="mt-1"
+                                    />
+                                  </div>
+                                </div>
+                                {config.janela.inicio >= config.janela.fim && (
+                                  <p className="text-xs text-destructive" role="alert">
+                                    {t(
+                                      "A janela precisa começar antes de terminar (ex.: 7h às 12h).",
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </fieldset>
                           <fieldset className="space-y-2">
                             <legend className="text-sm font-medium">
                               {t("Quando a empresa entra no funil")}

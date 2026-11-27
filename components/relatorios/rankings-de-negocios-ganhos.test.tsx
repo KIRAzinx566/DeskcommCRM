@@ -264,3 +264,101 @@ describe("RankingsDeNegociosGanhos", () => {
     expect(lista.textContent).toContain("sem valor preenchido");
   });
 });
+
+describe("o funil ou a tag que sumiu do período (revisão do #4941)", () => {
+  function responderComo(payload: RespostaDoRelatorioComercial, isPlaceholderData: boolean) {
+    vi.mocked(useCommercialReport).mockReturnValue({
+      data: { data: payload },
+      isLoading: false,
+      isError: false,
+      isPlaceholderData,
+    } as never);
+  }
+
+  it("período novo sem o funil escolhido: o recorte é zerado, e o seletor diz a verdade", () => {
+    responder(comVendas());
+    const { rerender } = render(<RankingsDeNegociosGanhos {...PERIODO} />);
+    fireEvent.change(screen.getByTestId("recorte-funil"), { target: { value: FUNIL_B } });
+
+    // O período mudou no topo: a resposta NOVA não tem o FUNIL_B nas opções.
+    const outroPeriodo = { de: "2026-10-01", ate: "2026-10-31" };
+    responderComo(comVendas({ opcoes: { pipeline_ids: [FUNIL_A], tags: ["recompra"] } }), false);
+    rerender(<RankingsDeNegociosGanhos {...outroPeriodo} />);
+
+    expect(vi.mocked(useCommercialReport)).toHaveBeenLastCalledWith({
+      ...outroPeriodo,
+      pipelineId: "",
+      tag: "",
+    });
+    expect((screen.getByTestId("recorte-funil") as HTMLSelectElement).value).toBe("");
+  });
+
+  it("a tag que sumiu também é zerada, e o funil que continua fica", () => {
+    responder(comVendas());
+    const { rerender } = render(<RankingsDeNegociosGanhos {...PERIODO} />);
+    fireEvent.change(screen.getByTestId("recorte-funil"), { target: { value: FUNIL_A } });
+    fireEvent.click(screen.getByTitle("Ver as vendas desta tag"));
+
+    responderComo(comVendas({ opcoes: { pipeline_ids: [FUNIL_A], tags: [] } }), false);
+    rerender(<RankingsDeNegociosGanhos de="2026-10-01" ate="2026-10-31" />);
+
+    expect(vi.mocked(useCommercialReport)).toHaveBeenLastCalledWith({
+      de: "2026-10-01",
+      ate: "2026-10-31",
+      pipelineId: FUNIL_A,
+      tag: "",
+    });
+  });
+
+  it("a resposta ANTIGA (enquanto o período novo carrega) não zera um filtro válido", () => {
+    responder(comVendas());
+    const { rerender } = render(<RankingsDeNegociosGanhos {...PERIODO} />);
+    fireEvent.change(screen.getByTestId("recorte-funil"), { target: { value: FUNIL_B } });
+
+    // keepPreviousData: ainda é a resposta do período anterior, sem o FUNIL_B.
+    responderComo(comVendas({ opcoes: { pipeline_ids: [FUNIL_A], tags: ["recompra"] } }), true);
+    rerender(<RankingsDeNegociosGanhos de="2026-10-01" ate="2026-10-31" />);
+
+    expect(vi.mocked(useCommercialReport)).toHaveBeenLastCalledWith({
+      de: "2026-10-01",
+      ate: "2026-10-31",
+      pipelineId: FUNIL_B,
+      tag: "",
+    });
+  });
+});
+
+describe("controlado pela tela de fora (o painel de vendas)", () => {
+  it("usa o recorte recebido, não desenha seletores e entrega o clique na tag a quem controla", () => {
+    responder(comVendas());
+    const aoMudarRecorte = vi.fn();
+    render(
+      <RankingsDeNegociosGanhos
+        {...PERIODO}
+        recorte={{ pipelineId: FUNIL_A, tag: "" }}
+        aoMudarRecorte={aoMudarRecorte}
+      />,
+    );
+
+    expect(vi.mocked(useCommercialReport)).toHaveBeenLastCalledWith({ ...PERIODO, pipelineId: FUNIL_A, tag: "" });
+    // Os seletores moram no topo do painel: aqui, nenhum.
+    expect(screen.queryByTestId("recorte-funil")).toBeNull();
+    expect(screen.queryByTestId("recorte-tag")).toBeNull();
+
+    fireEvent.click(screen.getByTitle("Ver as vendas desta tag"));
+    expect(aoMudarRecorte).toHaveBeenCalledWith({ pipelineId: FUNIL_A, tag: "recompra" });
+  });
+});
+
+describe("a frase de baixo do título", () => {
+  it("no Faturamento fala das comandas; no painel, do mesmo recorte dos cartões", () => {
+    responder(comVendas());
+    const { unmount } = render(<RankingsDeNegociosGanhos {...PERIODO} />);
+    expect(screen.getByText(/não as comandas dos números acima/)).toBeTruthy();
+    unmount();
+
+    render(<RankingsDeNegociosGanhos {...PERIODO} recorte={{ pipelineId: "", tag: "" }} aoMudarRecorte={vi.fn()} />);
+    expect(screen.queryByText(/comandas/)).toBeNull();
+    expect(screen.getByText(/mesmo recorte dos cartões/)).toBeTruthy();
+  });
+});

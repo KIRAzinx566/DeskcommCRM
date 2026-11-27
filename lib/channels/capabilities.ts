@@ -41,6 +41,8 @@ export const CHANNEL_CAPABILITIES: Record<ProviderDeMensagem, ChannelCapabilitie
     // Sem ponte de conversão: a venda desta linha sai pela conexão direta com a Meta
     // (conjunto de dados + token). Declarar `true` ofereceria uma chave que não envia nada.
     reportaConversao: false,
+    // O visto azul por id de mensagem (#5015): o NOWEB sem store só marca assim.
+    marcaLidasPorMensagem: true,
   },
   // Hetero-restrição: não me banem, mas a Meta me proíbe e me cobra.
   meta_cloud: {
@@ -67,6 +69,7 @@ export const CHANNEL_CAPABILITIES: Record<ProviderDeMensagem, ChannelCapabilitie
     // Sem ponte de conversão: a venda desta linha sai pela conexão direta com a Meta
     // (conjunto de dados + token). Declarar `true` ofereceria uma chave que não envia nada.
     reportaConversao: false,
+    marcaLidasPorMensagem: false,
   },
   // Mesma hetero-restrição do canal oficial, por baixo: é um BSP: a WABA é da
   // Meta, os templates são aprovados pela Meta e a janela de 24h é da Meta. O
@@ -130,6 +133,7 @@ export const CHANNEL_CAPABILITIES: Record<ProviderDeMensagem, ChannelCapabilitie
     // Sem ponte de conversão: a venda desta linha sai pela conexão direta com a Meta
     // (conjunto de dados + token). Declarar `true` ofereceria uma chave que não envia nada.
     reportaConversao: false,
+    marcaLidasPorMensagem: false,
   },
   zernio: {
     freeformOutsideWindow: false,
@@ -157,6 +161,7 @@ export const CHANNEL_CAPABILITIES: Record<ProviderDeMensagem, ChannelCapabilitie
     // O provedor tem a ponte: reporta a venda ao conjunto de dados da Meta pela
     // conversa (`reportConversion` no adapter, `../zernio/conversoes.ts`).
     reportaConversao: true,
+    marcaLidasPorMensagem: false,
   },
   // Parceiro homologado pela Meta que espelha a Cloud API (recorte do #1130):
   // a WABA, a janela de 24h e o custo são da Meta. O parceiro muda o TRANSPORTE
@@ -189,6 +194,7 @@ export const CHANNEL_CAPABILITIES: Record<ProviderDeMensagem, ChannelCapabilitie
     // Sem ponte de conversão: a venda desta linha sai pela conexão direta com a Meta
     // (conjunto de dados + token). Declarar `true` ofereceria uma chave que não envia nada.
     reportaConversao: false,
+    marcaLidasPorMensagem: false,
   },
   /**
    * Bot do Telegram (Bot API, o robô do @BotFather — issue #3440).
@@ -243,6 +249,33 @@ export const CHANNEL_CAPABILITIES: Record<ProviderDeMensagem, ChannelCapabilitie
     // A conversão de venda volta à Meta pela conversa de WhatsApp; o robô do
     // Telegram não tem ponte, e `true` ofereceria uma chave que não envia nada.
     reportaConversao: false,
+    marcaLidasPorMensagem: false,
+  },
+  /**
+   * Chat no site (Spec 36, F1): o widget no próprio site da empresa.
+   *
+   * Texto livre a qualquer hora, porque o visitante é quem abriu a conversa e a
+   * janela é a da própria sessão de chat. Sem custo por mensagem, sem limite de
+   * ritmo imposto por plataforma (`minIntervalMs: 0`), sem nota de voz e sem
+   * grupos. Tudo o que não se aplica fica `false`, medido na matriz, não
+   * deduzido.
+   */
+  webchat: {
+    freeformOutsideWindow: true,
+    requiresTemplates: false,
+    canManageTemplates: false,
+    banRisk: false,
+    minIntervalMs: 0,
+    voiceNote: "none",
+    groups: "none",
+    costPerMessage: false,
+    alteraMensagemEnviada: false,
+    podeReagir: false,
+    transmissao: false,
+    phonebook: false,
+    statusUpdates: false,
+    reportaConversao: false,
+    marcaLidasPorMensagem: false,
   },
 };
 
@@ -347,6 +380,9 @@ export const PROVIDERS_DE_MENSAGEM = [
   // fala com quem o iniciou. `PROVIDERS_DE_TELEFONE` fica de fora de propósito,
   // e o motivo está lá embaixo.
   "telegram",
+  // Chat no site (Spec 36): texto livre na conversa aberta pelo visitante. Sem
+  // telefone, pela mesma razão do Telegram.
+  "webchat",
 ] as const satisfies readonly ProviderDeMensagem[];
 
 /**
@@ -374,7 +410,7 @@ export const PROVIDERS_DE_TELEFONE = [
   "meta_cloud",
   "zernio",
   "datafy",
-] as const satisfies readonly Exclude<(typeof PROVIDERS_DE_MENSAGEM)[number], "zernio_social" | "telegram">[];
+] as const satisfies readonly Exclude<(typeof PROVIDERS_DE_MENSAGEM)[number], "zernio_social" | "telegram" | "webchat">[];
 
 /**
  * `true` quando a linha de `channel_sessions` é um canal de mensagem.
@@ -463,8 +499,11 @@ export function canalConhecidoSemMensagem(provider: string | null | undefined): 
  * para quem o iniciou, e a v1 da proposta exclui campanha. A regra mora aqui, e
  * não num `false` falso na capability de janela: mentir na janela mudaria o
  * que o atendimento pode fazer só para esconder a campanha.
+ *
+ * O chat no site (Spec 36) pelo mesmo motivo: só responde a quem está na página
+ * e abriu a conversa; não há a quem disparar em massa.
  */
-const PROVIDERS_SEM_CAMPANHA = ["telegram"] as const satisfies readonly ProviderDeMensagem[];
+const PROVIDERS_SEM_CAMPANHA = ["telegram", "webchat"] as const satisfies readonly ProviderDeMensagem[];
 
 /**
  * O canal de campanha por E-MAIL (#3441, fatia E2a).
@@ -541,6 +580,20 @@ export function canalTemTransmissao(provider: string | null | undefined): boolea
   if (!transportaMensagem(provider)) return false;
   try {
     return capabilitiesOf(provider as ProviderDeMensagem).transmissao;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * O canal desta sessão marca como lidas mensagens específicas (#5015)? Falso para
+ * provider fora da matriz, como `canalTemTransmissao`: na dúvida, o envio não lê
+ * o histórico atrás de ids que ninguém vai usar.
+ */
+export function canalMarcaLidasPorMensagem(provider: string | null | undefined): boolean {
+  if (!transportaMensagem(provider)) return false;
+  try {
+    return capabilitiesOf(provider as ProviderDeMensagem).marcaLidasPorMensagem;
   } catch {
     return false;
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -86,7 +87,13 @@ export function LevarLoteParaOutroFunilDialog({
   function fechar(next: boolean) {
     if (levando) return; // o laço não é cancelável no meio: fechar esconderia o que já foi
     if (!next) {
-      const houveEfeito = (resultado?.levados.length ?? 0) > 0;
+      // Qualquer cópia criada no destino conta como efeito — inclusive a de
+      // quem falhou DEPOIS de o clone nascer (`cloneId`). Antes só `levados`
+      // contava, e nesse caso o negócio continuava selecionado: o "Levar"
+      // seguinte criava uma segunda cópia no destino (#5102).
+      const houveEfeito =
+        (resultado?.levados.length ?? 0) > 0 ||
+        (resultado?.recusados.some((recusa) => recusa.cloneId) ?? false);
       limpar();
       if (houveEfeito) onConcluido?.();
     }
@@ -108,8 +115,10 @@ export function LevarLoteParaOutroFunilDialog({
     });
     setResultado(r);
     await qc.invalidateQueries({ queryKey: ["board", pipelineId] });
-    if (r.levados.length > 0) {
+    if (r.levados.length > 0 || r.recusados.some((recusa) => recusa.cloneId)) {
       await qc.invalidateQueries({ queryKey: ["board", destinoId] });
+    }
+    if (r.levados.length > 0) {
       toast.success(`${r.levados.length} ${t("levados para")} ${destino?.name ?? ""}`.trim());
     }
   }
@@ -141,6 +150,17 @@ export function LevarLoteParaOutroFunilDialog({
                       <span className="font-medium">{tituloDe?.(r.leadId) ?? r.leadId}</span>
                       {" — "}
                       {r.motivo}
+                      {r.cloneId && (
+                        <p className="mt-1">
+                          {t("O negócio já foi criado no funil de destino. Confira-o antes de tentar novamente.")}{" "}
+                          <Link
+                            href={`/app/leads/${encodeURIComponent(r.cloneId)}`}
+                            className="font-medium text-primary underline underline-offset-2"
+                          >
+                            {t("Abrir negócio")}
+                          </Link>
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -160,7 +180,9 @@ export function LevarLoteParaOutroFunilDialog({
         ) : (
           <>
             <p className="text-sm">
-              {leadIds.length} {t("negócios selecionados.")}
+              {leadIds.length === 1
+                ? `1 ${t("negócio")} ${t("selecionado")}.`
+                : `${leadIds.length} ${t("negócios selecionados.")}`}
               {acimaDoTeto
                 ? ` ${t("Só os 50 primeiros serão levados nesta vez.")}`
                 : null}

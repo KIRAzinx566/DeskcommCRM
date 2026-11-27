@@ -188,6 +188,7 @@ import {
   detectAmbiguousOptOut,
   detectHumanHandoffRequest,
   ehRespostaDeRobo,
+  iaVetadaNoEnvio,
   isLeadInHandoff,
   performHumanHandoff,
 } from './human-handoff';
@@ -240,7 +241,7 @@ import { turnoDisparaNasMensagens } from './palavra-chave-do-gatilho';
 import { agenteJaRespondeuNoAtendimento } from './agente-ja-respondeu';
 import { enviaAvisoForaDoHorario, portasDeProducao } from './aviso-fora-do-horario';
 import { enviarComSaidaConfiguravel } from "@/lib/prospecting/saida-configuravel";
-import { janelaDeEnvioAberta, proximaAberturaDaJanela } from '../pacing/engine';
+import { eTetoDoDia, janelaDeEnvioAberta, proximaAberturaDaJanela } from '../pacing/engine';
 import { adiadoPorJanela } from '../pacing/adiados-da-janela';
 import { loadChannelKnobs } from '../pacing/store';
 import { avisarJanelaFechada, resolverAvisoDeJanela } from '../pacing/aviso-de-janela';
@@ -852,6 +853,15 @@ export const DEFAULT_MAX_SENDS_PER_TURN = 3;
 export class JobSettledError extends Error {
   override readonly name = 'job_settled';
 }
+
+/**
+ * O `reason` do `unavailable` que a guarda de envio devolve quando uma pessoa
+ * assumiu a conversa no meio do turno (ver `pessoaAssumiuDuranteOTurno` em
+ * `executarTurnoDoAgente`). Nomeado para que o tratamento do `unavailable` saiba
+ * separar "canal fora" (erro do run, a fila re-tenta) de "a pessoa chegou"
+ * (desfecho correto, nada a re-tentar).
+ */
+export const MOTIVO_PESSOA_ASSUMIU_NO_TURNO = 'pessoa_assumiu_a_conversa';
 
 // Shape que o drain (F2-05) grava no payload do job — organization/lead vêm da
 // ROW do job (fonte confiável), nunca daqui; o payload só carrega ponteiros do CRM.
@@ -1645,6 +1655,37 @@ const AGENDA_TOOL_NAMES = new Set([
   // detectar "falou de agenda e nada foi gravado".
   'crm_find_and_book_appointment',
 ]);
+
+/**
+ * A leitura do CADASTRO da agenda (#4927): `crm_list_event_types` devolve os
+ * tipos de atendimento com a duração, e é dali que sai o "a consulta dura 1h30"
+ * que o agente repassa. O retorno vira evidência do turno pelo mesmo
+ * `registrarConsultaDeAgenda` das tools de agenda — mas a ferramenta fica FORA
+ * de `AGENDA_TOOL_NAMES` de propósito: listar os tipos não é checar a agenda, e
+ * armar o `agendaStallGate` aqui deixaria passar o "vou verificar" de um turno
+ * que listou os tipos e nunca procurou horário (o caso de `before-send.ts`:
+ * `crm_list_event_types` 7× e zero `crm_find_free_slots`).
+ *
+ * Devolve a ferramenta embrulhada, ou `null` quando ela não é deste ramo.
+ */
+export function comEvidenciaDoCadastroDaAgenda<T extends { execute?: unknown }>(
+  name: string,
+  mcpTool: T,
+  evidencias: Pick<ReturnType<typeof criarEvidenciasComerciaisDoTurno>, 'registrarConsultaDeAgenda'>,
+  aoDescartar: (tamanhos: number[]) => void,
+): T | null {
+  if (name !== 'crm_list_event_types' || typeof mcpTool.execute !== 'function') return null;
+  const executeOriginal = mcpTool.execute.bind(mcpTool) as (...args: unknown[]) => Promise<unknown>;
+  return {
+    ...mcpTool,
+    execute: async (...args: unknown[]) => {
+      const resultado = await executeOriginal(...args);
+      const descartadas = evidencias.registrarConsultaDeAgenda(name, resultado);
+      if (descartadas.length > 0) aoDescartar(descartadas);
+      return resultado;
+    },
+  };
+}
 
 /**
  * O agente consegue GRAVAR um horário sozinho (marcar ou remarcar)?
@@ -4223,6 +4264,44 @@ async function executarTurnoDoAgente(
   // ligada, NADA mais sai dele, nem a pergunta pendente do roteiro (que segue
   // feita para o turno da mensagem nova). Ver `perguntaDoRoteiroPodeSair`.
   let turnoDescartado = false;
+  // UMA PESSOA ASSUMIU DURANTE O TURNO. O gate do começo do turno já barra a
+  // conversa que está com gente; o que sobra é a janela entre a decisão de falar
+  // e a entrega física (modelo, tools, digitação, intervalo entre bolhas). Esta
+  // guarda roda IMEDIATAMENTE antes de cada envio ao canal — texto, bolha, voz,
+  // template e pergunta do roteiro — e, quando a pessoa chegou, descarta o turno
+  // inteiro pelo MESMO mecanismo da resposta obsoleta (`turnoDescartado`): nada
+  // mais sai, e nem a "correção do turno mudo" nem o fail-safe de silêncio (que
+  // abriria caso) disparam, porque o silêncio foi a decisão certa.
+  //
+  // ⚠️ O desfecho é `unavailable` com motivo próprio, e NUNCA `blocked`. `blocked`
+  // é o veto de opt-out irrevogável: o fim do turno cancela o job E todos os
+  // follow-ups agendados do contato (`applySendOutcome` →
+  // `cancelPendingCronsForLead`) e diz ao modelo que o cliente pediu para não
+  // receber mensagens. Uma pessoa assumir não é nada disso.
+  const pessoaAssumiuDuranteOTurno = async (): Promise<boolean> => {
+    if (preview) return false;
+    if (!(await iaVetadaNoEnvio(pool, tenantId, leadId, input.conversationId))) return false;
+    if (!turnoDescartado) {
+      runLog.info('envio abortado — uma pessoa assumiu a conversa durante o turno', {
+        conversation_id: input.conversationId,
+      });
+    }
+    turnoDescartado = true;
+    return true;
+  };
+  const ENVIO_ABORTADO_PELA_PESSOA: ChannelSendResult = {
+    kind: 'unavailable',
+    reason: MOTIVO_PESSOA_ASSUMIU_NO_TURNO,
+  };
+  const ERRO_PESSOA_ASSUMIU = {
+    ok: false as const,
+    error: {
+      code: 'pessoa_assumiu_a_conversa',
+      message:
+        'Uma pessoa da equipe assumiu esta conversa agora; esta mensagem NÃO foi enviada. ' +
+        'NÃO chame send_message de novo neste turno — encerre agora.',
+    },
+  };
   // TURNO MUDO: quantas vezes o modelo chamou `send_message` e se passou a conversa à
   // equipe. Os dois dizem que o silêncio foi decisão — só sem eles o motor pede a
   // correção do turno que terminou sem falar com o cliente (ver depois da chamada principal).
@@ -4832,7 +4911,8 @@ async function executarTurnoDoAgente(
           now: clock(),
           sleep: deps.sleep,
           lgpd,
-          send: (finalBody: string) => {
+          send: async (finalBody: string) => {
+            if (await pessoaAssumiuDuranteOTurno()) return ENVIO_ABORTADO_PELA_PESSOA;
             pararDigitando(); // a mensagem sai agora; renovar depois dela mentiria
             seq += 1;
             return liveChannel().send({
@@ -4863,6 +4943,9 @@ async function executarTurnoDoAgente(
         }
         const outcome = chain.outcome;
         outcomes.push(outcome);
+        if (outcome.kind === 'unavailable' && outcome.reason === MOTIVO_PESSOA_ASSUMIU_NO_TURNO) {
+          return ERRO_PESSOA_ASSUMIU;
+        }
         if (outcome.kind === 'failed' && outcome.permanente === true) {
           falhaPermanenteNoTurno = true;
           return { ok: false, error: ERRO_DA_FALHA_PERMANENTE };
@@ -5337,31 +5420,34 @@ async function executarTurnoDoAgente(
             // Link ou resposta longa: `null` e o texto segue em bolhas (ver `textoParaFalar`).
             const falado = voz ? textoParaFalar(texto) : null;
             if (!voz || falado === null) return null;
-            seq += 1;
-            const seqDesteEnvio = seq;
-            return liveChannel().send({
-              tenantId,
-              leadId,
-              jobId: liveJob().id,
-              jobClaim: claimOfJob(liveJob()),
-              agentOperation,
-              seq: seqDesteEnvio,
-              envioSeq: envioSeqDoEnvio,
-              conversationId: input.conversationId,
-              // `body` continua sendo o texto FALADO — é ele que entra no
-              // hash de idempotência do ledger (ver o comentário de
-              // `SendMessageInput.voz` em send-message.ts).
-              body: falado,
-              voz: {
-                textoOriginal: texto,
-                apiKey: voz.apiKey,
-                voiceId: voz.voiceId,
-                ...(voz.modelId ? { modelId: voz.modelId } : {}),
-                formato: voz.formato,
-                upload: (audio, mimeType) =>
-                  uploadDeVoz({ tenantId, conversationId: input.conversationId, jobId: liveJob().id, seq: seqDesteEnvio, audio, mimeType }),
-              },
-            });
+            return (async (): Promise<ChannelSendResult> => {
+              if (await pessoaAssumiuDuranteOTurno()) return ENVIO_ABORTADO_PELA_PESSOA;
+              seq += 1;
+              const seqDesteEnvio = seq;
+              return liveChannel().send({
+                tenantId,
+                leadId,
+                jobId: liveJob().id,
+                jobClaim: claimOfJob(liveJob()),
+                agentOperation,
+                seq: seqDesteEnvio,
+                envioSeq: envioSeqDoEnvio,
+                conversationId: input.conversationId,
+                // `body` continua sendo o texto FALADO — é ele que entra no
+                // hash de idempotência do ledger (ver o comentário de
+                // `SendMessageInput.voz` em send-message.ts).
+                body: falado,
+                voz: {
+                  textoOriginal: texto,
+                  apiKey: voz.apiKey,
+                  voiceId: voz.voiceId,
+                  ...(voz.modelId ? { modelId: voz.modelId } : {}),
+                  formato: voz.formato,
+                  upload: (audio, mimeType) =>
+                    uploadDeVoz({ tenantId, conversationId: input.conversationId, jobId: liveJob().id, seq: seqDesteEnvio, audio, mimeType }),
+                },
+              });
+            })();
           };
           // #4590 — este turno RESPONDE a alguém que escreveu? É o que decide a
           // janela (`resposta*`) e é o que arma o teto de respostas por conversa:
@@ -5549,10 +5635,11 @@ async function executarTurnoDoAgente(
               // envio levam todos esse `envioSeq` para o ledger; o reprocesso lê
               // por ele e não mistura o envio seguinte.
               const seqDoEnvio = seq + 1;
-              const enviar = (
+              const enviar = async (
                 corpo: string,
                 media?: FotoParaEnvio,
               ): Promise<ChannelSendResult> => {
+                if (await pessoaAssumiuDuranteOTurno()) return ENVIO_ABORTADO_PELA_PESSOA;
                 seq += 1;
                 return liveChannel().send({
                   tenantId,
@@ -5772,7 +5859,7 @@ async function executarTurnoDoAgente(
             // `rescheduleJob` já usado pra janela horária), em vez de deixar o lead sem
             // resposta até a próxima mensagem dele chegar (ou nunca).
             if (
-              (chain.code === 'warmup_cap' || chain.code === 'daily_cap') &&
+              eTetoDoDia(chain.code) &&
               chain.nextAllowedAt !== undefined
             ) {
               pacingCapVeto = { code: chain.code, nextAllowedAt: chain.nextAllowedAt };
@@ -5905,6 +5992,10 @@ async function executarTurnoDoAgente(
                 },
               };
             case 'unavailable':
+              // Uma pessoa assumiu no meio do turno (`pessoaAssumiuDuranteOTurno`):
+              // não é falha do canal, não há o que re-tentar — re-tentar só rodaria
+              // de novo um turno que o gate do começo já vai pular.
+              if (outcome.reason === MOTIVO_PESSOA_ASSUMIU_NO_TURNO) return ERRO_PESSOA_ASSUMIU;
               // transiente (transporte/tool do canal): ensina o modelo a parar; o
               // job re-tenta com a MESMA idempotency_key (ledger ficou 'requested').
               noteRunError(
@@ -6548,6 +6639,21 @@ async function executarTurnoDoAgente(
               rawTools[name] = mcpTool;
               continue;
             }
+            const cadastroDaAgenda = comEvidenciaDoCadastroDaAgenda(
+              name,
+              mcpTool,
+              evidenciasComerciais,
+              (tamanhos) =>
+                runLog.warn('tipo de atendimento acima do teto da evidência — fora da conferência de promessa', {
+                  ferramenta: name,
+                  descartadas: tamanhos.length,
+                  tamanhos,
+                }),
+            );
+            if (cadastroDaAgenda) {
+              rawTools[name] = cadastroDaAgenda;
+              continue;
+            }
             // Marca a EXECUÇÃO (não só a decisão de chamar) — é isso que o agendaStallGate
             // precisa saber para não vetar um turno que já checou a agenda de verdade.
             if (AGENDA_TOOL_NAMES.has(name) && typeof mcpTool.execute === 'function') {
@@ -6565,6 +6671,24 @@ async function executarTurnoDoAgente(
                   for (const i of colheita.livres) horariosLivresDoTurno.add(i);
                   if (colheita.marcou) marcouNesteTurno = true;
                   for (const i of colheita.marcados) marcadosNesteTurno.add(i);
+                  // A lista que a ferramenta devolveu é EVIDÊNCIA do turno, não
+                  // promessa do modelo: o que ele faz depois é copiá-la para a
+                  // mensagem. Sem este registro a conferência de promessa lia a
+                  // cópia como "vaga confirmada sem comprovação" e vetava até
+                  // sobrar uma frase vaga, sem data e sem horário (#4927). Entra
+                  // na origem `servidor_externo`, que sustenta relatar data,
+                  // horário, duração e situação — nunca condição comercial.
+                  const descartadas = evidenciasComerciais.registrarConsultaDeAgenda(
+                    name,
+                    resultado,
+                  );
+                  if (descartadas.length > 0) {
+                    runLog.warn('horário da agenda acima do teto da evidência — fora da conferência de promessa', {
+                      ferramenta: name,
+                      descartadas: descartadas.length,
+                      tamanhos: descartadas,
+                    });
+                  }
                   return resultado;
                 }) as typeof mcpTool.execute,
               };
@@ -7081,8 +7205,12 @@ async function executarTurnoDoAgente(
               // mesmas duas escolhas do aviso de escalação.
               enforceCommercialRestriction: false,
               enforceSpinning: false,
-              send: (finalBody: string) =>
-                liveChannel().send({
+              // A pessoa que assumiu entre a leitura do turno e este aviso
+              // também cala a frase da troca: é um envio ao canal como os
+              // outros (`unavailable` → o aviso conta como não enviado).
+              send: async (finalBody: string) => {
+                if (await pessoaAssumiuDuranteOTurno()) return ENVIO_ABORTADO_PELA_PESSOA;
+                return liveChannel().send({
                   tenantId,
                   leadId,
                   jobId: liveJob().id,
@@ -7091,7 +7219,8 @@ async function executarTurnoDoAgente(
                   seq: SEQ_DA_PASSAGEM_AO_CLIENTE,
                   conversationId: input.conversationId,
                   body: finalBody,
-                }),
+                });
+              },
             });
             return chain.status === 'vetoed' ? 'blocked' : chain.outcome.kind;
           },
@@ -7169,8 +7298,12 @@ async function executarTurnoDoAgente(
     // atendimento. No sufixo por-lead, junto do relógio, pelo mesmo motivo: o
     // país não muda entre leads, mas o dia sim (virada de meia-noite), e o
     // prefixo estável (`stable-prefix.ts`) não pode carregar fato do dia.
+    //
+    // A opção "não atender em feriado nacional" muda o texto (#5039): desligada,
+    // o bloco não proíbe compromisso e manda seguir os horários livres da Agenda.
     const feriadoBlock = blocoDoFeriado(
       await lerFeriadoDoTurno(pool, tenantId, clock(), fusoDaOrg, runLog),
+      { fechadoEmFeriado: agentConfig?.naoAtenderEmFeriadoNacional === true },
     );
     const openingSuffixes = [
       agoraBlock,
@@ -7566,7 +7699,7 @@ async function executarTurnoDoAgente(
     // são re-avaliados DEPOIS da correção: se nela nasceu handoff/teto/descarte,
     // aquilo é a razão e não há caso. O caso humano abre só com `casesEnabled`
     // ligado (mesma régua dos fail-safes clínico e de promessa; `openCase`
-    // deduplica caso aberto) — a falha em si continua visível pelo log de erro.
+    // deduplica caso aberto); com casos desligados, vira aviso na Central (#4665).
     // O bloco não despacha nada (só registra e abre caso) — logo nunca duplica
     // mensagem; `caso.ok` gateia o move do funil — logo nunca duplica caso
     // humano. O retry continua limitado à UMA correção.
@@ -7599,37 +7732,42 @@ async function executarTurnoDoAgente(
       });
       // Cases vêm desligados por padrão (`ai_agent_versions.cases_enabled`) — a
       // mesma régua dos fail-safes clínico e de promessa de caso. Com a feature
-      // desligada a falha segue visível pelo log de erro acima; o caso para o
-      // time (e o move do funil) só acontece com ela ligada e sem caso aberto.
+      // desligada a falha vira aviso na Central (abaixo); o caso para o time (e o
+      // move do funil) só acontece com ela ligada e sem caso aberto.
       const haCasoAberto =
         agentConfig?.casesEnabled === true
           ? await hasOpenCaseForContact(pool, tenantId, input.conversationId)
           : false;
+      // O texto do caso é também o do aviso na Central (casos desligados, abaixo):
+      // o caso sai em português, como sempre; o aviso, no idioma da organização.
+      const textosDaFalha = (idioma: Idioma) => ({
+        titulo: saidaTruncada
+          ? traduzir('Resposta do agente truncada — nenhuma mensagem saiu', idioma)
+          : traduzir('A correção automática da IA também falhou — nenhuma mensagem saiu', idioma),
+        resumo: traduzir(
+          'O cliente ficou sem resposta neste turno: a IA não entregou mensagem nenhuma e a correção automática não recuperou. Atendente precisa retomar a conversa e responder o cliente.',
+          idioma,
+        ),
+        motivo: {
+          output_truncated_recovered_failed:
+            traduzir('A resposta da IA veio cortada no limite de tamanho, e mensagem cortada não é enviada ao cliente.', idioma),
+          correction_truncated_failed:
+            traduzir('O turno terminou sem mensagem para o cliente e a correção automática da IA também veio cortada no limite de tamanho.', idioma),
+          correction_send_blocked_failed:
+            traduzir('A IA tentou responder, as regras de segurança barraram a mensagem, e a resposta da correção automática também foi barrada.', idioma),
+          correction_step_cap_failed:
+            traduzir('O turno terminou sem mensagem para o cliente e a correção automática da IA gastou todas as etapas em consultas, sem chegar a responder.', idioma),
+        }[desfechoTerminal],
+      });
       if (agentConfig?.casesEnabled === true && !openedCaseThisTurn && !haCasoAberto) {
         try {
           const caso = await openCase(
             pool,
             { tenantId, conversationId: input.conversationId, agentId: agentConfig?.agentId ?? null },
             {
-              title: saidaTruncada
-                ? 'Resposta do agente truncada — nenhuma mensagem saiu'
-                : 'A correção automática da IA também falhou — nenhuma mensagem saiu',
-              summary:
-                'O cliente ficou sem resposta neste turno: a IA não entregou mensagem nenhuma e a ' +
-                'correção automática não recuperou. Atendente precisa retomar a conversa e responder o cliente.',
-              blocker: {
-                output_truncated_recovered_failed:
-                  'A resposta da IA veio cortada no limite de tamanho, e mensagem cortada não é enviada ao cliente.',
-                correction_truncated_failed:
-                  'O turno terminou sem mensagem para o cliente e a correção automática da IA também veio ' +
-                  'cortada no limite de tamanho.',
-                correction_send_blocked_failed:
-                  'A IA tentou responder, as regras de segurança barraram a mensagem, e a resposta da ' +
-                  'correção automática também foi barrada.',
-                correction_step_cap_failed:
-                  'O turno terminou sem mensagem para o cliente e a correção automática da IA gastou todas ' +
-                  'as etapas em consultas, sem chegar a responder.',
-              }[desfechoTerminal],
+              title: textosDaFalha('pt-BR').titulo,
+              summary: textosDaFalha('pt-BR').resumo,
+              blocker: textosDaFalha('pt-BR').motivo,
               kind: 'problema',
               source: 'guardrail_autofallback',
               contextSnapshot: buildCaseContextSnapshot(),
@@ -7649,6 +7787,33 @@ async function executarTurnoDoAgente(
         } catch (err) {
           // Best-effort: erro do banco não pode mascarar a causa original.
           runLog.error(`${desfechoTerminal} — openCase lançou`, {
+            job_id: job?.id ?? null,
+            error: (err instanceof Error ? err.message : String(err)).slice(0, 160),
+          });
+        }
+      } else if (agentConfig?.casesEnabled !== true) {
+        // #4665: com casos desligados (o padrão) o log de erro acima era o único
+        // rastro — o cliente sem resposta e ninguém na Central sabendo. O aviso
+        // leva o MESMO texto do caso, no idioma da organização, e aponta para a
+        // conversa; um aberto por conversa e causa (`kind_ref_e_titulo`).
+        const aviso = textosDaFalha(idiomaDaOrg);
+        try {
+          await insertInboxItem(
+            pool,
+            tenantId,
+            {
+              kind: 'other',
+              severity: 'critical',
+              title: aviso.titulo,
+              body: `${aviso.resumo} ${aviso.motivo}`,
+              refKind: 'conversation',
+              refId: input.conversationId,
+            },
+            'kind_ref_e_titulo',
+          );
+        } catch (err) {
+          // Best-effort, como o caso: erro do banco não pode mascarar a causa original.
+          runLog.error(`${desfechoTerminal} — aviso na Central não foi gravado`, {
             job_id: job?.id ?? null,
             error: (err instanceof Error ? err.message : String(err)).slice(0, 160),
           });
@@ -7697,7 +7862,8 @@ async function executarTurnoDoAgente(
               ...(deps.knobs.disclosureMode !== undefined
                 ? { disclosureMode: deps.knobs.disclosureMode }
                 : {}),
-              send: (finalBody: string) => {
+              send: async (finalBody: string) => {
+                if (await pessoaAssumiuDuranteOTurno()) return ENVIO_ABORTADO_PELA_PESSOA;
                 pararDigitando(); // a mensagem sai agora; renovar depois dela mentiria
                 seq += 1;
                 return liveChannel().send({

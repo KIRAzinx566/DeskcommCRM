@@ -31,6 +31,7 @@ import {
 import { agenteAceitaComandoDeCelular, lerComandoDeControle } from "@/lib/escalacao/comando-de-canal";
 import { devolverAtendimentoAoAgente } from "@/lib/escalacao/retomada";
 import { getWahaClient } from "@/lib/waha/client";
+import { lerBloqueioDeChamadas } from "@/lib/organizacao/bloqueio-de-chamadas";
 import { acelerarPipelineDeEventos } from "@/lib/dev/kick-local-pipeline";
 import { canonicalPhoneBR } from "@/lib/channels/phone-variants";
 import { estamparAtribuicaoDoContato, metadataDoAnuncio } from "@/lib/leads/atribuicao-de-anuncio";
@@ -1865,7 +1866,8 @@ async function handleOutboundFromUserPhone(
           actor: { type: "webhook_source", id: session.id },
           requestId,
         },
-        { conversationId },
+        // `#on` é a pessoa devolvendo pelo celular (`limparClassificacaoDaIa`).
+        { conversationId, limparClassificacaoDaIa: true },
       );
       if (!devolucao.ok) {
         // O `#on` fica VISÍVEL no chat: é o único sinal de que o atendente
@@ -2471,6 +2473,53 @@ async function handleReaction(admin: Admin, session: Session, p: WahaPayload): P
 }
 
 /**
+ * Chamada de voz que chegou no número (`call.received`).
+ *
+ * Com "Bloquear chamadas recebidas" ligado na empresa, a ligação é recusada na
+ * hora; desligado (o padrão), o evento não faz nada — a chamada toca como antes.
+ *
+ * NUNCA lança: a ligação já está tocando, e relançar faria o WAHA reentregar um
+ * evento que só tem sentido agora. Na dúvida (leitura da chave falhou, WAHA
+ * fora do ar) a ligação fica como estava — recusar por engano é pior que não
+ * recusar. Chamada de grupo não é recusada: a chave fala de ligação ao número.
+ */
+async function handleCallReceived(
+  admin: Admin,
+  session: Session,
+  p: WahaPayload,
+): Promise<void> {
+  const extra = p as Record<string, unknown>;
+  const sessionName = session.waha_session_name;
+  const callId = typeof p.id === "string" ? p.id : "";
+  const from = typeof p.from === "string" ? p.from : "";
+  if (!sessionName || !callId || !from || extra.isGroup === true) return;
+
+  try {
+    if (!(await lerBloqueioDeChamadas(admin, session.organization_id))) return;
+    const waha = getWahaClient();
+    if (!waha) {
+      logger.warn("waha.ingest: bloqueio de chamada ligado, mas o WAHA não está configurado", {
+        organization_id: session.organization_id,
+      });
+      return;
+    }
+    await waha.rejectCall(sessionName, from, callId);
+    logger.info("waha.ingest: chamada recebida recusada pelo bloqueio da empresa", {
+      organization_id: session.organization_id,
+      channel_session_id: session.id,
+      call_id: callId,
+    });
+  } catch (err) {
+    logger.warn("waha.ingest: não consegui recusar a chamada recebida", {
+      organization_id: session.organization_id,
+      channel_session_id: session.id,
+      call_id: callId,
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
  * Roteador único de eventos WAHA. Os dois route handlers convergem aqui após
  * resolver a sessão e validar HMAC.
  */
@@ -2497,6 +2546,8 @@ export async function dispatchWahaEvent(
     await handleMessageRevoked(admin, session, payload, requestId);
   } else if (eventType === "message.reaction") {
     await handleReaction(admin, session, payload);
+  } else if (eventType === "call.received") {
+    await handleCallReceived(admin, session, payload);
   } else if (eventType === "session.status" || eventType === "state.change") {
     await handleSessionStatus(admin, session, payload);
   }

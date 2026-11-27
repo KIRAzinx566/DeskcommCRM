@@ -179,6 +179,16 @@ export const ALVO_DE_FUNIL: Record<string, AlvoDeFunil> = {
   // porque ausência aqui é recusa por vacuidade (`ferramenta_nao_classificada`).
   crm_set_conversation_sector: "sem_funil",
   crm_resume_ai_attendance: "sem_funil",
+  // #4517 — pausar, retomar, encerrar e reabrir por token. Operam por
+  // `conversation_id` e não tocam `crm_leads`: o dono do NEGÓCIO é do funil e só
+  // `transfer` o muda — é justamente a separação que a issue pede.
+  crm_pause_ai: "sem_funil",
+  crm_resume_ai: "sem_funil",
+  crm_close_conversation: "sem_funil",
+  crm_reopen_conversation: "sem_funil",
+  // #4517 — a ficha editada por token. Recebe `contact_id` e grava `contacts`,
+  // nunca `crm_leads`; o funil do contato não é tocado.
+  crm_update_contact: "sem_funil",
   crm_save_org_memory: "sem_funil",
   crm_propose_contact_field: "sem_funil",
   // O diagnóstico mora na FICHA do contato (decisão D8), que vale entre funis:
@@ -217,6 +227,13 @@ export const ALVO_DE_FUNIL: Record<string, AlvoDeFunil> = {
   // `lead_id`/`contact_id`/`pipeline_id` — mudar o preço de um produto não
   // toca negócio nenhum do funil, e classificá-la de outro jeito seria teatro.
   crm_update_product_price: "sem_funil",
+  // Editar os assistentes de IA (só admin, por um aplicativo conectado como o
+  // ChatGPT): mexem em `ai_agent_versions`, nunca em negócio. A barreira delas
+  // é o papel `admin` + `apenasHumano` — o turno do agente não as monta.
+  crm_save_ai_agent_draft: "sem_funil",
+  crm_test_ai_agent_version: "sem_funil",
+  crm_publish_ai_agent_version: "sem_funil",
+  crm_rollback_ai_agent: "sem_funil",
 };
 
 /**
